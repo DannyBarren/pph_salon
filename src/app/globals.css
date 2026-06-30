@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f3f9;
+  --color-border: #e6e8f0;
+  --color-ink: #14161f;
+  --color-ink-soft: #51566b;
+  --color-ink-faint: #8a8fa3;
+
+  --color-brand: #6d49ff;
+  --color-brand-soft: #efeaff;
+  --color-brand-ink: #4b28d8;
+
+  --color-accent: #ff5d8f;
+  --color-success: #16b981;
+  --color-success-soft: #e3f7ef;
+  --color-warning: #f59e0b;
+  --color-warning-soft: #fff4e1;
+  --color-danger: #ef4444;
+
+  --radius-xl: 1.25rem;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Range slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-surface-2);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 26px;
+  width: 26px;
+  border-radius: 9999px;
+  background: var(--color-brand);
+  border: 4px solid #fff;
+  box-shadow: 0 2px 8px rgba(109, 73, 255, 0.45);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: var(--color-brand);
+  border: 4px solid #fff;
+  box-shadow: 0 2px 8px rgba(109, 73, 255, 0.45);
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d7dae6;
+  border-radius: 9999px;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fadeUp 0.35s ease both;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-pop {
+  animation: pop 0.4s ease both;
+}
