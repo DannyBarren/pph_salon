@@ -70,13 +70,75 @@ pytest          # unit + API tests
 ruff check .    # lint
 ```
 
+## Authentication & Demo Mode
+
+JWT auth with role-based access control (`stylist` / `manager` / `admin`), plus
+a **Demo Mode** so the whole app is usable with **no credentials**.
+
+- **Demo Mode (default ON):** every protected route works with no login —
+  `get_current_user` injects an admin-level user. Optionally send
+  `X-Demo-User-Id: <id>` to *act as* a real user (e.g. a manager) and exercise
+  role-scoped behavior without logging in.
+- **Real mode:** enforces Bearer access tokens + role checks. Admins have full
+  access; managers are scoped to their direct reports; stylists to themselves.
+
+### Toggle Demo Mode (one setting)
+
+```bash
+# .env (or environment variable)
+DEMO_MODE=true    # bypass all auth  (default)
+DEMO_MODE=false   # enforce real JWT + roles
+```
+(Backed by `settings.demo_mode` in `app/core/config.py`.) Flipping to `false` is
+the only change needed to lock the app down. Set a real `SECRET_KEY` too.
+
+### Auth endpoints
+
+| Method | Path                       | Notes                                   |
+| ------ | -------------------------- | --------------------------------------- |
+| POST   | `/api/v1/auth/register`    | Invite-only — **admin** creates a user  |
+| POST   | `/api/v1/auth/login`       | email + password → access/refresh JWTs  |
+| POST   | `/api/v1/auth/refresh`     | refresh token → new access token        |
+| GET    | `/api/v1/auth/me`          | current principal (demo admin in demo)  |
+| GET    | `/api/v1/users/visible-stylists` | role-scoped stylist list          |
+
+### Curl — works in Demo Mode with NO token
+
+```bash
+BASE=http://localhost:8000/api/v1
+curl $BASE/auth/me                                    # -> injected demo admin
+curl -X POST $BASE/payplan/effective-rate \
+  -H 'content-type: application/json' \
+  -d '{"production":1000,"hours":8,"salon_id":"s1"}'  # -> 200, no auth needed
+
+# Act as a specific user (e.g. manager id 3) without logging in:
+curl $BASE/users/visible-stylists -H 'X-Demo-User-Id: 3'
+```
+
+### Curl — real mode (`DEMO_MODE=false`)
+
+```bash
+# 1) log in (an admin must already exist / be seeded)
+curl -X POST $BASE/auth/login -H 'content-type: application/json' \
+  -d '{"email":"admin@pph.com","password":"secret"}'
+# -> {"access_token":"...","refresh_token":"...","token_type":"bearer"}
+
+# 2) call protected routes with the token
+TOKEN=... ; curl $BASE/auth/me -H "Authorization: Bearer $TOKEN"
+
+# 3) admin invites a stylist
+curl -X POST $BASE/auth/register -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"email":"maya@pph.com","password":"pw","name":"Maya","role":"stylist","salon_id":1}'
+```
+
 ## Key endpoints
 
 | Method | Path                          | Purpose                                        |
 | ------ | ----------------------------- | ---------------------------------------------- |
-| GET    | `/api/v1/health`              | Liveness / version                             |
-| POST   | `/api/v1/payplan/effective-rate` | Pay + effective $/hr for production & hours |
-| POST   | `/api/v1/payplan/what-if`     | Production/services required to hit a target   |
+| GET    | `/api/v1/health`              | Liveness / version (public)                    |
+| POST   | `/api/v1/payplan/effective-rate` | Pay + effective $/hr (protected)            |
+| POST   | `/api/v1/payplan/what-if`     | Production/services required (protected)       |
 
 All pay parameters (guarantee rate, commission rate, tickets, service mix) are
 passed in the request `config` object so the engine stays admin-configurable —

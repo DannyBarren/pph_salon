@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.deps import get_current_user
 from app.schemas.payplan import (
     EffectiveRateRequest,
     EffectiveRateResponse,
@@ -12,7 +13,9 @@ from app.schemas.payplan import (
 )
 from app.services import pay_engine
 
-router = APIRouter(prefix="/payplan", tags=["payplan"])
+# Protected: requires a valid user. In demo mode this is satisfied automatically
+# (an admin is injected), so the calculators keep working with no login.
+router = APIRouter(prefix="/payplan", tags=["payplan"], dependencies=[Depends(get_current_user)])
 
 
 def _to_config(cfg) -> pay_engine.PayConfig:

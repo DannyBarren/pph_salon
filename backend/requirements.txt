@@ -15,6 +15,12 @@ SQLAlchemy==2.0.51
 psycopg2-binary==2.9.12
 alembic==1.18.5
 
+# Auth (JWT + password hashing)
+pyjwt==2.7.0
+passlib==1.7.4
+argon2-cffi==25.1.0
+email-validator==2.3.0
+
 # Dev / test / lint
 pytest==9.1.1
 httpx==0.28.1

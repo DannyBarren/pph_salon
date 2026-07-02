@@ -25,6 +25,22 @@ class Settings(BaseSettings):
     # CORS — the Next.js frontend origin(s).
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # ── Auth / JWT ──────────────────────────────────────────────────────
+    # Change SECRET_KEY in any real environment (env var / secret manager).
+    secret_key: str = "dev-insecure-change-me"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 14
+
+    # ── Demo mode ───────────────────────────────────────────────────────
+    # When True, ALL auth is bypassed: get_current_user injects an admin-level
+    # user so every protected endpoint works with NO login. Flip to False (env
+    # DEMO_MODE=false) to enforce real JWT + role checks. That is the only
+    # switch needed to lock the app down.
+    demo_mode: bool = True
+    demo_user_name: str = "Demo Admin"
+    demo_user_email: str = "demo@pph.local"
+
 
 @lru_cache
 def get_settings() -> Settings:
