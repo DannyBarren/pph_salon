@@ -8,7 +8,7 @@ import type { Week } from "./types";
 export const TODAY = "2026-06-25"; // a Thursday
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEKS_BACK = 5; // number of prior weeks generated before the current week
+const WEEKS_BACK = 7; // number of prior weeks generated before the current week (8 weeks / 4 pay periods)
 
 function toUTC(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);

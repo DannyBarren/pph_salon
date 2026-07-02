@@ -65,7 +65,7 @@ interface Profile {
 const PROFILES: Record<string, Profile> = {
   st1: { servicesPerDay: 8.2, colorRatio: 0.42, hoursPerDay: 8, variance: 0.18 },
   st2: { servicesPerDay: 6.4, colorRatio: 0.35, hoursPerDay: 8, variance: 0.22 },
-  st3: { servicesPerDay: 4.3, colorRatio: 0.28, hoursPerDay: 7, variance: 0.3 },
+  st3: { servicesPerDay: 3.0, colorRatio: 0.26, hoursPerDay: 7, variance: 0.25 },
   st4: { servicesPerDay: 7.1, colorRatio: 0.38, hoursPerDay: 8, variance: 0.2 },
   st5: { servicesPerDay: 5.4, colorRatio: 0.3, hoursPerDay: 7.5, variance: 0.26 },
   st6: { servicesPerDay: 8.6, colorRatio: 0.5, hoursPerDay: 8, variance: 0.16 },
