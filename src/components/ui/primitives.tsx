@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 
 /* ------------------------------- Card ------------------------------ */
@@ -293,14 +294,30 @@ export function Modal({
   children: React.ReactNode;
   title?: string;
 }) {
-  if (!open) return null;
-  return (
+  // Lock background scroll while the modal is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  // Render through a portal to <body> so the fixed overlay is positioned
+  // relative to the viewport, not any ancestor that establishes a containing
+  // block (e.g. the header's backdrop-filter). This is what kept the menu
+  // off-screen on mobile.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="animate-fade-up relative z-10 max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-3xl">
+      <div className="animate-fade-up relative z-10 max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-[var(--color-surface)] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:mx-4 sm:rounded-3xl sm:pb-5" >
         {title && <h3 className="mb-4 text-lg font-semibold">{title}</h3>}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

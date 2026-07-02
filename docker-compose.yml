@@ -1,0 +1,45 @@
+# Local development stack: PostgreSQL + FastAPI backend.
+#   docker compose up --build
+#
+# Services:
+#   db       → PostgreSQL 16 (data persisted in the `pgdata` volume)
+#   backend  → FastAPI on http://localhost:8000 (docs at /docs)
+#
+# The Next.js web app lives at the repo ROOT (so Vercel deploys it with no
+# monorepo config). Run it locally with `npm install && npm run dev`
+# (http://localhost:3000); in production it is hosted on Vercel.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pph
+      POSTGRES_PASSWORD: pph
+      POSTGRES_DB: pph
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pph -d pph"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+psycopg2://pph:pph@db:5432/pph
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:

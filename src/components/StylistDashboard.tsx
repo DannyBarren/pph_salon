@@ -39,6 +39,8 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
   const ringValue = goalRate > 0 ? summary.effectiveRate / goalRate : 0;
   const services = summary.haircuts + summary.colors;
   const cleared = goalPlan.remainingProduction <= 0;
+  const periodComplete = summary.remainingDays === 0 && summary.completedDays > 0;
+  const avgPerDay = summary.completedDays > 0 ? summary.productionToDate / summary.completedDays : 0;
 
   return (
     <div className="space-y-4">
@@ -49,9 +51,11 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
             <div className="text-sm font-medium text-white/80">{salon.name} · {salon.city}</div>
             <h1 className="mt-0.5 text-2xl font-bold sm:text-3xl">Hi {stylist.name.split(" ")[0]} 👋</h1>
             <p className="mt-1 max-w-md text-sm text-white/85">
-              {cleared
-                ? "You've already cleared your goal for this period. Stack a little extra to widen the gap."
-                : `On pace to finish around ${rate(paceRate)}/hr. A push of ${money(goalPlan.remainingProduction)} gets you to ${rate(goalRate)}/hr.`}
+              {periodComplete
+                ? `This period is wrapped — you finished at ${rate(summary.effectiveRate)}/hr across ${num(summary.workedHours)} hours.`
+                : cleared
+                  ? "You've already cleared your goal for this period. Stack a little extra to widen the gap."
+                  : `On pace to finish around ${rate(paceRate)}/hr. A push of ${money(goalPlan.remainingProduction)} gets you to ${rate(goalRate)}/hr.`}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge className="bg-white/20 text-white">
@@ -85,7 +89,7 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Effective rate" value={`${rate(summary.effectiveRate)}/hr`} sub={`Guarantee ${rate(guarantee)}/hr`} icon={<DollarSign size={16} />} tone="brand" />
-        <Stat label="Production" value={money(summary.productionToDate)} sub={`${money(summary.pay ?? 0)} earned`} icon={<TrendingUp size={16} />} />
+        <Stat label="Production" value={money(summary.productionToDate)} sub={`${money(summary.pay)} earned`} icon={<TrendingUp size={16} />} />
         <Stat label="Hours worked" value={`${num(summary.workedHours)}h`} sub={`${summary.remainingScheduledHours}h scheduled left`} icon={<Clock size={16} />} />
         <Stat label="Services" value={num(services)} sub={`${num(summary.haircuts)} cuts · ${num(summary.colors)} colors`} icon={<Scissors size={16} />} />
       </div>
@@ -97,14 +101,25 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
             <div>
               <div className="flex items-center gap-2">
                 <Target size={18} className="text-[var(--color-brand)]" />
-                <h2 className="text-base font-semibold">What you still need</h2>
+                <h2 className="text-base font-semibold">{periodComplete ? "Period recap" : "What you still need"}</h2>
               </div>
-              <p className="mt-0.5 text-sm text-[var(--color-ink-faint)]">To finish this period at {rate(goalRate)}/hr</p>
+              <p className="mt-0.5 text-sm text-[var(--color-ink-faint)]">
+                {periodComplete ? `Completed period · final rate ${rate(summary.effectiveRate)}/hr` : `To finish this period at ${rate(goalRate)}/hr`}
+              </p>
             </div>
-            <Badge tone={cleared ? "success" : "brand"}>{summary.remainingDays} days left</Badge>
+            <Badge tone={periodComplete ? "neutral" : cleared ? "success" : "brand"}>
+              {periodComplete ? "Complete" : `${summary.remainingDays} days left`}
+            </Badge>
           </div>
 
-          {cleared ? (
+          {periodComplete ? (
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <MiniStat label="Total production" value={money(summary.productionToDate)} />
+              <MiniStat label="Avg per day" value={money(avgPerDay)} />
+              <MiniStat label="Haircuts" value={num(summary.haircuts)} icon={<Scissors size={13} />} />
+              <MiniStat label="Colors" value={num(summary.colors)} icon={<Palette size={13} />} />
+            </div>
+          ) : cleared ? (
             <div className="mt-4 rounded-2xl bg-[var(--color-success-soft)] p-4 text-sm text-[var(--color-success)]">
               🎉 Goal cleared — you&apos;re already at or above {rate(goalRate)}/hr. Keep the momentum going!
             </div>

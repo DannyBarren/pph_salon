@@ -1,77 +1,104 @@
-# PPH Stylist App — V1 Prototype
+# PPH Stylist App
 
-A responsive web app that helps hair stylists understand and plan their earnings
-based on scheduled hours and production. Built with **Next.js 16 (App Router) +
-TypeScript + Tailwind CSS v4** and a custom, lightweight UI component library.
+A full-stack app that helps hair stylists understand how their **scheduled hours
+and production** translate into earnings under a **PPH (Production Per Hour) pay
+plan**, and plan what they still need to do to hit a target rate.
 
-> This is a front-end prototype: all data is mocked in-memory and persisted to
-> `localStorage`. There is **no backend, login, or real credentials** — switching
-> accounts is instant for demos.
+- **Stylists** get a mobile-first view of their effective pay rate, production,
+  a **Week Summary**, a **Week-by-Day** breakdown, and an interactive
+  **What-If / Future Goals** planner.
+- **Salon Managers** see their direct reports; **SDL / Owner** sees everyone and
+  controls the pay-plan configuration (Admin).
 
-## Quick start
+The **Next.js web app lives at the repository root**, so Vercel deploys it with
+**Root Directory = repo root** (no monorepo configuration needed). The optional
+**FastAPI backend** (pay-plan API + the Excel-accurate engine) lives in
+[`backend/`](./backend) and is ignored by the Vercel build.
+
+## Deploying to Vercel
+
+1. **Production Branch:** the branch that contains this root-level app
+   (e.g. `main`).
+2. **Root Directory:** leave **blank / repo root** (do *not* set `frontend`).
+3. **Framework Preset:** Next.js.
+4. `next build` runs at the root and deploys. That's it.
+
+> All frontend data is mocked in-memory + persisted to `localStorage`, so the
+> demo works with **no backend and no login** — the account switcher is instant.
+
+## Quick start (frontend)
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
+npm run dev        # http://localhost:3000
 # or
 npm run build && npm run start
 ```
 
-## Demo accounts (top-right switcher)
+## Tech stack
 
-No login required — tap the avatar in the top bar to switch personas instantly.
-The whole app re-scopes to that role's data and permissions:
-
-| Persona            | Role          | Sees                                            |
-| ------------------ | ------------- | ----------------------------------------------- |
-| Maya Patel         | Stylist       | Only her own data + planner (Aria Studio)       |
-| Leo Martins        | Stylist       | Only his own data + planner (Aria Studio)       |
-| Sofia Reyes        | Stylist       | Only her own data + planner (Lumière Salon)     |
-| Priya Shah         | Salon Manager | Her 5 direct reports only (clean team switcher) |
-| Jordan Avery       | SDL / Owner   | Everyone across all salons + Admin config       |
-
-Role-based access is enforced in `src/lib/mockData.ts` (`stylistsForUser`).
+| Layer | Choice | Why |
+| --- | --- | --- |
+| **Frontend** | Next.js 16 (App Router) + TypeScript + Tailwind v4 | Modern DX; zero-config Vercel deploys. |
+| **Backend** | FastAPI (Python 3.12) + Pydantic v2 | Typed, auto OpenAPI docs; pure, testable pay engine. |
+| **Database** | PostgreSQL (SQLAlchemy + Alembic) | Relational store for salons/users/production; migrations. |
+| **Local dev** | Docker Compose | Postgres + API in one command. |
 
 ## Features
 
-- **Demo account switcher** — prominent, instant role switching (no auth).
+- **Demo account switcher** — instant, no-login role switching (3 stylists,
+  1 salon manager, 1 SDL/owner) that re-scopes the whole app.
 - **Strict role hierarchy** — Stylist → self, Manager → direct reports, SDL → all.
-- **Time navigation** — Current + Prior (biweekly), Pay Period, Single Week, and
-  the What-If Planner.
-- **Configurable pay engine** — the SDL/Admin controls guarantee rates (global +
-  per salon), commission rate, average tickets, service mix, and minimum
-  services. Every dashboard and the planner recalculate **instantly**.
-- **What-If Planner** — main slider for target effective pay rate, plus extra
-  hours and service-focus sliders. Live: required remaining production, daily
-  targets, projected haircuts + colors, and a feasibility meter.
-- **Manager / SDL views** — hierarchy-aware stylist switcher + team performance
-  and light adoption/usage stats (days opened, planner uses, streaks).
-- **Admin data input** — CSV/XLSX (CSV parser included) upload with preview and
-  column mapping, assignment to a stylist/week, plus a manual entry form.
-- **Mobile-first** — works great on phones (bottom tab bar) and desktop.
-- Light gamification: streaks, goals hit, and motivational "flash goals".
+- **Time navigation** — Current + Prior (biweekly), Pay Period, Single Week, planner.
+- **Week Summary** + **Week-by-Day** breakdown per stylist.
+- **What-If planner** — target effective-rate / extra-hours / service-focus
+  sliders with live required production, daily targets, and projected services.
+- **Admin configuration** of the pay engine + CSV/manual data import.
+- Light gamification (streaks, goals, flash goals).
 
-## Pay model
+## How the pay plan works (brief)
 
 ```
-commissionPay = production × commissionRate
-guaranteePay  = hoursWorked × guaranteeRate         (per-salon override allowed)
-pay           = max(commissionPay, guaranteePay)
-effectiveRate = pay ÷ hoursWorked
-
-# Planner (solve for the production needed to hit a target $/hr):
-requiredProduction = targetRate × planHours ÷ commissionRate
+pay            = max(production × commission_rate, hours × guarantee_rate)
+effective_rate = pay / hours          # headline $/hr
+pph            = production / hours    # production per hour
+required_production = target_rate × hours ÷ commission_rate
 ```
 
-## Project structure
+The backend `PayPlanEngine` reproduces `docs/spec/PPH Based Payplan.xlsx`
+exactly (tier table, per-salon guarantees, min-expected, service mix). Full
+details + worked examples: [`docs/pay-plan-logic.md`](./docs/pay-plan-logic.md).
+
+## Repository structure
 
 ```
-src/
-  app/                 # routes: / (dashboard), /planner, /team, /admin
-  components/          # AppShell, AccountSwitcher, dashboards, planner, admin, ui/
-  lib/                 # types, mockData, payEngine, time, selection, csv, format
-  store/AppContext.tsx # current user/role, config, time selection, data overrides
+pph_salon/
+├── src/                Next.js app (App Router) — AT THE REPO ROOT
+│   ├── app/            routes: / (dashboard), /planner, /team, /admin
+│   ├── components/     UI + feature components
+│   └── lib/            payEngine.ts, mockData.ts, time.ts, selection.ts, …
+├── public/             static assets
+├── package.json, next.config.mjs, tsconfig.json, vercel.json   (root)
+├── backend/            FastAPI API + Excel-accurate pay engine + tests
+├── docs/               AGENTS.md, pay-plan-logic.md, spec/ (source Excel)
+├── scripts/            dev/ops scripts (DB seeding, …)
+├── .github/            CI (frontend build/lint + backend tests) + PR template
+└── docker-compose.yml  Postgres + backend for local dev
 ```
 
-Everything reads from a single `AppContext`, so changing the admin config or
-switching accounts flows through the entire UI reactively.
+## Backend & tests
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate   # needs python3-venv
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000           # docs at /docs
+ruff check . && pytest                              # lint + tests
+```
+
+## For future agents
+
+Read [`docs/AGENTS.md`](./docs/AGENTS.md) first — repo map, coding standards,
+testing requirements, and the rule that the pay math stays in sync across
+`docs/pay-plan-logic.md`, `backend/app/services/pay_engine.py`, and
+`src/lib/payEngine.ts`.
