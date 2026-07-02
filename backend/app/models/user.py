@@ -27,6 +27,12 @@ class User(TimestampMixin, table=True):
     role: UserRole = Field(index=True)
     title: Optional[str] = Field(default=None)
 
+    # Auth fields. email is unique when set; hashed_password is null for seed
+    # users that have not been invited to log in yet.
+    email: Optional[str] = Field(default=None, unique=True, index=True)
+    hashed_password: Optional[str] = Field(default=None)
+    is_active: bool = Field(default=True)
+
     salon_id: int = Field(foreign_key="salon.id", index=True)
     # Self-referential: a stylist reports to a manager (also a User).
     manager_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
