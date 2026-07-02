@@ -1,77 +1,126 @@
-# PPH Stylist App — V1 Prototype
+# PPH Stylist App
 
-A responsive web app that helps hair stylists understand and plan their earnings
-based on scheduled hours and production. Built with **Next.js 16 (App Router) +
-TypeScript + Tailwind CSS v4** and a custom, lightweight UI component library.
+A full-stack app that helps hair stylists understand how their **scheduled
+hours and production** translate into earnings under a **PPH (Production Per
+Hour) pay plan** — and plan what they still need to do to hit a target rate.
 
-> This is a front-end prototype: all data is mocked in-memory and persisted to
-> `localStorage`. There is **no backend, login, or real credentials** — switching
-> accounts is instant for demos.
+- **Stylists** get a clean, mobile-first view of their effective pay rate,
+  production, and an interactive *What-If / Future Goals* planner.
+- **Salon Managers** see their direct reports; **SDL / Owner** sees everything
+  and controls the pay-plan configuration.
+
+> The interactive prototype (with a no-login demo account switcher and rich mock
+> data) lives in [`frontend/`](./frontend) and is deployable to Vercel today.
+> The [`backend/`](./backend) provides the FastAPI pay-calculation API and the
+> foundation for persistence.
+
+## Tech stack & rationale
+
+| Layer | Choice | Why |
+| --- | --- | --- |
+| **Frontend** | Next.js 16 (App Router) + TypeScript + Tailwind | Fast, modern, great DX; deploys effortlessly to Vercel; SSR-ready. |
+| **Backend** | FastAPI (Python 3.12) + Pydantic v2 | Concise, typed, auto-generated OpenAPI docs; the pay engine is pure Python and easily testable. |
+| **Database** | PostgreSQL (SQLAlchemy + Alembic) | Reliable relational store for salons, users, schedules, and production; migrations via Alembic. |
+| **Local dev** | Docker Compose | One command brings up Postgres + API + web. |
+
+## Spec & source of truth
+
+- 📄 Requirements & mockups: [`docs/spec/PPH Stylist App.pdf`](./docs/spec/)
+- 📊 Pay formulas & examples: [`docs/spec/PPH Based Payplan.xlsx`](./docs/spec/)
+  (sheets **Sched View** and **Actual**)
+- 🧮 Documented pay logic: [`docs/pay-plan-logic.md`](./docs/pay-plan-logic.md)
+
+> ⚠️ The binary spec files are expected under `docs/spec/`. If they aren't there
+> yet, add them (see [`docs/spec/README.md`](./docs/spec/README.md)) and
+> reconcile the pay logic doc + engines against them.
+
+## How the pay plan works (brief)
+
+Every stylist earns the **greater of** a commission on production or an hourly
+**guarantee** (a floor):
+
+```
+pay            = max(production × commission_rate, hours × guarantee_rate)
+effective_rate = pay / hours          # the headline $/hr
+pph            = production / hours    # production per hour
+```
+
+To hit a target effective rate over a set of scheduled hours:
+
+```
+required_production = target_rate × hours ÷ commission_rate
+```
+
+All coefficients (guarantee rate, commission rate, average tickets, service
+mix) are **admin-configurable** — nothing is hard-coded. Full details, tiers,
+and worked examples: [`docs/pay-plan-logic.md`](./docs/pay-plan-logic.md).
+
+## Repository structure
+
+```
+pph_salon/
+├── backend/            FastAPI API + pay engine + tests   → see backend/README.md
+├── frontend/           Next.js app (prototype + UI)       → see frontend/README.md
+├── docs/
+│   ├── AGENTS.md            Rules for Cursor agents
+│   ├── pay-plan-logic.md    Authoritative pay math
+│   └── spec/                Client PDF + Excel
+├── scripts/            Dev/ops scripts (DB seeding, …)
+├── .github/            CI workflow + PR template
+└── docker-compose.yml  Postgres + backend + frontend
+```
 
 ## Quick start
 
+### Option A — Docker (full stack)
+
 ```bash
+docker compose up --build
+# frontend → http://localhost:3000
+# backend  → http://localhost:8000  (docs at /docs)
+# postgres → localhost:5432 (pph/pph)
+```
+
+### Option B — run each app directly
+
+**Backend**
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate   # needs python3-venv
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
+
+**Frontend**
+
+```bash
+cd frontend
 npm install
-npm run dev      # http://localhost:3000
-# or
-npm run build && npm run start
+npm run dev        # http://localhost:3000
 ```
 
-## Demo accounts (top-right switcher)
+## Testing & CI
 
-No login required — tap the avatar in the top bar to switch personas instantly.
-The whole app re-scopes to that role's data and permissions:
-
-| Persona            | Role          | Sees                                            |
-| ------------------ | ------------- | ----------------------------------------------- |
-| Maya Patel         | Stylist       | Only her own data + planner (Aria Studio)       |
-| Leo Martins        | Stylist       | Only his own data + planner (Aria Studio)       |
-| Sofia Reyes        | Stylist       | Only her own data + planner (Lumière Salon)     |
-| Priya Shah         | Salon Manager | Her 5 direct reports only (clean team switcher) |
-| Jordan Avery       | SDL / Owner   | Everyone across all salons + Admin config       |
-
-Role-based access is enforced in `src/lib/mockData.ts` (`stylistsForUser`).
-
-## Features
-
-- **Demo account switcher** — prominent, instant role switching (no auth).
-- **Strict role hierarchy** — Stylist → self, Manager → direct reports, SDL → all.
-- **Time navigation** — Current + Prior (biweekly), Pay Period, Single Week, and
-  the What-If Planner.
-- **Configurable pay engine** — the SDL/Admin controls guarantee rates (global +
-  per salon), commission rate, average tickets, service mix, and minimum
-  services. Every dashboard and the planner recalculate **instantly**.
-- **What-If Planner** — main slider for target effective pay rate, plus extra
-  hours and service-focus sliders. Live: required remaining production, daily
-  targets, projected haircuts + colors, and a feasibility meter.
-- **Manager / SDL views** — hierarchy-aware stylist switcher + team performance
-  and light adoption/usage stats (days opened, planner uses, streaks).
-- **Admin data input** — CSV/XLSX (CSV parser included) upload with preview and
-  column mapping, assignment to a stylist/week, plus a manual entry form.
-- **Mobile-first** — works great on phones (bottom tab bar) and desktop.
-- Light gamification: streaks, goals hit, and motivational "flash goals".
-
-## Pay model
-
-```
-commissionPay = production × commissionRate
-guaranteePay  = hoursWorked × guaranteeRate         (per-salon override allowed)
-pay           = max(commissionPay, guaranteePay)
-effectiveRate = pay ÷ hoursWorked
-
-# Planner (solve for the production needed to hit a target $/hr):
-requiredProduction = targetRate × planHours ÷ commissionRate
+```bash
+cd backend  && ruff check . && pytest        # backend lint + tests
+cd frontend && npm run lint && npm run build # frontend lint + build
 ```
 
-## Project structure
+CI runs both on every PR — see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
 
-```
-src/
-  app/                 # routes: / (dashboard), /planner, /team, /admin
-  components/          # AppShell, AccountSwitcher, dashboards, planner, admin, ui/
-  lib/                 # types, mockData, payEngine, time, selection, csv, format
-  store/AppContext.tsx # current user/role, config, time selection, data overrides
-```
+## Deployment
 
-Everything reads from a single `AppContext`, so changing the admin config or
-switching accounts flows through the entire UI reactively.
+- **Frontend → Vercel.** Set the Vercel project **Root Directory** to
+  `frontend` (the app moved out of the repo root into `frontend/`). Framework
+  preset: **Next.js**. See [`frontend/vercel.json`](./frontend/vercel.json).
+- **Backend → any container host** using [`backend/Dockerfile`](./backend/Dockerfile),
+  with `DATABASE_URL` pointed at a managed Postgres.
+
+## For future Cursor agents
+
+**Read [`docs/AGENTS.md`](./docs/AGENTS.md) first.** It covers the repo map,
+coding standards, testing requirements, UI fidelity expectations, and the
+golden rule that the pay math must stay in sync across
+`docs/pay-plan-logic.md` and both pay engines.
