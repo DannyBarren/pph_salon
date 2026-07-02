@@ -1,5 +1,4 @@
 import type { DayRecord, PayConfig } from "./types";
-import { TODAY } from "./time";
 
 export function guaranteeRateFor(salonId: string, config: PayConfig): number {
   return config.salonGuarantee[salonId] ?? config.guaranteeRate;
@@ -43,13 +42,17 @@ export function summarize(days: DayRecord[], salonId: string, config: PayConfig)
       scheduledHours += d.scheduledHours;
       scheduledDays += 1;
     }
-    const completed = d.date < TODAY;
-    if (completed) {
+    // A day counts as "actual" once it has recorded activity (worked hours or
+    // production) — regardless of the calendar date. This makes admin imports
+    // and manual entries reflect immediately, and still treats generated future
+    // days (scheduled but empty) as remaining.
+    const hasActual = d.workedHours > 0 || d.production > 0;
+    if (hasActual) {
       workedHours += d.workedHours;
       productionToDate += d.production;
       haircuts += d.haircuts;
       colors += d.colors;
-      if (d.workedHours > 0) completedDays += 1;
+      completedDays += 1;
     } else if (d.scheduledHours > 0) {
       remainingDays += 1;
       remainingScheduledHours += d.scheduledHours;
