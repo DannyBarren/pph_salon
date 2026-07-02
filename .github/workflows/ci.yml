@@ -28,16 +28,14 @@ jobs:
   frontend:
     name: Frontend (lint + build)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
+    # The Next.js app lives at the repo root (see PR #3), so no working-directory.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - name: Lint
         run: npm run lint
