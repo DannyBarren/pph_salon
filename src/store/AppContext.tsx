@@ -22,6 +22,7 @@ import {
   userById,
 } from "@/lib/mockData";
 import { CURRENT_WEEK, WEEKS } from "@/lib/time";
+import { canPostAnnouncements } from "@/lib/roles";
 
 const STORAGE_KEY = "pph-state-v1";
 
@@ -258,7 +259,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createPost = useCallback(
     (input: NewPostInput) => {
       const author = userById(currentUserId) ?? USERS[0];
-      if (author.role !== "manager" && author.role !== "sdl") return; // guard
+      if (!canPostAnnouncements(author.role)) return; // permission guard
 
       // Smart targeting: managers are auto-limited to their own salon.
       let audience: TargetAudience = input.targetAudience;

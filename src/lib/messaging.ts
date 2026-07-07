@@ -1,17 +1,18 @@
 import type { MessageAcknowledgment, MessageBoardPost, Role, User } from "./types";
 import { ALL_STYLISTS } from "./mockData";
+import { canPostAnnouncements } from "./roles";
 
 /**
  * Message board visibility, targeting, and acknowledgment helpers (frontend
  * mirror of `backend/app/services/messaging.py`). Pure functions so the store,
  * nav badge, and screens all share one source of truth.
  *
- * Role hierarchy: sdl (owner/SDL) > manager > stylist.
+ * Role hierarchy: sdl (owner/SDL) > manager > stylist (see `src/lib/roles.ts`).
  */
 
-/** Roles allowed to author announcements. */
+/** Roles allowed to author announcements (managers and above). */
 export function canPost(role: Role): boolean {
-  return role === "manager" || role === "sdl";
+  return canPostAnnouncements(role);
 }
 
 /** Org-wide roles see the full organization (all posts). */
