@@ -14,13 +14,17 @@ export function DailyBreakdown({
   days,
   salonId,
   config,
+  showMoney = true,
 }: {
   days: DayRecord[];
   salonId: string;
   config: PayConfig;
+  /** When false (stylist view), hide production $ totals — show services instead. */
+  showMoney?: boolean;
 }) {
   const worked = days.filter((d) => d.scheduledHours > 0 || d.production > 0);
   const maxProd = Math.max(1, ...worked.map((d) => d.production));
+  const maxServices = Math.max(1, ...worked.map((d) => d.haircuts + d.colors));
   const guarantee = guaranteeRateFor(salonId, config);
 
   return (
@@ -62,7 +66,16 @@ export function DailyBreakdown({
                       <span className="text-[var(--color-ink-faint)]">{d.workedHours}h</span>
                     </div>
                     <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-2)]">
-                      <div className="h-full rounded-full bg-[var(--color-brand)]" style={{ width: `${(d.production / maxProd) * 100}%` }} />
+                      <div
+                        className="h-full rounded-full bg-[var(--color-brand)]"
+                        style={{
+                          width: `${
+                            showMoney
+                              ? (d.production / maxProd) * 100
+                              : ((d.haircuts + d.colors) / maxServices) * 100
+                          }%`,
+                        }}
+                      />
                     </div>
                   </>
                 )}
@@ -73,7 +86,9 @@ export function DailyBreakdown({
                   <span className="text-xs text-[var(--color-ink-faint)]">—</span>
                 ) : (
                   <>
-                    <div className="text-sm font-semibold tabular-nums">{money(d.production)}</div>
+                    <div className="text-sm font-semibold tabular-nums">
+                      {showMoney ? money(d.production) : `${num(d.haircuts + d.colors)} svc`}
+                    </div>
                     <div className="text-[11px] text-[var(--color-ink-faint)] tabular-nums">${dayRate.toFixed(0)}/hr</div>
                   </>
                 )}
