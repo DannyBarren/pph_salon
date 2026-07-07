@@ -4,11 +4,15 @@ import React from "react";
 import { useApp } from "@/store/AppContext";
 import { TimeNavigator } from "@/components/TimeNavigator";
 import { TeamOverview } from "@/components/TeamOverview";
+import { TeamDashboard } from "@/components/team/TeamDashboard";
+import { SectionErrorBoundary } from "@/components/team/ErrorBoundary";
 import { Card, CardBody } from "@/components/ui/primitives";
+import { FEATURE_TEAM_DASHBOARD } from "@/lib/featureFlags";
 
 export default function TeamPage() {
   const { currentUser } = useApp();
 
+  // Route guard: team data is protected — stylists cannot access it.
   if (currentUser.role === "stylist") {
     return (
       <Card>
@@ -22,6 +26,15 @@ export default function TeamPage() {
     );
   }
 
+  if (FEATURE_TEAM_DASHBOARD) {
+    return (
+      <SectionErrorBoundary section="team dashboard">
+        <TeamDashboard />
+      </SectionErrorBoundary>
+    );
+  }
+
+  // Fallback to the legacy overview when the feature flag is disabled.
   return (
     <div className="space-y-4">
       <div>
@@ -29,7 +42,7 @@ export default function TeamPage() {
           {currentUser.role === "sdl" ? "Everyone" : "My Team"}
         </h1>
         <p className="text-sm text-[var(--color-ink-faint)]">
-          Performance & adoption {currentUser.role === "sdl" ? "across all salons" : "for your direct reports"}.
+          Performance &amp; adoption {currentUser.role === "sdl" ? "across all salons" : "for your direct reports"}.
         </p>
       </div>
       <TimeNavigator />

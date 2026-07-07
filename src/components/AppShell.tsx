@@ -7,6 +7,7 @@ import { LayoutDashboard, Sliders, Users, Settings, Sparkles } from "lucide-reac
 import { useApp } from "@/store/AppContext";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
+import { FEATURE_TEAM_DASHBOARD } from "@/lib/featureFlags";
 import type { Role } from "@/lib/types";
 
 interface NavItem {
@@ -16,12 +17,28 @@ interface NavItem {
   roles: Role[];
 }
 
-const NAV: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist", "manager", "sdl"] },
-  { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
-  { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
-  { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
-];
+// When the Team Dashboard flag is on, managers/SDL use it as their home and the
+// personal Dashboard is stylist-only. With the flag off we keep the original
+// nav so nothing regresses.
+const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
+  ? [
+      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist"] },
+      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
+    ]
+  : [
+      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
+      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
+    ];
+
+const ROLE_LABEL: Record<Role, string> = {
+  stylist: "Stylist",
+  manager: "Manager",
+  sdl: "SDL · Owner",
+};
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, ready } = useApp();
@@ -43,6 +60,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               PPH<span className="text-[var(--color-brand)]"> Stylist</span>
             </span>
           </Link>
+
+          {/* Subtle role indicator */}
+          <span
+            className="ml-1 hidden rounded-full bg-[var(--color-surface-2)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-ink-soft)] sm:inline-flex"
+            aria-label={`Signed in as ${ROLE_LABEL[currentUser.role]}`}
+          >
+            {ROLE_LABEL[currentUser.role]}
+          </span>
 
           {/* Desktop nav */}
           <nav className="ml-4 hidden items-center gap-1 md:flex">
