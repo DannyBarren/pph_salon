@@ -3,12 +3,16 @@ import { TODAY, WEEKS, addDays, daysOfWeek, weekdayIndex } from "./time";
 
 /* ----------------------------- Salons ----------------------------- */
 export const SALONS: Salon[] = [
-  { id: "s1", name: "Aria Studio", city: "Downtown" },
-  { id: "s2", name: "Lumière Salon", city: "Westside" },
-  { id: "s3", name: "Maven Hair Co.", city: "Uptown" },
+  { id: "s1", name: "Aria Studio", city: "Downtown", servicePrices: { haircut: 23, color: 85 } },
+  { id: "s2", name: "Lumière Salon", city: "Westside", servicePrices: { haircut: 23, color: 85 } },
+  { id: "s3", name: "Maven Hair Co.", city: "Uptown", servicePrices: { haircut: 23, color: 85 } },
 ];
 
 export const salonById = (id: string) => SALONS.find((s) => s.id === id)!;
+
+/** Repository helper: all stylists in a salon (parity with the backend repo). */
+export const getStylistsBySalon = (salonId: string): User[] =>
+  ALL_STYLISTS.filter((s) => s.salonId === salonId);
 
 /* ----------------------------- Users ------------------------------ */
 // Managers
@@ -166,6 +170,7 @@ export const DEFAULT_CONFIG: PayConfig = {
   serviceMixHaircut: 0.6,
   minServicesPerDay: 6,
   salonGuarantee: { s1: 17, s2: 16, s3: 15 },
+  salonServicePrices: {},
 };
 
 /* --------------------------- Hierarchy ----------------------------- */
