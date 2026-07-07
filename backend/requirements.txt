@@ -15,6 +15,10 @@ SQLAlchemy==2.0.51
 psycopg2-binary==2.9.12
 alembic==1.18.5
 
+# File uploads + spreadsheet parsing (bulk weekly-data import)
+python-multipart==0.0.20
+openpyxl==3.1.5
+
 # Auth (JWT + password hashing)
 pyjwt==2.7.0
 passlib==1.7.4

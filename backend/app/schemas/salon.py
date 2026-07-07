@@ -8,7 +8,9 @@ from pydantic import BaseModel, ConfigDict
 class SalonBase(BaseModel):
     name: str
     city: str | None = None
+    location: str | None = None
     guarantee_rate: float | None = None
+    service_prices: dict[str, float] | None = None
 
 
 class SalonCreate(SalonBase):
@@ -18,7 +20,9 @@ class SalonCreate(SalonBase):
 class SalonUpdate(BaseModel):
     name: str | None = None
     city: str | None = None
+    location: str | None = None
     guarantee_rate: float | None = None
+    service_prices: dict[str, float] | None = None
 
 
 class SalonRead(SalonBase):
