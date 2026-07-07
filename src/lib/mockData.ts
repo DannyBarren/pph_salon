@@ -1,4 +1,4 @@
-import type { DayRecord, PayConfig, Salon, StylistData, UsageStat, User } from "./types";
+import type { DayRecord, MessageAcknowledgment, MessageBoardPost, PayConfig, Salon, StylistData, UsageStat, User } from "./types";
 import { TODAY, WEEKS, addDays, daysOfWeek, weekdayIndex } from "./time";
 
 /* ----------------------------- Salons ----------------------------- */
@@ -172,6 +172,55 @@ export const DEFAULT_CONFIG: PayConfig = {
   salonGuarantee: { s1: 17, s2: 16, s3: 15 },
   salonServicePrices: {},
 };
+
+/* ------------------------- Message board seed ---------------------- */
+// Deterministic demo announcements (authored by the owner + a salon manager).
+export const BOARD_SEED_POSTS: MessageBoardPost[] = [
+  {
+    id: "mp1",
+    authorId: "sdl1",
+    authorRole: "sdl",
+    salonId: null,
+    targetAudience: { kind: "all" },
+    title: "☀️ Summer Color Campaign kicks off Monday",
+    content:
+      "Team — our biggest color promo of the year starts Monday. Push balayage and gloss add-ons at every consultation. Marketing kits are at each front desk. Let's make it a record month!",
+    createdAt: "2026-06-23T14:00:00.000Z",
+    isPinned: true,
+  },
+  {
+    id: "mp2",
+    authorId: "m1",
+    authorRole: "manager",
+    salonId: "s1",
+    targetAudience: { kind: "salons", salonIds: ["s1"] },
+    title: "Saturday all-hands huddle @ 9:00am",
+    content:
+      "Quick 15-minute huddle before doors open this Saturday. We'll cover the new booking flow and weekend goals. Please arrive a few minutes early — coffee's on me.",
+    createdAt: "2026-06-24T17:30:00.000Z",
+    isPinned: false,
+  },
+  {
+    id: "mp3",
+    authorId: "sdl1",
+    authorRole: "sdl",
+    salonId: null,
+    targetAudience: { kind: "salons", salonIds: ["s1", "s2"] },
+    title: "New retail line arriving next week",
+    content:
+      "Downtown and Westside will be the first to carry the new sulfate-free line. Expect deliveries Wednesday. Retail training video is in your inbox.",
+    createdAt: "2026-06-22T10:00:00.000Z",
+    expiresAt: "2026-07-15T00:00:00.000Z",
+    isPinned: false,
+  },
+];
+
+// A couple of pre-existing acknowledgments so managers see non-zero stats.
+export const BOARD_SEED_ACKS: MessageAcknowledgment[] = [
+  { id: "ma1", postId: "mp2", userId: "st2", acknowledgedAt: "2026-06-24T18:05:00.000Z" },
+  { id: "ma2", postId: "mp2", userId: "st3", acknowledgedAt: "2026-06-24T18:20:00.000Z" },
+  { id: "ma3", postId: "mp1", userId: "st1", acknowledgedAt: "2026-06-23T15:10:00.000Z" },
+];
 
 /* --------------------------- Hierarchy ----------------------------- */
 export function stylistsForUser(user: User): User[] {

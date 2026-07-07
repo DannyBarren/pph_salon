@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sliders, Users, Settings, Sparkles } from "lucide-react";
+import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
+import { visiblePostsFor } from "@/lib/messaging";
 import type { Role } from "@/lib/types";
 
 interface NavItem {
@@ -19,16 +20,29 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist", "manager", "sdl"] },
   { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+  { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
   { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
   { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { currentUser, ready } = useApp();
+  const { currentUser, ready, boardPosts, boardLastSeen } = useApp();
   const pathname = usePathname();
   const items = NAV.filter((n) => n.roles.includes(currentUser.role));
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+
+  // Unread announcements = posts the user can see, newer than their last visit,
+  // and not authored by them. Computed only after mount (`ready`) to avoid SSR
+  // hydration drift from the wall clock.
+  const unread = useMemo(() => {
+    if (!ready) return 0;
+    const nowIso = new Date().toISOString();
+    const seen = boardLastSeen[currentUser.id] ?? "";
+    return visiblePostsFor(currentUser, boardPosts, nowIso).filter(
+      (p) => p.authorId !== currentUser.id && p.createdAt > seen,
+    ).length;
+  }, [ready, boardPosts, boardLastSeen, currentUser]);
 
   return (
     <div className="min-h-screen">
@@ -59,6 +73,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 {n.icon}
                 {n.label}
+                {n.href === "/board" && unread > 0 && (
+                  <span className="ml-0.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-[var(--color-brand)] px-1 text-[11px] font-bold text-white">
+                    {unread}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -85,7 +104,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 isActive(n.href) ? "text-[var(--color-brand)]" : "text-[var(--color-ink-faint)]",
               )}
             >
-              {n.icon}
+              <span className="relative">
+                {n.icon}
+                {n.href === "/board" && unread > 0 && (
+                  <span className="absolute -right-2 -top-1.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-[var(--color-brand)] px-1 text-[10px] font-bold text-white">
+                    {unread}
+                  </span>
+                )}
+              </span>
               {n.label}
             </Link>
           ))}
