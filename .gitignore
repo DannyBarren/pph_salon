@@ -57,3 +57,9 @@ htmlcov/
 # ─────────────────────────── Docker / DB ───────────────────────────
 pgdata/
 *.sqlite3
+
+# Streamlit MVP
+streamlit_app/pph.db
+streamlit_app/.venv/
+**/__pycache__/
+*.pyc

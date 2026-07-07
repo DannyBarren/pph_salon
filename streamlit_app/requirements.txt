@@ -1,0 +1,6 @@
+# PPH Stylist App — Streamlit MVP
+streamlit>=1.39
+pandas>=2.2
+openpyxl>=3.1
+# pytest is only needed to run the golden-case tests
+pytest>=8.0
