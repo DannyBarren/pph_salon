@@ -16,6 +16,7 @@ class UserRole(enum.StrEnum):
     stylist = "stylist"
     manager = "manager"
     admin = "admin"
+    owner = "owner"
 
 
 class User(TimestampMixin, table=True):
@@ -30,8 +31,12 @@ class User(TimestampMixin, table=True):
     # Auth fields. email is unique when set; hashed_password is null for seed
     # users that have not been invited to log in yet.
     email: Optional[str] = Field(default=None, unique=True, index=True)
+    phone: Optional[str] = Field(default=None)
     hashed_password: Optional[str] = Field(default=None)
     is_active: bool = Field(default=True)
+
+    # Per-stylist guaranteed $/hr floor (falls back to the salon/global rate).
+    guarantee_rate: Optional[float] = Field(default=None)
 
     salon_id: int = Field(foreign_key="salon.id", index=True)
     # Self-referential: a stylist reports to a manager (also a User).

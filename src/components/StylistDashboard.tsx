@@ -11,13 +11,16 @@ import { Card, CardBody, Badge, ProgressRing, Button, Progress } from "@/compone
 import { Stat } from "@/components/Stat";
 import { DailyBreakdown } from "@/components/DailyBreakdown";
 import { money, num, rate } from "@/lib/format";
+import { canSeeMoney } from "@/lib/privacy";
 
 function roundUpTo(n: number, step: number) {
   return Math.ceil(n / step) * step;
 }
 
 export function StylistDashboard({ stylistId }: { stylistId: string }) {
-  const { config, timeView, selectedWeekId, selectedPeriodIndex, getDays } = useApp();
+  const { config, timeView, selectedWeekId, selectedPeriodIndex, getDays, currentUser } = useApp();
+  // Privacy (spec §4): stylists never see revenue/production $. Managers do.
+  const showMoney = canSeeMoney(currentUser.role);
   const stylist = userById(stylistId)!;
   const salon = salonById(stylist.salonId);
   const usage = USAGE[stylistId];
@@ -55,7 +58,9 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
                 ? `This period is wrapped — you finished at ${rate(summary.effectiveRate)}/hr across ${num(summary.workedHours)} hours.`
                 : cleared
                   ? "You've already cleared your goal for this period. Stack a little extra to widen the gap."
-                  : `On pace to finish around ${rate(paceRate)}/hr. A push of ${money(goalPlan.remainingProduction)} gets you to ${rate(goalRate)}/hr.`}
+                  : showMoney
+                    ? `On pace to finish around ${rate(paceRate)}/hr. A push of ${money(goalPlan.remainingProduction)} gets you to ${rate(goalRate)}/hr.`
+                    : `On pace to finish around ${rate(paceRate)}/hr. About ${num(goalPlan.projectedServices)} more services gets you to ${rate(goalRate)}/hr.`}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge className="bg-white/20 text-white">
@@ -89,7 +94,11 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Effective rate" value={`${rate(summary.effectiveRate)}/hr`} sub={`Guarantee ${rate(guarantee)}/hr`} icon={<DollarSign size={16} />} tone="brand" />
-        <Stat label="Production" value={money(summary.productionToDate)} sub={`${money(summary.pay)} earned`} icon={<TrendingUp size={16} />} />
+        {showMoney ? (
+          <Stat label="Production" value={money(summary.productionToDate)} sub={`${money(summary.pay)} earned`} icon={<TrendingUp size={16} />} />
+        ) : (
+          <Stat label="Pace" value={`${rate(paceRate)}/hr`} sub="projected finish" icon={<TrendingUp size={16} />} />
+        )}
         <Stat label="Hours worked" value={`${num(summary.workedHours)}h`} sub={`${summary.remainingScheduledHours}h scheduled left`} icon={<Clock size={16} />} />
         <Stat label="Services" value={num(services)} sub={`${num(summary.haircuts)} cuts · ${num(summary.colors)} colors`} icon={<Scissors size={16} />} />
       </div>
@@ -114,8 +123,17 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
 
           {periodComplete ? (
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MiniStat label="Total production" value={money(summary.productionToDate)} />
-              <MiniStat label="Avg per day" value={money(avgPerDay)} />
+              {showMoney ? (
+                <>
+                  <MiniStat label="Total production" value={money(summary.productionToDate)} />
+                  <MiniStat label="Avg per day" value={money(avgPerDay)} />
+                </>
+              ) : (
+                <>
+                  <MiniStat label="Total services" value={num(services)} />
+                  <MiniStat label="Avg per day" value={num(summary.completedDays > 0 ? services / summary.completedDays : 0)} />
+                </>
+              )}
               <MiniStat label="Haircuts" value={num(summary.haircuts)} icon={<Scissors size={13} />} />
               <MiniStat label="Colors" value={num(summary.colors)} icon={<Palette size={13} />} />
             </div>
@@ -126,14 +144,23 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
           ) : (
             <>
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <MiniStat label="More production" value={money(goalPlan.remainingProduction)} />
-                <MiniStat label="Per working day" value={money(goalPlan.perDayProduction)} />
+                {showMoney ? (
+                  <>
+                    <MiniStat label="More production" value={money(goalPlan.remainingProduction)} />
+                    <MiniStat label="Per working day" value={money(goalPlan.perDayProduction)} />
+                  </>
+                ) : (
+                  <>
+                    <MiniStat label="Services to go" value={num(goalPlan.projectedServices)} />
+                    <MiniStat label="Services / day" value={num(goalPlan.projectedServices / Math.max(1, goalPlan.remainingDays))} />
+                  </>
+                )}
                 <MiniStat label="Haircuts / day" value={num(goalPlan.projectedHaircuts / Math.max(1, goalPlan.remainingDays))} icon={<Scissors size={13} />} />
                 <MiniStat label="Colors / day" value={num(goalPlan.projectedColors / Math.max(1, goalPlan.remainingDays))} icon={<Palette size={13} />} />
               </div>
               <div className="mt-4">
                 <div className="mb-1.5 flex justify-between text-xs text-[var(--color-ink-faint)]">
-                  <span>Progress to goal pay {money(goalPlan.targetPay)}</span>
+                  <span>{showMoney ? `Progress to goal pay ${money(goalPlan.targetPay)}` : `Progress to ${rate(goalRate)}/hr goal`}</span>
                   <span>{Math.round((summary.productionToDate / Math.max(1, goalPlan.requiredProduction)) * 100)}%</span>
                 </div>
                 <Progress value={summary.productionToDate / Math.max(1, goalPlan.requiredProduction)} />
@@ -149,7 +176,7 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
         </CardBody>
       </Card>
 
-      <DailyBreakdown days={periodDays} salonId={stylist.salonId} config={config} />
+      <DailyBreakdown days={periodDays} salonId={stylist.salonId} config={config} showMoney={showMoney} />
     </div>
   );
 }
