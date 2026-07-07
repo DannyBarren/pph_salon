@@ -8,6 +8,8 @@ import { useApp } from "@/store/AppContext";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
 import { visiblePostsFor } from "@/lib/messaging";
+import { ROLE_LABEL } from "@/lib/roles";
+import { FEATURE_TEAM_DASHBOARD } from "@/lib/featureFlags";
 import type { Role } from "@/lib/types";
 
 interface NavItem {
@@ -17,13 +19,24 @@ interface NavItem {
   roles: Role[];
 }
 
-const NAV: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist", "manager", "sdl"] },
-  { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
-  { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
-  { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
-  { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
-];
+// With the Team Dashboard flag on, managers/SDL use it as their home and the
+// personal Dashboard is stylist-only. With the flag off we keep the original
+// nav. The Board (announcements) tab is available to everyone in both layouts.
+const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
+  ? [
+      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist"] },
+      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
+    ]
+  : [
+      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
+      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
+    ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, ready, boardPosts, boardLastSeen } = useApp();
