@@ -63,6 +63,37 @@ export interface PayConfig {
   salonGuarantee: Record<string, number>;
 }
 
+/* --------------------------- Message board ------------------------- */
+
+/** Who an announcement is aimed at. */
+export type TargetAudience =
+  | { kind: "all" }
+  | { kind: "salons"; salonIds: string[] }
+  | { kind: "users"; userIds: string[] };
+
+export interface MessageBoardPost {
+  id: string;
+  authorId: string;
+  authorRole: Role;
+  /** Single-salon scope, or null for multi/all targeting. */
+  salonId: string | null;
+  targetAudience: TargetAudience;
+  title: string;
+  content: string;
+  /** ISO timestamp. */
+  createdAt: string;
+  /** Optional ISO expiry; hidden from non-authors once passed. */
+  expiresAt?: string;
+  isPinned: boolean;
+}
+
+export interface MessageAcknowledgment {
+  id: string;
+  postId: string;
+  userId: string;
+  acknowledgedAt: string;
+}
+
 export type TimeView = "current-prior" | "pay-period" | "single-week" | "planner";
 
 export interface Week {

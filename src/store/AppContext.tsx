@@ -1,8 +1,19 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { DayRecord, PayConfig, TimeView, User, Week } from "@/lib/types";
+import type {
+  DayRecord,
+  MessageAcknowledgment,
+  MessageBoardPost,
+  PayConfig,
+  TargetAudience,
+  TimeView,
+  User,
+  Week,
+} from "@/lib/types";
 import {
+  BOARD_SEED_ACKS,
+  BOARD_SEED_POSTS,
   DEFAULT_CONFIG,
   STYLIST_DATA,
   USERS,
@@ -17,6 +28,18 @@ interface PersistShape {
   currentUserId: string;
   config: PayConfig;
   overrides: Record<string, DayRecord[]>;
+  boardPosts: MessageBoardPost[];
+  boardAcks: MessageAcknowledgment[];
+  boardLastSeen: Record<string, string>;
+}
+
+/** Input accepted by createPost (author + targeting are resolved by role). */
+export interface NewPostInput {
+  title: string;
+  content: string;
+  targetAudience: TargetAudience;
+  expiresAt?: string;
+  isPinned: boolean;
 }
 
 interface AppState {
@@ -42,6 +65,14 @@ interface AppState {
   getDays: (stylistId: string) => DayRecord[];
   addRecords: (stylistId: string, records: DayRecord[]) => void;
 
+  // ── Message board ────────────────────────────────────────────────────────
+  boardPosts: MessageBoardPost[];
+  boardAcks: MessageAcknowledgment[];
+  boardLastSeen: Record<string, string>;
+  createPost: (input: NewPostInput) => void;
+  acknowledgePost: (postId: string) => void;
+  markBoardSeen: () => void;
+
   ready: boolean;
 }
 
@@ -52,6 +83,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [viewedStylistIdRaw, setViewedStylistId] = useState<string | null>("st1");
   const [config, setConfig] = useState<PayConfig>(DEFAULT_CONFIG);
   const [overrides, setOverrides] = useState<Record<string, DayRecord[]>>({});
+  const [boardPosts, setBoardPosts] = useState<MessageBoardPost[]>(BOARD_SEED_POSTS);
+  const [boardAcks, setBoardAcks] = useState<MessageAcknowledgment[]>(BOARD_SEED_ACKS);
+  const [boardLastSeen, setBoardLastSeen] = useState<Record<string, string>>({});
   const [timeView, setTimeView] = useState<TimeView>("current-prior");
   const [selectedWeekId, setSelectedWeekId] = useState<string>(CURRENT_WEEK.id);
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<number>(CURRENT_WEEK.periodIndex);
@@ -68,6 +102,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (p.currentUserId && userById(p.currentUserId)) setCurrentUserIdState(p.currentUserId);
         if (p.config) setConfig({ ...DEFAULT_CONFIG, ...p.config, salonGuarantee: { ...DEFAULT_CONFIG.salonGuarantee, ...p.config.salonGuarantee } });
         if (p.overrides) setOverrides(p.overrides);
+        if (p.boardPosts) setBoardPosts(p.boardPosts);
+        if (p.boardAcks) setBoardAcks(p.boardAcks);
+        if (p.boardLastSeen) setBoardLastSeen(p.boardLastSeen);
       }
     } catch {
       /* ignore */
@@ -79,13 +116,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Persist relevant state.
   useEffect(() => {
     if (!ready) return;
-    const payload: PersistShape = { currentUserId, config, overrides };
+    const payload: PersistShape = { currentUserId, config, overrides, boardPosts, boardAcks, boardLastSeen };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* ignore */
     }
-  }, [ready, currentUserId, config, overrides]);
+  }, [ready, currentUserId, config, overrides, boardPosts, boardAcks, boardLastSeen]);
 
   const currentUser = userById(currentUserId) ?? USERS[0];
   const allowedStylists = useMemo(() => stylistsForUser(currentUser), [currentUser]);
@@ -135,6 +172,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // ── Message board actions ────────────────────────────────────────────────
+  const createPost = useCallback(
+    (input: NewPostInput) => {
+      const author = userById(currentUserId) ?? USERS[0];
+      if (author.role !== "manager" && author.role !== "sdl") return; // guard
+
+      // Smart targeting: managers are auto-limited to their own salon.
+      let audience: TargetAudience = input.targetAudience;
+      let salonId: string | null = null;
+      if (author.role === "manager") {
+        audience = { kind: "salons", salonIds: [author.salonId] };
+        salonId = author.salonId;
+      } else if (audience.kind === "salons") {
+        salonId = audience.salonIds.length === 1 ? audience.salonIds[0] : null;
+      }
+
+      const post: MessageBoardPost = {
+        id: `mp-${Date.now()}`,
+        authorId: author.id,
+        authorRole: author.role,
+        salonId,
+        targetAudience: audience,
+        title: input.title.trim(),
+        content: input.content.trim(),
+        createdAt: new Date().toISOString(),
+        expiresAt: input.expiresAt,
+        isPinned: input.isPinned,
+      };
+      setBoardPosts((posts) => [post, ...posts]);
+    },
+    [currentUserId],
+  );
+
+  const acknowledgePost = useCallback(
+    (postId: string) => {
+      setBoardAcks((acks) => {
+        if (acks.some((a) => a.postId === postId && a.userId === currentUserId)) return acks;
+        return [
+          ...acks,
+          { id: `ma-${Date.now()}`, postId, userId: currentUserId, acknowledgedAt: new Date().toISOString() },
+        ];
+      });
+    },
+    [currentUserId],
+  );
+
+  const markBoardSeen = useCallback(() => {
+    setBoardLastSeen((seen) => ({ ...seen, [currentUserId]: new Date().toISOString() }));
+  }, [currentUserId]);
+
   const value: AppState = {
     currentUser,
     setCurrentUserId,
@@ -153,6 +240,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSelectedPeriodIndex,
     getDays,
     addRecords,
+    boardPosts,
+    boardAcks,
+    boardLastSeen,
+    createPost,
+    acknowledgePost,
+    markBoardSeen,
     ready,
   };
 
