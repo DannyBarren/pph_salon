@@ -13,6 +13,9 @@ class UserBase(BaseModel):
     salon_id: int
     manager_id: int | None = None
     title: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    guarantee_rate: float | None = None
 
 
 class UserCreate(UserBase):
@@ -25,6 +28,9 @@ class UserUpdate(BaseModel):
     salon_id: int | None = None
     manager_id: int | None = None
     title: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    guarantee_rate: float | None = None
 
 
 class UserRead(UserBase):

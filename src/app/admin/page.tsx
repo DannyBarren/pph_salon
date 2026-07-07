@@ -4,6 +4,7 @@ import React from "react";
 import { Lock } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { AdminConfigPanel } from "@/components/AdminConfigPanel";
+import { DataManagementPanel } from "@/components/DataManagementPanel";
 import { DataInputPanel } from "@/components/DataInputPanel";
 import { Card, CardBody } from "@/components/ui/primitives";
 
@@ -34,6 +35,7 @@ export default function AdminPage() {
           Control the pay engine and import production data. Everything updates the app instantly.
         </p>
       </div>
+      <DataManagementPanel />
       <AdminConfigPanel />
       <DataInputPanel />
     </div>

@@ -4,11 +4,12 @@ import React from "react";
 import { RotateCcw, Sliders, Store, Calculator } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { SALONS } from "@/lib/mockData";
+import { servicePricesFor } from "@/lib/privacy";
 import { Card, CardBody, Button, NumberField, SectionTitle, Badge } from "@/components/ui/primitives";
 import { money, rate, pct } from "@/lib/format";
 
 export function AdminConfigPanel() {
-  const { config, updateConfig, setSalonGuarantee, resetConfig } = useApp();
+  const { config, updateConfig, setSalonGuarantee, setSalonServicePrice, resetConfig } = useApp();
 
   // Live preview: a sample 8-hour day at a sample production level.
   const sampleProduction = 560;
@@ -105,6 +106,41 @@ export function AdminConfigPanel() {
                 step={0.5}
               />
             ))}
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Per-salon service prices (drive the planner & production math) */}
+      <Card>
+        <CardBody>
+          <SectionTitle hint="Used for production, planner & imports">
+            <span className="inline-flex items-center gap-2 normal-case">
+              <Store size={16} className="text-[var(--color-brand)]" /> Per-salon service prices
+            </span>
+          </SectionTitle>
+          <div className="space-y-4">
+            {SALONS.map((s) => {
+              const prices = servicePricesFor(s, config.salonServicePrices[s.id]);
+              return (
+                <div key={s.id} className="grid items-end gap-3 sm:grid-cols-[1fr_auto_auto]">
+                  <span className="text-sm font-medium text-[var(--color-ink-soft)]">{s.name}</span>
+                  <NumberField
+                    label="Haircut"
+                    value={prices.haircut}
+                    onChange={(v) => setSalonServicePrice(s.id, "haircut", v)}
+                    prefix="$"
+                    step={1}
+                  />
+                  <NumberField
+                    label="Color"
+                    value={prices.color}
+                    onChange={(v) => setSalonServicePrice(s.id, "color", v)}
+                    prefix="$"
+                    step={1}
+                  />
+                </div>
+              );
+            })}
           </div>
         </CardBody>
       </Card>

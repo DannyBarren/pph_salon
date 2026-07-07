@@ -88,7 +88,8 @@ def require_role(roles: Sequence[str]):
     allowed = {str(r) for r in roles}
 
     def dependency(user: User = Depends(get_current_user)) -> User:
-        if user.role == UserRole.admin:
+        # Admins and owners always pass (full access).
+        if user.role in (UserRole.admin, UserRole.owner):
             return user
         if str(user.role) not in allowed:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient role")
@@ -100,12 +101,17 @@ def require_role(roles: Sequence[str]):
 def visible_stylist_ids(user: User, session: Session) -> list[int]:
     """IDs of stylists the ``user`` may see.
 
-    admin → all stylists · manager → their direct reports · stylist → themselves.
+    admin / owner → all stylists · manager → everyone in their salon ·
+    stylist → themselves.
     """
-    if user.role == UserRole.admin:
+    if user.role in (UserRole.admin, UserRole.owner):
         rows = session.exec(select(User.id).where(User.role == UserRole.stylist)).all()
         return list(rows)
     if user.role == UserRole.manager:
-        rows = session.exec(select(User.id).where(User.manager_id == user.id)).all()
+        rows = session.exec(
+            select(User.id).where(
+                User.salon_id == user.salon_id, User.role == UserRole.stylist
+            )
+        ).all()
         return list(rows)
     return [user.id] if user.id else []

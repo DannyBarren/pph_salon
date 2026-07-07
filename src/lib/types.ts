@@ -1,4 +1,16 @@
+// The app's role model. `sdl` is the salon-development-leader / owner persona
+// and carries owner+admin privileges (full access, admin config). The backend
+// uses the fuller stylist | manager | admin | owner set; on the frontend `sdl`
+// maps to owner/admin. See `canSeeMoney` for the privacy split that actually
+// matters to the UI (stylist vs. everyone else).
 export type Role = "stylist" | "manager" | "sdl";
+
+/** Per-service production/price values, keyed by service name. */
+export interface ServicePrices {
+  haircut: number;
+  color: number;
+  [service: string]: number;
+}
 
 export interface Salon {
   id: string;
@@ -6,6 +18,8 @@ export interface Salon {
   city: string;
   /** Optional per-salon override of the global guarantee rate. */
   guaranteeRate?: number;
+  /** Configurable per-service prices (defaults: haircut $23, color $85). */
+  servicePrices?: ServicePrices;
 }
 
 export interface User {
@@ -19,6 +33,31 @@ export interface User {
   initials: string;
   /** color accent for avatar */
   hue: number;
+  /** Contact + pay fields (used by the Admin Data Management screen). */
+  email?: string;
+  phone?: string;
+  /** Per-stylist guaranteed $/hr floor (falls back to salon/global rate). */
+  guaranteeRate?: number;
+}
+
+/**
+ * A stylist's week of data, keyed by (userId, weekStart) — mirrors the backend
+ * `Week`/WeeklyData model. Manually editable and bulk-importable; works even
+ * when Zenoti/PayCor are unavailable.
+ */
+export interface WeeklyData {
+  userId: string;
+  /** ISO Monday of the week. */
+  weekStart: string;
+  /** ISO Sunday of the week. */
+  weekEnd?: string;
+  scheduledHrs: number;
+  actualHrs: number;
+  actualHaircuts: number;
+  actualColors: number;
+  /** Revenue from services other than haircuts/colors (retail, add-ons). */
+  actualOtherValue: number;
+  notes?: string;
 }
 
 /** A single recorded day of work for a stylist. */
@@ -61,6 +100,39 @@ export interface PayConfig {
   minServicesPerDay: number;
   /** Per-salon guarantee overrides keyed by salon id. */
   salonGuarantee: Record<string, number>;
+  /** Per-salon service-price overrides keyed by salon id (e.g. {haircut, color}). */
+  salonServicePrices: Record<string, ServicePrices>;
+}
+
+/* --------------------------- Message board ------------------------- */
+
+/** Who an announcement is aimed at. */
+export type TargetAudience =
+  | { kind: "all" }
+  | { kind: "salons"; salonIds: string[] }
+  | { kind: "users"; userIds: string[] };
+
+export interface MessageBoardPost {
+  id: string;
+  authorId: string;
+  authorRole: Role;
+  /** Single-salon scope, or null for multi/all targeting. */
+  salonId: string | null;
+  targetAudience: TargetAudience;
+  title: string;
+  content: string;
+  /** ISO timestamp. */
+  createdAt: string;
+  /** Optional ISO expiry; hidden from non-authors once passed. */
+  expiresAt?: string;
+  isPinned: boolean;
+}
+
+export interface MessageAcknowledgment {
+  id: string;
+  postId: string;
+  userId: string;
+  acknowledgedAt: string;
 }
 
 export type TimeView = "current-prior" | "pay-period" | "single-week" | "planner";
