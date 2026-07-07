@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 
@@ -288,12 +288,16 @@ export function Modal({
   onClose,
   children,
   title,
+  size = "md",
 }: {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
+  size?: "md" | "lg" | "xl";
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   // Lock background scroll while the modal is open.
   useEffect(() => {
     if (!open) return;
@@ -304,16 +308,67 @@ export function Modal({
     };
   }, [open]);
 
+  // Focus management: move focus into the dialog on open, restore on close, and
+  // trap Tab within the dialog. Escape closes.
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    panel?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [open, onClose]);
+
   if (!open || typeof document === "undefined") return null;
 
   // Render through a portal to <body> so the fixed overlay is positioned
   // relative to the viewport, not any ancestor that establishes a containing
   // block (e.g. the header's backdrop-filter). This is what kept the menu
   // off-screen on mobile.
+  const maxW = size === "xl" ? "max-w-3xl" : size === "lg" ? "max-w-2xl" : "max-w-md";
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="animate-fade-up relative z-10 max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-[var(--color-surface)] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:mx-4 sm:rounded-3xl sm:pb-5" >
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className={cn(
+          "animate-fade-up relative z-10 max-h-[88dvh] w-full overflow-y-auto rounded-t-3xl bg-[var(--color-surface)] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl outline-none sm:mx-4 sm:rounded-3xl sm:pb-5",
+          maxW,
+        )}
+      >
         {title && <h3 className="mb-4 text-lg font-semibold">{title}</h3>}
         {children}
       </div>

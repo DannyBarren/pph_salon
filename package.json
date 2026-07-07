@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:planner": "node --test scripts/test-planner.mjs"
+    "test:calc": "node --test scripts/test-team-calculations.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.22.0",

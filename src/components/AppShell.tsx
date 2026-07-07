@@ -58,6 +58,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
 
+          {/* Subtle role indicator */}
+          <span
+            className="ml-1 hidden rounded-full bg-[var(--color-surface-2)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-ink-soft)] sm:inline-flex"
+            aria-label={`Signed in as ${ROLE_LABEL[currentUser.role]}`}
+          >
+            {ROLE_LABEL[currentUser.role]}
+          </span>
+
           {/* Desktop nav */}
           <nav className="ml-4 hidden items-center gap-1 md:flex">
             {items.map((n) => (

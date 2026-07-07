@@ -56,6 +56,33 @@ npm run build && npm run start
 - **Admin configuration** of the pay engine + CSV/manual data import.
 - Light gamification (streaks, goals, flash goals).
 
+## Team Dashboard (managers / SDL)
+
+Managers, SDLs, and owners land on a **Team Dashboard** (`/team`) by default —
+a production-grade view of their whole team for the current week (`6/29 – 7/5`).
+Stylists are unaffected and keep their personal Week Summary / Planner.
+
+- **Real data:** Rebeca (18939) and Steph (11027) are pulled verbatim from
+  `docs/spec/PPH Based Payplan.xlsx` (sheets *Sched View* and *Actual*); six more
+  stylists are modelled with the same $23 haircut / $85 color economics.
+- **At a glance:** 6 KPI cards, effective-rate distribution, a "needs attention"
+  callout, and per-stylist cards/table showing effective pay rate, progress to
+  the next PayRt tier, utilization, over/short, and the **exact production +
+  services still needed** to hit the salon target (adjustable in-header).
+- **Views:** Cards ↔ Table, Actual ↔ Scheduled, status chips, search, sort,
+  CSV export, manual + 5-min auto refresh.
+- **Detail modal:** Week Summary, Week-by-Day, and a pre-filled What-If per
+  stylist, plus manager-only extras (vs-team-average, coaching note).
+- **Robustness:** custom React-Query-style caching (`staleTime`/`gcTime`/retry/
+  refetch-on-focus), retry-with-backoff service layer, Zod-lite validation,
+  section error boundaries, skeleton/empty/error states, a11y (focus trap,
+  ARIA, color+icon+text), and `content-visibility` windowing past 25 rows.
+
+The math lives in `src/lib/tiers.ts` (a faithful port of the backend
+`PayPlanEngine`); regression tests that assert exact workbook values run with
+`npm run test:calc`. Toggle the feature with
+`NEXT_PUBLIC_FEATURE_TEAM_DASHBOARD=false`.
+
 ## How the pay plan works (brief)
 
 ```
