@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone } from "lucide-react";
+import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone, Flag } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
@@ -27,19 +27,21 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist"] },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
       { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ]
   : [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist", "manager", "sdl"] },
       { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { currentUser, ready, boardPosts, boardLastSeen } = useApp();
+  const { currentUser, ready, boardPosts, boardLastSeen, notifications } = useApp();
   const pathname = usePathname();
   const items = NAV.filter((n) => n.roles.includes(currentUser.role));
 
@@ -56,6 +58,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       (p) => p.authorId !== currentUser.id && p.createdAt > seen,
     ).length;
   }, [ready, boardPosts, boardLastSeen, currentUser]);
+
+  // Unread goal notifications for the current user (badge on the Goals tab).
+  const goalUnread = useMemo(
+    () => (ready ? notifications.filter((n) => n.recipientId === currentUser.id && !n.isRead).length : 0),
+    [ready, notifications, currentUser.id],
+  );
+
+  const badgeFor = (href: string) => (href === "/board" ? unread : href === "/team-goals" ? goalUnread : 0);
 
   return (
     <div className="min-h-screen">
@@ -94,9 +104,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 {n.icon}
                 {n.label}
-                {n.href === "/board" && unread > 0 && (
+                {badgeFor(n.href) > 0 && (
                   <span className="ml-0.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-[var(--color-brand)] px-1 text-[11px] font-bold text-white">
-                    {unread}
+                    {badgeFor(n.href)}
                   </span>
                 )}
               </Link>
@@ -127,9 +137,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <span className="relative">
                 {n.icon}
-                {n.href === "/board" && unread > 0 && (
+                {badgeFor(n.href) > 0 && (
                   <span className="absolute -right-2 -top-1.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-[var(--color-brand)] px-1 text-[10px] font-bold text-white">
-                    {unread}
+                    {badgeFor(n.href)}
                   </span>
                 )}
               </span>
