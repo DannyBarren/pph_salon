@@ -3,7 +3,7 @@
 import React from "react";
 import { useApp } from "@/store/AppContext";
 import { StylistSwitcher } from "@/components/StylistSwitcher";
-import { WhatIfPlanner } from "@/components/WhatIfPlanner";
+import { GoalPlanner } from "@/components/GoalPlanner";
 import { Card, CardBody } from "@/components/ui/primitives";
 
 export default function PlannerPage() {
@@ -14,7 +14,7 @@ export default function PlannerPage() {
     <div className="space-y-4">
       {currentUser.role !== "stylist" && <StylistSwitcher />}
       {targetId ? (
-        <WhatIfPlanner key={targetId} stylistId={targetId} />
+        <GoalPlanner key={targetId} stylistId={targetId} />
       ) : (
         <Card>
           <CardBody>
