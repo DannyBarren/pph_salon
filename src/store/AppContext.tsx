@@ -2,9 +2,13 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type {
+  AppNotification,
   DayRecord,
+  Goal,
+  GoalApprovalStatus,
   MessageAcknowledgment,
   MessageBoardPost,
+  NotificationType,
   PayConfig,
   TargetAudience,
   TimeView,
@@ -38,6 +42,16 @@ interface PersistShape {
   boardPosts: MessageBoardPost[];
   boardAcks: MessageAcknowledgment[];
   boardLastSeen: Record<string, string>;
+  goals: Goal[];
+  notifications: AppNotification[];
+}
+
+/** Targets captured from the Goal Planner when "Set Goal" is clicked. */
+export interface GoalInput {
+  targetPph: number;
+  targetHours: number;
+  targetHaircuts: number;
+  targetColors: number;
 }
 
 /** Input accepted by createPost (author + targeting are resolved by role). */
@@ -90,6 +104,15 @@ interface AppState {
   acknowledgePost: (postId: string) => void;
   markBoardSeen: () => void;
 
+  // ── Goals + notifications ────────────────────────────────────────────────
+  goals: Goal[];
+  notifications: AppNotification[];
+  setGoal: (stylistId: string, weekStart: string, input: GoalInput) => void;
+  reviewGoal: (goalId: string, status: GoalApprovalStatus, comment?: string) => void;
+  getActiveGoal: (stylistId: string, weekStart: string) => Goal | undefined;
+  getGoalHistory: (stylistId: string, weekStart: string) => Goal[];
+  markNotificationRead: (id: string) => void;
+
   ready: boolean;
 }
 
@@ -105,6 +128,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [boardPosts, setBoardPosts] = useState<MessageBoardPost[]>(BOARD_SEED_POSTS);
   const [boardAcks, setBoardAcks] = useState<MessageAcknowledgment[]>(BOARD_SEED_ACKS);
   const [boardLastSeen, setBoardLastSeen] = useState<Record<string, string>>({});
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [timeView, setTimeView] = useState<TimeView>("current-prior");
   const [selectedWeekId, setSelectedWeekId] = useState<string>(CURRENT_WEEK.id);
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<number>(CURRENT_WEEK.periodIndex);
@@ -126,6 +151,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (p.boardPosts) setBoardPosts(p.boardPosts);
         if (p.boardAcks) setBoardAcks(p.boardAcks);
         if (p.boardLastSeen) setBoardLastSeen(p.boardLastSeen);
+        if (p.goals) setGoals(p.goals);
+        if (p.notifications) setNotifications(p.notifications);
       }
     } catch {
       /* ignore */
@@ -146,13 +173,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       boardPosts,
       boardAcks,
       boardLastSeen,
+      goals,
+      notifications,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* ignore */
     }
-  }, [ready, currentUserId, config, overrides, weeklyData, userProfiles, boardPosts, boardAcks, boardLastSeen]);
+  }, [ready, currentUserId, config, overrides, weeklyData, userProfiles, boardPosts, boardAcks, boardLastSeen, goals, notifications]);
 
   const currentUser = userById(currentUserId) ?? USERS[0];
   const allowedStylists = useMemo(() => stylistsForUser(currentUser), [currentUser]);
@@ -305,6 +334,104 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBoardLastSeen((seen) => ({ ...seen, [currentUserId]: new Date().toISOString() }));
   }, [currentUserId]);
 
+  // ── Goal actions ─────────────────────────────────────────────────────────
+  const getActiveGoal = useCallback(
+    (stylistId: string, weekStart: string): Goal | undefined =>
+      goals.find((g) => g.stylistId === stylistId && g.weekStart === weekStart && g.isActive),
+    [goals],
+  );
+
+  const getGoalHistory = useCallback(
+    (stylistId: string, weekStart: string): Goal[] =>
+      goals
+        .filter((g) => g.stylistId === stylistId && g.weekStart === weekStart)
+        .sort((a, b) => b.setAt.localeCompare(a.setAt)),
+    [goals],
+  );
+
+  /**
+   * Set (or override) a stylist's goal for a week. Enforces the one-active-goal
+   * rule: the current active goal is deactivated (kept for history) and the new
+   * one links to it via previousGoalId. Also notifies the stylist's manager.
+   */
+  const setGoal = useCallback(
+    (stylistId: string, weekStart: string, input: GoalInput) => {
+      const now = new Date().toISOString();
+      const stylist = userById(stylistId);
+      const managerId = stylist?.managerId;
+
+      setGoals((prev) => {
+        const active = prev.find((g) => g.stylistId === stylistId && g.weekStart === weekStart && g.isActive);
+        const deactivated = active
+          ? prev.map((g) => (g.id === active.id ? { ...g, isActive: false } : g))
+          : prev;
+        const newGoal: Goal = {
+          id: `goal-${Date.now()}`,
+          stylistId,
+          weekStart,
+          ...input,
+          setAt: now,
+          isActive: true,
+          previousGoalId: active?.id,
+          approvalStatus: "pending",
+        };
+        return [...deactivated, newGoal];
+      });
+
+      if (managerId) {
+        const wasUpdate = goals.some((g) => g.stylistId === stylistId && g.weekStart === weekStart);
+        const type: NotificationType = wasUpdate ? "goal_updated" : "goal_set";
+        setNotifications((n) => [
+          {
+            id: `ntf-${Date.now()}`,
+            recipientId: managerId,
+            actorId: stylistId,
+            type,
+            message: `Stylist ${stylist?.name ?? stylistId} just ${wasUpdate ? "updated" : "set"} their goal for this pay period.`,
+            isRead: false,
+            createdAt: now,
+          },
+          ...n,
+        ]);
+      }
+    },
+    [goals],
+  );
+
+  const reviewGoal = useCallback(
+    (goalId: string, status: GoalApprovalStatus, comment?: string) => {
+      const now = new Date().toISOString();
+      const reviewer = userById(currentUserId);
+      let stylistId: string | undefined;
+      setGoals((prev) =>
+        prev.map((g) => {
+          if (g.id !== goalId) return g;
+          stylistId = g.stylistId;
+          return { ...g, approvalStatus: status, managerComment: comment, reviewedBy: currentUserId, reviewedAt: now };
+        }),
+      );
+      if (stylistId) {
+        setNotifications((n) => [
+          {
+            id: `ntf-${Date.now()}`,
+            recipientId: stylistId!,
+            actorId: currentUserId,
+            type: "goal_reviewed",
+            message: `${reviewer?.name ?? "Your manager"} ${status} your goal${comment ? `: "${comment}"` : "."}`,
+            isRead: false,
+            createdAt: now,
+          },
+          ...n,
+        ]);
+      }
+    },
+    [currentUserId],
+  );
+
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications((n) => n.map((x) => (x.id === id ? { ...x, isRead: true } : x)));
+  }, []);
+
   const value: AppState = {
     currentUser,
     setCurrentUserId,
@@ -335,6 +462,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     createPost,
     acknowledgePost,
     markBoardSeen,
+    goals,
+    notifications,
+    setGoal,
+    reviewGoal,
+    getActiveGoal,
+    getGoalHistory,
+    markNotificationRead,
     ready,
   };
 

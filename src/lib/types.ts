@@ -135,6 +135,47 @@ export interface MessageAcknowledgment {
   acknowledgedAt: string;
 }
 
+/* ------------------------------ Goals ------------------------------ */
+
+export type GoalApprovalStatus = "pending" | "approved" | "disapproved";
+
+/**
+ * A stylist's self-set target for a pay period. Business rule: only ONE active
+ * goal per (stylistId, weekStart). Setting a new one deactivates the previous
+ * (kept for history) and links via `previousGoalId`.
+ */
+export interface Goal {
+  id: string;
+  stylistId: string;
+  /** ISO Monday of the pay-period week. */
+  weekStart: string;
+  targetPph: number;
+  targetHours: number;
+  targetHaircuts: number;
+  targetColors: number;
+  /** ISO timestamp the goal was set. */
+  setAt: string;
+  isActive: boolean;
+  previousGoalId?: string;
+  approvalStatus: GoalApprovalStatus;
+  managerComment?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+export type NotificationType = "goal_set" | "goal_updated" | "goal_reviewed";
+
+export interface AppNotification {
+  id: string;
+  recipientId: string;
+  actorId?: string;
+  type: NotificationType;
+  message: string;
+  goalId?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export type TimeView = "current-prior" | "pay-period" | "single-week" | "planner";
 
 export interface Week {
