@@ -14,6 +14,8 @@ const STATUS_META: Record<GoalApprovalStatus, { label: string; tone: "neutral" |
   approved: { label: "Approved", tone: "success" },
   disapproved: { label: "Needs changes", tone: "danger" },
 };
+// Safe lookup — unknown/legacy status falls back to "pending" (never crashes).
+const statusMeta = (s: GoalApprovalStatus) => STATUS_META[s] ?? STATUS_META.pending;
 
 /**
  * Team Goals — managers review their direct reports' goals; SDL/Owner get a
@@ -119,7 +121,7 @@ function HierarchyView() {
         const salonManagers = MANAGERS_IN_SALON(salon.id);
         return (
           <Card key={salon.id}>
-            <details open>
+            <details open className="group">
               <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold">
                 <ChevronRight size={16} className="transition group-open:rotate-90" />
                 <Store size={16} className="text-[var(--color-brand)]" /> {salon.name}
@@ -191,7 +193,7 @@ function StylistGoalCard({ stylist, canReview, compact }: { stylist: User; canRe
               <span className="text-xs text-[var(--color-ink-faint)]">{salonById(stylist.salonId).name}</span>
             </div>
             {active ? (
-              <Badge tone={STATUS_META[active.approvalStatus].tone}>{STATUS_META[active.approvalStatus].label}</Badge>
+              <Badge tone={statusMeta(active.approvalStatus).tone}>{statusMeta(active.approvalStatus).label}</Badge>
             ) : (
               <span className="text-xs text-[var(--color-ink-faint)]">No goal set yet</span>
             )}

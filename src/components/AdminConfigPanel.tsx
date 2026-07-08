@@ -127,16 +127,18 @@ export function AdminConfigPanel() {
                   <NumberField
                     label="Haircut"
                     value={prices.haircut}
-                    onChange={(v) => setSalonServicePrice(s.id, "haircut", v)}
+                    onChange={(v) => setSalonServicePrice(s.id, "haircut", Math.max(1, v))}
                     prefix="$"
                     step={1}
+                    min={1}
                   />
                   <NumberField
                     label="Color"
                     value={prices.color}
-                    onChange={(v) => setSalonServicePrice(s.id, "color", v)}
+                    onChange={(v) => setSalonServicePrice(s.id, "color", Math.max(1, v))}
                     prefix="$"
                     step={1}
+                    min={1}
                   />
                 </div>
               );

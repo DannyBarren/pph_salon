@@ -78,8 +78,9 @@ export function TeamDashboard() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(TARGET_KEY);
-      if (saved) setTargetPayRate(Number(saved));
+      const saved = Number(localStorage.getItem(TARGET_KEY));
+      // Ignore corrupt/out-of-range persisted values (avoids "$NaN/hr").
+      if (Number.isFinite(saved) && saved >= 11 && saved <= 29) setTargetPayRate(saved);
     } catch {
       /* ignore */
     }

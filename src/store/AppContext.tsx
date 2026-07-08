@@ -148,11 +148,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (p.overrides) setOverrides(p.overrides);
         if (p.weeklyData) setWeeklyData(p.weeklyData);
         if (p.userProfiles) setUserProfiles(p.userProfiles);
-        if (p.boardPosts) setBoardPosts(p.boardPosts);
-        if (p.boardAcks) setBoardAcks(p.boardAcks);
+        // Normalize persisted arrays so legacy/corrupt state can't crash the UI.
+        if (Array.isArray(p.boardPosts)) {
+          setBoardPosts(
+            p.boardPosts.filter((post) => post && post.targetAudience && typeof post.targetAudience.kind === "string"),
+          );
+        }
+        if (Array.isArray(p.boardAcks)) setBoardAcks(p.boardAcks.filter((a) => a && a.postId && a.userId));
         if (p.boardLastSeen) setBoardLastSeen(p.boardLastSeen);
-        if (p.goals) setGoals(p.goals);
-        if (p.notifications) setNotifications(p.notifications);
+        if (Array.isArray(p.goals)) {
+          const valid: readonly string[] = ["pending", "approved", "disapproved"];
+          setGoals(
+            p.goals
+              .filter((g) => g && typeof g.id === "string")
+              .map((g) => ({
+                ...g,
+                approvalStatus: valid.includes(g.approvalStatus) ? g.approvalStatus : "pending",
+                targetPph: Number(g.targetPph) || 0,
+                targetHours: Number(g.targetHours) || 0,
+                targetHaircuts: Number(g.targetHaircuts) || 0,
+                targetColors: Number(g.targetColors) || 0,
+              })),
+          );
+        }
+        if (Array.isArray(p.notifications)) setNotifications(p.notifications.filter((n) => n && n.id));
       }
     } catch {
       /* ignore */
