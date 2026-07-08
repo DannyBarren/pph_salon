@@ -50,7 +50,7 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
   // Default planned hours: this week's entered data → scheduled day records → 40.
   const defaultHours = useMemo(() => {
     const wd = getWeeklyData(stylistId, CURRENT_WEEK.start);
-    if (wd) return wd.scheduledHrs;
+    if (wd && Number.isFinite(wd.scheduledHrs) && wd.scheduledHrs > 0) return wd.scheduledHrs;
     const days = sliceDays(getDays(stylistId), CURRENT_WEEK.start, CURRENT_WEEK.end);
     const scheduled = days.reduce((a, d) => a + d.scheduledHours, 0);
     return scheduled > 0 ? scheduled : 40;
@@ -367,6 +367,8 @@ const STATUS_META: Record<Goal["approvalStatus"], { label: string; tone: "neutra
   approved: { label: "Approved", tone: "success" },
   disapproved: { label: "Needs changes", tone: "danger" },
 };
+// Safe lookup — unknown/legacy status falls back to "pending" (never crashes).
+const statusMeta = (s: Goal["approvalStatus"]) => STATUS_META[s] ?? STATUS_META.pending;
 
 function GoalSection({
   stylistName,
@@ -442,8 +444,8 @@ function GoalSection({
           <div className="rounded-2xl bg-[var(--color-surface-2)] p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-semibold">Active goal</span>
-              <Badge tone={STATUS_META[activeGoal.approvalStatus].tone}>
-                {STATUS_META[activeGoal.approvalStatus].label}
+              <Badge tone={statusMeta(activeGoal.approvalStatus).tone}>
+                {statusMeta(activeGoal.approvalStatus).label}
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -475,7 +477,7 @@ function GoalSection({
                     </span>
                     {/* NEW (V1.1): show each superseded goal's final status + set time. */}
                     <span className="flex items-center gap-2">
-                      <Badge tone={STATUS_META[g.approvalStatus].tone}>{STATUS_META[g.approvalStatus].label}</Badge>
+                      <Badge tone={statusMeta(g.approvalStatus).tone}>{statusMeta(g.approvalStatus).label}</Badge>
                       <span className="text-[11px] text-[var(--color-ink-faint)]">
                         {new Date(g.setAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                       </span>

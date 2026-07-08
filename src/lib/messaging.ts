@@ -26,9 +26,11 @@ export function isExpired(post: MessageBoardPost, nowIso: string): boolean {
 
 /** Whether a post's audience payload explicitly includes the user. */
 export function postTargetsUser(post: MessageBoardPost, user: User): boolean {
-  const aud = post.targetAudience;
-  if (aud.kind === "users") return aud.userIds.includes(user.id);
-  if (aud.kind === "salons") return aud.salonIds.includes(user.salonId);
+  // Defensive: treat a missing/malformed audience (e.g. legacy persisted data)
+  // as "all" so it can never crash the app-wide unread badge / board.
+  const aud = post.targetAudience ?? { kind: "all" };
+  if (aud.kind === "users") return (aud.userIds ?? []).includes(user.id);
+  if (aud.kind === "salons") return (aud.salonIds ?? []).includes(user.salonId);
   // "all": a manager's "all" means their salon; org-wide means everyone.
   if (post.authorRole === "manager") return post.salonId === null || user.salonId === post.salonId;
   return true;
@@ -41,7 +43,8 @@ export function canView(post: MessageBoardPost, user: User, nowIso: string): boo
   if (isOrgWide(user.role)) return true; // full-org overview
   if (user.role === "manager") {
     if (post.salonId === user.salonId) return true;
-    if (post.targetAudience.kind === "salons" && post.targetAudience.salonIds.includes(user.salonId)) return true;
+    const aud = post.targetAudience;
+    if (aud?.kind === "salons" && (aud.salonIds ?? []).includes(user.salonId)) return true;
   }
   return postTargetsUser(post, user);
 }

@@ -8,7 +8,10 @@ export const SALONS: Salon[] = [
   { id: "s3", name: "Maven Hair Co.", city: "Uptown", servicePrices: { haircut: 23, color: 85 } },
 ];
 
-export const salonById = (id: string) => SALONS.find((s) => s.id === id)!;
+// Never throws: returns a safe placeholder if an id is unknown (e.g. corrupt
+// persisted profile data), so callers using `.name`/`.servicePrices` can't crash.
+const FALLBACK_SALON: Salon = { id: "unknown", name: "Unknown salon", city: "", servicePrices: { haircut: 23, color: 85 } };
+export const salonById = (id: string): Salon => SALONS.find((s) => s.id === id) ?? FALLBACK_SALON;
 
 /** Repository helper: all stylists in a salon (parity with the backend repo). */
 export const getStylistsBySalon = (salonId: string): User[] =>

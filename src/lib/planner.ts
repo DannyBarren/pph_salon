@@ -33,6 +33,14 @@ const DEFAULT_PRICES: PlannerPrices = { haircut: DEFAULT_HAIRCUT_PRICE, color: D
 
 const clampCount = (n: number) => Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
 
+/** Guard against a 0/negative/NaN service price (e.g. an admin typo) → no div-by-zero. */
+function safePrices(prices: PlannerPrices): PlannerPrices {
+  return {
+    haircut: prices.haircut > 0 ? prices.haircut : DEFAULT_HAIRCUT_PRICE,
+    color: prices.color > 0 ? prices.color : DEFAULT_COLOR_PRICE,
+  };
+}
+
 /**
  * Production ($) required to hit a desired effective pay rate over the planned
  * hours. Returns 0 when the target is at/under the guarantee (always achievable
@@ -60,9 +68,10 @@ export function snapServiceMix(
   haircutValueShare: number = DEFAULT_HAIRCUT_VALUE_SHARE,
 ): ServiceMix {
   if (targetProduction <= 0) return { haircuts: 0, colors: 0 };
-  const haircuts = clampCount((targetProduction * haircutValueShare) / prices.haircut);
+  const p = safePrices(prices);
+  const haircuts = clampCount((targetProduction * haircutValueShare) / p.haircut);
   // Force exact match: solve colors from whatever haircuts leave behind.
-  const colors = clampCount((targetProduction - haircuts * prices.haircut) / prices.color);
+  const colors = clampCount((targetProduction - haircuts * p.haircut) / p.color);
   return { haircuts, colors };
 }
 
@@ -78,12 +87,13 @@ export function adjustLinkedSlider(
   prices: PlannerPrices = DEFAULT_PRICES,
 ): ServiceMix {
   const value = clampCount(newValue);
+  const p = safePrices(prices);
   if (changed === "haircuts") {
-    const remaining = targetProduction - value * prices.haircut;
-    return { haircuts: value, colors: clampCount(remaining / prices.color) };
+    const remaining = targetProduction - value * p.haircut;
+    return { haircuts: value, colors: clampCount(remaining / p.color) };
   }
-  const remaining = targetProduction - value * prices.color;
-  return { haircuts: clampCount(remaining / prices.haircut), colors: value };
+  const remaining = targetProduction - value * p.color;
+  return { haircuts: clampCount(remaining / p.haircut), colors: value };
 }
 
 /** Total production ($) from a service mix. */
