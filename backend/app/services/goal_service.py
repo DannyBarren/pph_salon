@@ -81,8 +81,11 @@ def set_goal(
 ) -> Goal:
     """Create a new active goal, deactivating any existing one for the week.
 
-    Also creates a notification for the stylist's direct manager. Returns the
-    new goal.
+    This is also the **override path**: the Goal Planner's "Update Goal for this
+    Pay Period" calls the same function. The previous active goal is deactivated
+    (kept for history) and linked via ``previous_goal_id``; a notification is
+    created for the stylist's direct manager (worded "set" vs "updated").
+    Returns the new goal.
     """
     previous = get_active_goal(session, stylist.id, week_start)
     is_update = previous is not None

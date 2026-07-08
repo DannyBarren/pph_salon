@@ -167,8 +167,18 @@ function StylistGoalCard({ stylist, canReview, compact }: { stylist: User; canRe
     ? getGoalHistory(stylist.id, CURRENT_WEEK.start).find((g) => g.id === active.previousGoalId)
     : undefined;
 
-  const [comment, setComment] = useState("");
+  // Prefill with any existing comment so a re-review is an easy edit.
+  const [comment, setComment] = useState(active?.managerComment ?? "");
+  const [flash, setFlash] = useState<GoalApprovalStatus | null>(null);
   const mayReview = canReview && (currentUser.role === "sdl" || stylist.managerId === currentUser.id);
+  const reviewer = active?.reviewedBy ? userById(active.reviewedBy) : undefined;
+
+  const submitReview = (status: GoalApprovalStatus) => {
+    if (!active) return;
+    reviewGoal(active.id, status, comment.trim() || undefined);
+    setFlash(status);
+    setTimeout(() => setFlash(null), 2500);
+  };
 
   return (
     <Card className={cn(!compact && "shadow-none")}>
@@ -193,44 +203,53 @@ function StylistGoalCard({ stylist, canReview, compact }: { stylist: User; canRe
             <GoalRow label="Current goal" goal={active} highlight />
             {previous && <GoalRow label="Previous (overridden)" goal={previous} muted />}
 
-            {active.managerComment && (
-              <p className="rounded-xl bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[var(--color-ink-soft)]">
-                <b>Your comment:</b> {active.managerComment}
-              </p>
-            )}
-
+            {/* Review controls — prominent, prefilled, and re-reviewable. */}
             {mayReview && (
               <div className="space-y-2 border-t border-[var(--color-border)] pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">
+                    {active.reviewedAt ? "Update your review" : "Review this goal"}
+                  </span>
+                  {flash && (
+                    <span className="animate-pop text-xs font-medium text-[var(--color-success)]">
+                      ✓ {flash === "approved" ? "Approved" : "Disapproved"} — stylist notified
+                    </span>
+                  )}
+                </div>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value.replace(/[<>]/g, ""))}
                   rows={2}
-                  placeholder="Optional comment for the stylist…"
+                  placeholder="Add a comment for the stylist (optional)…"
                   className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 text-sm outline-none focus:border-[var(--color-brand)]"
                 />
                 <div className="flex gap-2">
-                  <Button
-                    variant="soft"
-                    size="sm"
-                    onClick={() => {
-                      reviewGoal(active.id, "approved", comment.trim() || undefined);
-                      setComment("");
-                    }}
-                  >
+                  <Button variant="primary" size="sm" onClick={() => submitReview("approved")}>
                     <Check size={15} /> Approve
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      reviewGoal(active.id, "disapproved", comment.trim() || undefined);
-                      setComment("");
-                    }}
-                  >
+                  <Button variant="danger" size="sm" onClick={() => submitReview("disapproved")}>
                     <X size={15} /> Disapprove
                   </Button>
                 </div>
+                {active.reviewedAt && (
+                  <p className="text-[11px] text-[var(--color-ink-faint)]">
+                    Last reviewed by {reviewer?.name ?? "you"} ·{" "}
+                    {new Date(active.reviewedAt).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
               </div>
+            )}
+
+            {/* Read-only comment view for non-reviewers (e.g. SDL browsing). */}
+            {!mayReview && active.managerComment && (
+              <p className="rounded-xl bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[var(--color-ink-soft)]">
+                <b>Manager comment:</b> {active.managerComment}
+              </p>
             )}
           </>
         )}

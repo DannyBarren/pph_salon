@@ -99,6 +99,41 @@ def test_review_sets_status_comment_and_notifies_stylist(session: Session):
     assert note is not None and "approved your goal" in note.message
 
 
+def test_disapprove_includes_comment_in_notification(session: Session):
+    _, mgr, steph, _ = _seed(session)
+    goal = goal_service.set_goal(
+        session, stylist=steph, week_start=WEEK, target_pph=48, target_hours=28,
+        target_haircuts=20, target_colors=8,
+    )
+    goal_service.review_goal(
+        session, goal=goal, reviewer=mgr, status=GoalApprovalStatus.disapproved,
+        comment="Bump colors a bit.",
+    )
+    note = session.exec(
+        select(Notification).where(Notification.recipient_id == steph.id).order_by(Notification.id.desc())
+    ).first()
+    assert note is not None
+    assert "disapproved your goal" in note.message
+    assert "Bump colors a bit." in note.message
+
+
+def test_re_review_updates_status_and_notifies_again(session: Session):
+    _, mgr, steph, _ = _seed(session)
+    goal = goal_service.set_goal(
+        session, stylist=steph, week_start=WEEK, target_pph=48, target_hours=28,
+        target_haircuts=20, target_colors=8,
+    )
+    goal_service.review_goal(session, goal=goal, reviewer=mgr, status=GoalApprovalStatus.disapproved, comment="No")
+    reviewed = goal_service.review_goal(
+        session, goal=goal, reviewer=mgr, status=GoalApprovalStatus.approved, comment="Better!"
+    )
+    assert reviewed.approval_status == GoalApprovalStatus.approved
+    assert reviewed.manager_comment == "Better!"
+    # Two review notifications to the stylist (one per review).
+    notes = session.exec(select(Notification).where(Notification.recipient_id == steph.id)).all()
+    assert len(notes) == 2
+
+
 def test_permissions_helpers(session: Session):
     _, mgr, steph, other = _seed(session)
     assert goal_service.can_review_goal(mgr, steph) is True  # direct report

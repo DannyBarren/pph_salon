@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, Scissors, Palette, Clock, Target, Wand2, AlertTriangle, Gauge, CalendarOff, Flag, Check, History } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { salonById, userById } from "@/lib/mockData";
@@ -61,12 +61,27 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
   const [payRate, setPayRate] = useState(defaultRate);
   const [hours, setHours] = useState(defaultHours);
   const [mix, setMix] = useState<ServiceMix>({ haircuts: 0, colors: 0 });
+  // NEW (V1.1): when true, the next auto-snap is skipped so a prefilled goal
+  // mix isn't overwritten by the linked-slider snapping.
+  const skipNextSnap = useRef(false);
 
-  // Reset defaults when the stylist changes.
+  // Prefill when the stylist changes. NEW (V1.1): if they already have an active
+  // goal for this pay period, load its exact content (pay rate ← PPH, hours, and
+  // the saved haircut/color mix) so "Update Goal" opens with their current goal
+  // ready to edit. Otherwise fall back to the schedule-based defaults.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setPayRate(defaultRate);
-    setHours(defaultHours);
+    const g = getActiveGoal(stylistId, CURRENT_WEEK.start);
+    if (g) {
+      // PPH = rate / 0.4  ⇒  rate = PPH × 0.4.
+      setPayRate(Math.min(MAX_PAY_RATE, Math.max(MIN_PAY_RATE, Math.round(g.targetPph * COMMISSION_RATE))));
+      setHours(g.targetHours);
+      setMix({ haircuts: g.targetHaircuts, colors: g.targetColors });
+      skipNextSnap.current = true; // keep the goal's exact mix, don't re-snap
+    } else {
+      setPayRate(defaultRate);
+      setHours(defaultHours);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stylistId]);
 
@@ -78,6 +93,10 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
   // the user moves the pay-rate or hours controls). Manual slider drags update
   // `mix` directly and don't touch the target, so they won't be overwritten.
   useEffect(() => {
+    if (skipNextSnap.current) {
+      skipNextSnap.current = false; // preserve a freshly prefilled goal mix
+      return;
+    }
     setMix(snapServiceMix(targetProduction, prices));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetProduction]);
@@ -397,13 +416,24 @@ function GoalSection({
           )}
         </div>
 
-        {/* Current plan preview (what "Set Goal" will save). */}
-        {canSetGoal && !activeGoal && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <GoalStat label="Target PPH" value={`${currentPlan.targetPph}`} />
-            <GoalStat label="Hours" value={`${num(currentPlan.targetHours)}h`} />
-            <GoalStat label="Haircuts" value={`${currentPlan.targetHaircuts}`} />
-            <GoalStat label="Colors" value={`${currentPlan.targetColors}`} />
+        {/* What "Set / Update Goal" will save (from the planner above). */}
+        {canSetGoal && (
+          <div>
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--color-ink-faint)]">
+              {activeGoal ? "From the planner — click Update to save" : "This will be saved"}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <GoalStat label="Target PPH" value={`${currentPlan.targetPph}`} />
+              <GoalStat label="Hours" value={`${num(currentPlan.targetHours)}h`} />
+              <GoalStat label="Haircuts" value={`${currentPlan.targetHaircuts}`} />
+              <GoalStat label="Colors" value={`${currentPlan.targetColors}`} />
+            </div>
+            {/* NEW (V1.1): make the replace-and-archive behavior explicit. */}
+            {activeGoal && (
+              <p className="mt-2 rounded-xl bg-[var(--color-warning-soft)] px-3 py-2 text-xs text-[var(--color-warning)]">
+                Updating replaces your current goal for this pay period. The previous goal moves to History.
+              </p>
+            )}
           </div>
         )}
 
@@ -438,16 +468,25 @@ function GoalSection({
             </div>
             <ul className="space-y-1.5">
               {priorGoals.map((g) => (
-                <li
-                  key={g.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm"
-                >
-                  <span className="text-[var(--color-ink-soft)]">
-                    PPH {g.targetPph} · {num(g.targetHours)}h · {g.targetHaircuts} cuts · {g.targetColors} colors
-                  </span>
-                  <span className="text-[11px] text-[var(--color-ink-faint)]">
-                    set {new Date(g.setAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                  </span>
+                <li key={g.id} className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[var(--color-ink-soft)]">
+                      PPH {g.targetPph} · {num(g.targetHours)}h · {g.targetHaircuts} cuts · {g.targetColors} colors
+                    </span>
+                    {/* NEW (V1.1): show each superseded goal's final status + set time. */}
+                    <span className="flex items-center gap-2">
+                      <Badge tone={STATUS_META[g.approvalStatus].tone}>{STATUS_META[g.approvalStatus].label}</Badge>
+                      <span className="text-[11px] text-[var(--color-ink-faint)]">
+                        {new Date(g.setAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </span>
+                  </div>
+                  {/* NEW (V1.1): manager comment on the archived goal, if any. */}
+                  {g.managerComment && (
+                    <p className="mt-1 text-xs text-[var(--color-ink-faint)]">
+                      <b>Manager:</b> {g.managerComment}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
