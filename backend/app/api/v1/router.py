@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import admin, auth, health, messages, payplan, users
+from app.api.v1 import admin, auth, goals, health, messages, payplan, users
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -13,3 +13,5 @@ api_router.include_router(users.router)
 api_router.include_router(payplan.router)
 api_router.include_router(admin.router)
 api_router.include_router(messages.router)
+api_router.include_router(goals.router)
+api_router.include_router(goals.notif_router)
