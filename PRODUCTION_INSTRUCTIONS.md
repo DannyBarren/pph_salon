@@ -125,6 +125,8 @@ Accounts cascade down the chain **owner → admin → manager → stylist**. Eac
 
 Managers are therefore **responsible for setting up their own stylists**, and they cannot touch other salons or create peers/superiors. Self-registration is disabled entirely.
 
+> **Full, step-by-step account guide:** [`ACCOUNT_SETUP_GUIDE.md`](./ACCOUNT_SETUP_GUIDE.md) covers the whole flow (first owner → managers → stylists), the CSV formats, credential distribution, password resets, and troubleshooting.
+
 ### 5.2 Owner/admin bootstraps the org (Admin panel)
 Sign in as the owner (§3.3) → open **Admin**:
 1. **Salons** tab → create each salon (name, city, guarantee $/hr, haircut/color prices).

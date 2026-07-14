@@ -34,6 +34,10 @@ The **Next.js web app lives at the repository root**, so Vercel deploys it with
 > **Deploying for real?** Follow [`PRODUCTION_INSTRUCTIONS.md`](./PRODUCTION_INSTRUCTIONS.md)
 > — a complete step-by-step deploy + first-run guide (admin bootstrap, Vercel +
 > Railway/Render, env vars, seeding, data import, security checklist, scaling).
+>
+> **Setting up users?** See [`ACCOUNT_SETUP_GUIDE.md`](./ACCOUNT_SETUP_GUIDE.md)
+> — a full guide to the account hierarchy (owner → admin → manager → stylist),
+> creating the first owner, and how each level provisions the accounts below it.
 
 ## Quick start (frontend)
 
