@@ -5,10 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test:planner": "node --test scripts/test-planner.mjs",
-    "test:calc": "node --test scripts/test-team-calculations.mjs"
+    "test:calc": "node --test scripts/test-team-calculations.mjs",
+    "test:parity": "node --test scripts/test-pay-parity.mjs",
+    "test": "npm run test:calc && npm run test:planner && npm run test:parity"
   },
   "dependencies": {
     "lucide-react": "^1.22.0",
