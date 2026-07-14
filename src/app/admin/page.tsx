@@ -6,7 +6,9 @@ import { useApp } from "@/store/AppContext";
 import { AdminConfigPanel } from "@/components/AdminConfigPanel";
 import { DataManagementPanel } from "@/components/DataManagementPanel";
 import { DataInputPanel } from "@/components/DataInputPanel";
+import { AdminManagement } from "@/components/admin/AdminManagement";
 import { Card, CardBody } from "@/components/ui/primitives";
+import { DEMO_MODE } from "@/lib/featureFlags";
 
 export default function AdminPage() {
   const { currentUser } = useApp();
@@ -19,7 +21,8 @@ export default function AdminPage() {
           <div>
             <h2 className="text-base font-semibold">Admin configuration</h2>
             <p className="mt-1 text-sm text-[var(--color-ink-faint)]">
-              Only the SDL / Owner can edit pay parameters and import data. Switch to the owner account to access this.
+              Only the SDL / Owner (super-admin) can manage salons, users, and pay
+              configuration.
             </p>
           </div>
         </CardBody>
@@ -30,14 +33,31 @@ export default function AdminPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Admin Configuration</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
         <p className="text-sm text-[var(--color-ink-faint)]">
-          Control the pay engine and import production data. Everything updates the app instantly.
+          Manage salons, provision users (single or bulk CSV), configure pay plans,
+          import performance data, and review the audit trail.
         </p>
       </div>
-      <DataManagementPanel />
-      <AdminConfigPanel />
-      <DataInputPanel />
+
+      {/* Real, Postgres-backed management (works in demo + production). */}
+      <AdminManagement />
+
+      {/* Legacy in-memory demo controls — hidden in production where all state
+          lives in Postgres via the API above. */}
+      {DEMO_MODE && (
+        <>
+          <div className="pt-2">
+            <h2 className="text-lg font-semibold tracking-tight">Demo pay-engine playground</h2>
+            <p className="text-sm text-[var(--color-ink-faint)]">
+              Local-only controls for the offline demo dataset (not persisted to the backend).
+            </p>
+          </div>
+          <DataManagementPanel />
+          <AdminConfigPanel />
+          <DataInputPanel />
+        </>
+      )}
     </div>
   );
 }

@@ -8,11 +8,11 @@ template — so the same file can be re-imported safely and manual edits win.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
-from app.models import Salon, User, UserRole, Week
+from app.models import DailyPerformance, Salon, User, UserRole, Week
 from app.schemas.weekly import WeeklyDataInput
 
 
@@ -119,3 +119,89 @@ def upsert_weekly_data_by_user_and_week(
         session.commit()
         session.refresh(week)
     return week, created
+
+
+def week_start_for(day: date) -> date:
+    """Monday of the week containing ``day`` (weeks run Mon–Sun, per the spec)."""
+    return day - timedelta(days=day.weekday())
+
+
+def upsert_daily_performance(
+    session: Session,
+    user_id: int,
+    day: date,
+    *,
+    scheduled_hrs: float = 0.0,
+    actual_hrs: float | None = None,
+    haircuts: int | None = None,
+    colors: int | None = None,
+    other_value: float | None = None,
+    commit: bool = True,
+) -> tuple[DailyPerformance, bool]:
+    """Insert/update one :class:`DailyPerformance` row and keep its parent Week
+    aggregate in sync (sum of daily hours/production).
+
+    Ensures a parent ``Week`` exists (keyed by the Monday of ``day``), writes the
+    daily row, then recomputes the week totals from *all* its daily rows so the
+    weekly view and the daily breakdown never drift apart.
+    """
+    user = session.get(User, user_id)
+    salon = session.get(Salon, user.salon_id) if user else None
+    prices = (salon.service_prices if salon else None) or {"haircut": 23.0, "color": 85.0}
+    haircut_price = float(prices.get("haircut", 23.0))
+    color_price = float(prices.get("color", 85.0))
+
+    ws = week_start_for(day)
+    week = session.exec(
+        select(Week).where(Week.stylist_id == user_id, Week.week_start == ws)
+    ).first()
+    if week is None:
+        week = Week(stylist_id=user_id, week_start=ws, week_end=ws + timedelta(days=6),
+                    scheduled_total_hrs=0.0)
+        session.add(week)
+        session.flush()
+
+    day_production = None
+    if any(v is not None for v in (haircuts, colors, other_value)):
+        day_production = (haircuts or 0) * haircut_price + (colors or 0) * color_price + (
+            other_value or 0.0)
+
+    existing = session.exec(
+        select(DailyPerformance).where(
+            DailyPerformance.week_id == week.id, DailyPerformance.date == day
+        )
+    ).first()
+    if existing is None:
+        row = DailyPerformance(
+            week_id=week.id, date=day, scheduled_hrs=scheduled_hrs, actual_hrs=actual_hrs,
+            actual_production=day_production, haircuts=haircuts, colors=colors,
+        )
+        session.add(row)
+        created = True
+    else:
+        existing.scheduled_hrs = scheduled_hrs
+        existing.actual_hrs = actual_hrs
+        existing.haircuts = haircuts
+        existing.colors = colors
+        if day_production is not None:
+            existing.actual_production = day_production
+        row = existing
+        created = False
+    session.flush()
+
+    # Recompute weekly aggregates from all daily rows.
+    dailies = session.exec(
+        select(DailyPerformance).where(DailyPerformance.week_id == week.id)
+    ).all()
+    week.scheduled_total_hrs = sum(d.scheduled_hrs or 0.0 for d in dailies)
+    week.actual_total_hrs = sum(d.actual_hrs or 0.0 for d in dailies) or None
+    week.actual_haircuts = sum(d.haircuts or 0 for d in dailies) or None
+    week.actual_colors = sum(d.colors or 0 for d in dailies) or None
+    prod = sum(d.actual_production or 0.0 for d in dailies)
+    week.actual_production = prod or None
+    session.add(week)
+
+    if commit:
+        session.commit()
+        session.refresh(row)
+    return row, created

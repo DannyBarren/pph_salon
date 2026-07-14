@@ -19,7 +19,37 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    pass
+    # Optional initial password. When omitted, a strong random temporary
+    # password is generated and (optionally) emailed to the user.
+    password: str | None = None
+
+
+class BulkUserRow(BaseModel):
+    """One row of the CSV bulk-user import (email, name, role, salon_id, manager_id)."""
+
+    email: str
+    name: str
+    role: UserRole = UserRole.stylist
+    salon_id: int | None = None
+    salon_name: str | None = None
+    manager_id: int | None = None
+    manager_email: str | None = None
+    title: str | None = None
+    phone: str | None = None
+    guarantee_rate: float | None = None
+    password: str | None = None
+
+
+class BulkUserResult(BaseModel):
+    """Summary returned by the bulk-user import endpoint."""
+
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: list[str] = []
+    # Temporary passwords for freshly created users (email -> temp password),
+    # returned once so the admin can distribute credentials. Empty when emailing.
+    credentials: dict[str, str] = {}
 
 
 class UserUpdate(BaseModel):

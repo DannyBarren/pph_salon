@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_user, require_role
+from app.api.deps import get_current_user, require_super_admin
 from app.core import security
 from app.core.config import Settings, get_settings
+from app.core.limiter import limiter
 from app.db.session import get_session
 from app.models import User
 from app.schemas.auth import (
@@ -22,17 +23,27 @@ from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_LOGIN_LIMIT = get_settings().rate_limit_login
+
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(
     body: RegisterRequest,
     session: Session = Depends(get_session),
-    _admin: User = Depends(require_role(["admin"])),
+    _admin: User = Depends(require_super_admin),
 ) -> User:
-    """Invite-only: an admin creates a user with an initial password."""
+    """Invite-only: a super-admin creates a user with an initial password.
+
+    Self-registration is intentionally disabled — accounts are provisioned by an
+    admin (single form) or via the CSV bulk importer.
+    """
     existing = session.exec(select(User).where(User.email == body.email)).first()
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+    try:
+        security.validate_password(body.password)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     user = User(
         name=body.name,
         email=body.email,
@@ -50,7 +61,14 @@ def register(
 
 
 @router.post("/login", response_model=Token)
-def login(body: LoginRequest, session: Session = Depends(get_session)) -> Token:
+@limiter.limit(_LOGIN_LIMIT)
+def login(
+    request: Request,
+    body: LoginRequest,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> Token:
+    """Rate-limited email/password login → JWT access + refresh pair."""
     user = session.exec(select(User).where(User.email == body.email)).first()
     if (
         user is None
@@ -59,6 +77,7 @@ def login(body: LoginRequest, session: Session = Depends(get_session)) -> Token:
         or not security.verify_password(body.password, user.hashed_password)
     ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
+    # Optional email-verification gate (stub): requires a verified flag when on.
     return Token(
         access_token=security.create_access_token(user.id, role=str(user.role)),
         refresh_token=security.create_refresh_token(user.id),

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, ChevronDown, Repeat2, ShieldCheck, Store, Users } from "lucide-react";
+import { Check, ChevronDown, LogOut, Repeat2, ShieldCheck, Store, Users } from "lucide-react";
 import { useApp } from "@/store/AppContext";
+import { useAuth } from "@/store/AuthContext";
 import { DEMO_ACCOUNT_IDS, USERS, salonById, stylistsForUser, userById } from "@/lib/mockData";
 import type { Role, User } from "@/lib/types";
 import { Avatar, Badge, Modal } from "@/components/ui/primitives";
@@ -14,10 +15,38 @@ const roleMeta: Record<Role, { label: string; tone: "brand" | "success" | "warni
   sdl: { label: "SDL · Owner", tone: "success", icon: <ShieldCheck size={14} />, blurb: () => `Full access across every salon` },
 };
 
+/** Production user menu: identity + sign out (no demo persona switching). */
+function UserMenu() {
+  const { currentUser } = useApp();
+  const { logout } = useAuth();
+  const meta = roleMeta[currentUser.role];
+  return (
+    <div className="flex items-center gap-2">
+      <span className="hidden text-right leading-tight sm:block">
+        <span className="block text-sm font-semibold">{currentUser.name}</span>
+        <span className="block text-xs text-[var(--color-ink-faint)]">{meta.label}</span>
+      </span>
+      <Avatar initials={currentUser.initials} hue={currentUser.hue} size={34} />
+      <button
+        onClick={logout}
+        aria-label="Sign out"
+        className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-ink-soft)] transition hover:bg-[var(--color-surface-2)]"
+      >
+        <LogOut size={14} />
+        <span className="hidden sm:inline">Sign out</span>
+      </button>
+    </div>
+  );
+}
+
 export function AccountSwitcher() {
   const { currentUser, setCurrentUserId } = useApp();
+  const { demoMode } = useAuth();
   const [open, setOpen] = useState(false);
   const meta = roleMeta[currentUser.role];
+
+  // Production: real identity + logout, no instant persona switching.
+  if (!demoMode) return <UserMenu />;
 
   const demoAccounts = DEMO_ACCOUNT_IDS.map((id) => userById(id)!).filter(Boolean);
 

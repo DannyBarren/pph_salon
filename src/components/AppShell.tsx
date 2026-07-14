@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone, Flag } from "lucide-react";
+import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone, Flag, CalendarDays, Tag, Bell } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
@@ -22,20 +22,25 @@ interface NavItem {
 // With the Team Dashboard flag on, managers/SDL use it as their home and the
 // personal Dashboard is stylist-only. With the flag off we keep the original
 // nav. The Board (announcements) tab is available to everyone in both layouts.
+const ALL: Role[] = ["stylist", "manager", "sdl"];
 const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
   ? [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist"] },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
-      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ALL },
+      { href: "/calendar", label: "Calendar", icon: <CalendarDays size={20} />, roles: ALL },
       { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
-      { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
+      { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ]
   : [
-      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist", "manager", "sdl"] },
-      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ALL },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ALL },
+      { href: "/calendar", label: "Calendar", icon: <CalendarDays size={20} />, roles: ALL },
       { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
-      { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ["stylist", "manager", "sdl"] },
+      { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
+      { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ];
@@ -113,7 +118,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              href="/notifications"
+              aria-label={goalUnread > 0 ? `Notifications, ${goalUnread} unread` : "Notifications"}
+              className="relative grid h-9 w-9 place-items-center rounded-full border border-[var(--color-border)] text-[var(--color-ink-soft)] transition hover:bg-[var(--color-surface-2)]"
+            >
+              <Bell size={18} />
+              {goalUnread > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-[var(--color-brand)] px-1 text-[10px] font-bold text-white">
+                  {goalUnread}
+                </span>
+              )}
+            </Link>
             <AccountSwitcher />
           </div>
         </div>

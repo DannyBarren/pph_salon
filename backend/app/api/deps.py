@@ -98,6 +98,29 @@ def require_role(roles: Sequence[str]):
     return dependency
 
 
+def require_super_admin(user: User = Depends(get_current_user)) -> User:
+    """Only ``admin`` / ``owner`` (the super-admin personas) may pass.
+
+    Used to gate destructive / org-wide operations: creating salons, bulk user
+    import, pay-plan configuration, and audit-log access.
+    """
+    if user.role not in (UserRole.admin, UserRole.owner):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Super-admin privileges required")
+    return user
+
+
+def assert_salon_access(user: User, salon_id: int | None) -> None:
+    """Row-level salon scoping guard.
+
+    admin / owner may touch any salon. Everyone else is confined to their own
+    ``salon_id``. Raises 403 on a cross-salon attempt.
+    """
+    if user.role in (UserRole.admin, UserRole.owner):
+        return
+    if salon_id is not None and salon_id != user.salon_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Cross-salon access denied")
+
+
 def visible_stylist_ids(user: User, session: Session) -> list[int]:
     """IDs of stylists the ``user`` may see.
 

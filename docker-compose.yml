@@ -29,9 +29,13 @@ services:
   backend:
     build: ./backend
     environment:
-      ENVIRONMENT: development
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       DATABASE_URL: postgresql+psycopg2://pph:pph@db:5432/pph
-      CORS_ORIGINS: '["http://localhost:3000"]'
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # Local dev defaults; override for a production-like run:
+      #   ENVIRONMENT=production SECRET_KEY=... DEMO_MODE=false docker compose up
+      SECRET_KEY: ${SECRET_KEY:-dev-insecure-change-me}
+      DEMO_MODE: ${DEMO_MODE:-true}
     ports:
       - "8000:8000"
     depends_on:
@@ -39,7 +43,14 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+    # Dev command with autoreload. The image's default CMD (entrypoint.sh) runs
+    # migrations + gunicorn for production.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
