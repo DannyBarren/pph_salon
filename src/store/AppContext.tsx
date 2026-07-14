@@ -27,6 +27,9 @@ import {
 } from "@/lib/mockData";
 import { CURRENT_WEEK, WEEKS } from "@/lib/time";
 import { canPostAnnouncements } from "@/lib/roles";
+import { useAuth } from "@/store/AuthContext";
+import { authUserToFrontend } from "@/lib/authUser";
+import { DEMO_MODE } from "@/lib/featureFlags";
 
 const STORAGE_KEY = "pph-state-v1";
 
@@ -135,10 +138,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<number>(CURRENT_WEEK.periodIndex);
   const [ready, setReady] = useState(false);
 
+  const auth = useAuth();
+
   // Load persisted state after mount (avoids SSR hydration mismatch). Setting
   // state from persisted storage on mount is the intended pattern here.
+  // Persistence is DEMO-ONLY: in production every entity lives in Postgres via
+  // the API, so we never read/write mock state to localStorage.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    if (!DEMO_MODE) {
+      setReady(true);
+      return;
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -180,9 +191,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Persist relevant state.
+  // Persist relevant state (demo mode only — production is Postgres-backed).
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !DEMO_MODE) return;
     const payload: PersistShape = {
       currentUserId,
       config,
@@ -202,7 +213,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [ready, currentUserId, config, overrides, weeklyData, userProfiles, boardPosts, boardAcks, boardLastSeen, goals, notifications]);
 
-  const currentUser = userById(currentUserId) ?? USERS[0];
+  // In production the identity comes from the authenticated session (/auth/me);
+  // in demo mode it comes from the mock user table + the account switcher.
+  const currentUser = useMemo(() => {
+    if (!DEMO_MODE && auth.user) return authUserToFrontend(auth.user);
+    return userById(currentUserId) ?? USERS[0];
+  }, [auth.user, currentUserId]);
   const allowedStylists = useMemo(() => stylistsForUser(currentUser), [currentUser]);
 
   // Derive a guaranteed-valid viewed stylist for the current role (no effect
