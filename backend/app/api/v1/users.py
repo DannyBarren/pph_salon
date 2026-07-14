@@ -12,8 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.api.deps import (
+    assert_can_create_user,
+    assert_can_manage_user,
     get_current_user,
-    require_super_admin,
+    is_super_admin,
+    require_manager_or_above,
     visible_stylist_ids,
 )
 from app.core import security
@@ -64,16 +67,31 @@ def list_users(
 def create_user(
     body: UserCreate,
     session: Session = Depends(get_session),
-    admin: User = Depends(require_super_admin),
+    creator: User = Depends(require_manager_or_above),
 ) -> User:
-    """Create a single user (super-admin). Generates a temp password if omitted."""
+    """Provision a subordinate account (delegated, hierarchical).
+
+    * **Super-admins** (owner/admin) can create any role below their own in any
+      salon and assign any manager.
+    * **Managers** can create **stylists in their own salon**; the new stylist is
+      automatically assigned to report to the manager who created them.
+    """
     if body.email:
         existing = session.exec(select(User).where(User.email == body.email)).first()
         if existing is not None:
             raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
-    salon = session.get(Salon, body.salon_id)
+
+    # Managers are confined to their salon and become the report's manager.
+    salon_id = body.salon_id if is_super_admin(creator) else creator.salon_id
+    manager_id = body.manager_id if is_super_admin(creator) else creator.id
+
+    assert_can_create_user(creator, body.role, salon_id)
+
+    salon = session.get(Salon, salon_id)
     if salon is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown salon_id {body.salon_id}")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown salon_id {salon_id}")
+    if manager_id is not None and session.get(User, manager_id) is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown manager_id")
 
     password = body.password or security.generate_temp_password()
     try:
@@ -84,8 +102,8 @@ def create_user(
     user = User(
         name=body.name,
         role=body.role,
-        salon_id=body.salon_id,
-        manager_id=body.manager_id,
+        salon_id=salon_id,
+        manager_id=manager_id,
         title=body.title,
         email=body.email,
         phone=body.phone,
@@ -99,9 +117,10 @@ def create_user(
     if user.email:
         send_welcome_email(user.email, user.name,
                            temp_password=None if body.password else password)
-    record_audit(session, actor=admin, action="user.create", target_type="user",
+    record_audit(session, actor=creator, action="user.create", target_type="user",
                  target_id=user.id, salon_id=user.salon_id,
-                 detail={"role": str(user.role), "email": user.email})
+                 detail={"role": str(user.role), "email": user.email,
+                         "manager_id": user.manager_id})
     return user
 
 
@@ -110,25 +129,36 @@ def update_user(
     user_id: int,
     body: UserUpdate,
     session: Session = Depends(get_session),
-    admin: User = Depends(require_super_admin),
+    actor: User = Depends(require_manager_or_above),
 ) -> User:
-    """Update a user, including role and manager assignment (super-admin)."""
+    """Update a subordinate account (role/manager/details).
+
+    Super-admins may update anyone; managers may update only subordinate accounts
+    in their own salon and cannot elevate a user to/above their own rank or move
+    them to another salon.
+    """
     user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    assert_can_manage_user(actor, user)
+
     updates = body.model_dump(exclude_none=True)
+    if not is_super_admin(actor):
+        # Managers can't reassign salons or promote to/above their own rank.
+        updates.pop("salon_id", None)
+        if "role" in updates:
+            assert_can_create_user(actor, updates["role"], user.salon_id)
     if "salon_id" in updates and session.get(Salon, updates["salon_id"]) is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown salon_id")
-    if "manager_id" in updates:
-        mgr = session.get(User, updates["manager_id"])
-        if mgr is None:
+    if "manager_id" in updates and updates["manager_id"] is not None:
+        if session.get(User, updates["manager_id"]) is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown manager_id")
     for key, value in updates.items():
         setattr(user, key, value)
     session.add(user)
     session.commit()
     session.refresh(user)
-    record_audit(session, actor=admin, action="user.update", target_type="user",
+    record_audit(session, actor=actor, action="user.update", target_type="user",
                  target_id=user.id, salon_id=user.salon_id,
                  detail={"fields": list(updates)})
     return user
@@ -138,15 +168,17 @@ def update_user(
 def deactivate_user(
     user_id: int,
     session: Session = Depends(get_session),
-    admin: User = Depends(require_super_admin),
+    actor: User = Depends(require_manager_or_above),
 ) -> User:
+    """Deactivate a subordinate account (super-admin anywhere; manager in-salon)."""
     user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    assert_can_manage_user(actor, user)
     user.is_active = False
     session.add(user)
     session.commit()
     session.refresh(user)
-    record_audit(session, actor=admin, action="user.deactivate", target_type="user",
+    record_audit(session, actor=actor, action="user.deactivate", target_type="user",
                  target_id=user.id, salon_id=user.salon_id, detail={})
     return user

@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     # ── Observability ───────────────────────────────────────────────────
     sentry_dsn: str | None = None
 
+    # ── First-run bootstrap ─────────────────────────────────────────────
+    # A one-time secret that authorises creating the FIRST owner account via
+    # ``POST /auth/bootstrap`` — and only while the users table is empty. Unset
+    # (None) disables the endpoint entirely. Set it for the initial deploy, then
+    # rotate/unset it once the owner exists. This gives a secure, console-free way
+    # to establish the top of the hierarchy without leaving open registration.
+    bootstrap_token: str | None = None
+
     # ── Demo mode ───────────────────────────────────────────────────────
     # When True, ALL auth is bypassed: get_current_user injects an admin-level
     # user so every protected endpoint works with NO login. Flip to False (env

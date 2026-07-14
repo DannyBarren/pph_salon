@@ -111,19 +111,27 @@ def bulk_create_users(
     session: Session,
     rows: list[dict[str, Any]],
     *,
+    creator: User | None = None,
     email_credentials: bool = False,
 ) -> BulkUserResult:
-    """Create/update users from parsed CSV rows.
+    """Create/update users from parsed CSV rows, scoped to ``creator``'s authority.
 
     Rows are keyed by ``email``. Existing emails are updated (role/salon/manager/
     name); new emails are created with a generated temp password. ``manager_id``
     or ``manager_email`` resolve the reporting line. Returns a summary with any
     generated credentials (unless ``email_credentials`` sends them instead).
+
+    Delegated provisioning: a **super-admin** creator may import any role into any
+    salon. A **manager** creator may import only stylists into their own salon,
+    and every imported stylist is auto-assigned to report to that manager — any
+    row that violates this is skipped with an explanatory error.
     """
+    from app.api.deps import assert_can_create_user, is_super_admin  # local to avoid cycle
     from app.services.notifications_out import send_welcome_email
 
     result = BulkUserResult()
     salon_cache: dict[str, Salon | None] = {}
+    creator_is_super = creator is None or is_super_admin(creator)
 
     for i, raw in enumerate(rows, start=2):  # header is row 1
         email = (str(raw.get("email")).strip() if raw.get("email") else None)
@@ -141,9 +149,24 @@ def bulk_create_users(
             result.errors.append(f"Row {i}: invalid role '{role_raw}'")
             continue
 
+        # Managers are confined to stylists in their own salon.
+        if not creator_is_super and creator is not None:
+            role = UserRole.stylist if role == UserRole.stylist else role
+            try:
+                assert_can_create_user(creator, role, creator.salon_id)
+            except Exception:  # noqa: BLE001 - convert perm error into a skipped row
+                result.skipped += 1
+                result.errors.append(
+                    f"Row {i}: you can only import stylists into your own salon"
+                )
+                continue
+
         salon_id_raw = raw.get("salon_id")
         salon_id = int(salon_id_raw) if str(salon_id_raw or "").strip().isdigit() else None
-        salon = _resolve_salon(session, salon_id, raw.get("salon_name"), salon_cache)
+        if not creator_is_super and creator is not None:
+            salon = session.get(Salon, creator.salon_id)
+        else:
+            salon = _resolve_salon(session, salon_id, raw.get("salon_name"), salon_cache)
         if salon is None:
             result.skipped += 1
             result.errors.append(
@@ -152,16 +175,19 @@ def bulk_create_users(
             )
             continue
 
-        # Resolve manager by id or email.
+        # Resolve manager by id or email (managers always own their reports).
         manager_id = None
-        mid_raw = raw.get("manager_id")
-        if str(mid_raw or "").strip().isdigit():
-            manager_id = int(mid_raw)
-        elif raw.get("manager_email"):
-            mgr = session.exec(
-                select(User).where(User.email == str(raw["manager_email"]).strip())
-            ).first()
-            manager_id = mgr.id if mgr else None
+        if not creator_is_super and creator is not None:
+            manager_id = creator.id
+        else:
+            mid_raw = raw.get("manager_id")
+            if str(mid_raw or "").strip().isdigit():
+                manager_id = int(mid_raw)
+            elif raw.get("manager_email"):
+                mgr = session.exec(
+                    select(User).where(User.email == str(raw["manager_email"]).strip())
+                ).first()
+                manager_id = mgr.id if mgr else None
 
         guarantee = raw.get("guarantee_rate")
         try:
@@ -171,6 +197,15 @@ def bulk_create_users(
 
         existing = session.exec(select(User).where(User.email == email)).first()
         if existing is not None:
+            # A non-super creator may only touch subordinates in their own salon.
+            if not creator_is_super and creator is not None and (
+                existing.salon_id != creator.salon_id or existing.role != UserRole.stylist
+            ):
+                result.skipped += 1
+                result.errors.append(
+                    f"Row {i}: '{email}' is not a stylist you manage — skipped"
+                )
+                continue
             existing.name = name
             existing.role = role
             existing.salon_id = salon.id

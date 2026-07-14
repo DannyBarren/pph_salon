@@ -33,6 +33,19 @@ class RegisterRequest(BaseModel):
     title: str | None = None
 
 
+class BootstrapRequest(BaseModel):
+    """First-run: create the top-of-hierarchy owner + salon (token-gated).
+
+    Only valid while the users table is empty and ``BOOTSTRAP_TOKEN`` is set.
+    """
+
+    token: str
+    email: EmailStr
+    password: str
+    name: str
+    salon_name: str = "Main Salon"
+
+
 class CurrentUser(BaseModel):
     """Public shape of the authenticated principal (also used in demo mode)."""
 

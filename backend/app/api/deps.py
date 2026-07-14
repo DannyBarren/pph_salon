@@ -98,15 +98,81 @@ def require_role(roles: Sequence[str]):
     return dependency
 
 
+# Role seniority ladder. Higher rank = more authority. A user may only ever
+# provision / manage accounts *strictly below* their own rank, which yields the
+# delegated chain owner → admin → manager → stylist.
+ROLE_RANK: dict[UserRole, int] = {
+    UserRole.stylist: 0,
+    UserRole.manager: 1,
+    UserRole.admin: 2,
+    UserRole.owner: 3,
+}
+
+
+def role_rank(role: UserRole) -> int:
+    return ROLE_RANK.get(role, 0)
+
+
+def is_super_admin(user: User) -> bool:
+    """admin / owner have org-wide authority (all salons)."""
+    return user.role in (UserRole.admin, UserRole.owner)
+
+
 def require_super_admin(user: User = Depends(get_current_user)) -> User:
     """Only ``admin`` / ``owner`` (the super-admin personas) may pass.
 
-    Used to gate destructive / org-wide operations: creating salons, bulk user
+    Used to gate destructive / org-wide operations: creating salons, bulk data
     import, pay-plan configuration, and audit-log access.
     """
-    if user.role not in (UserRole.admin, UserRole.owner):
+    if not is_super_admin(user):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Super-admin privileges required")
     return user
+
+
+def require_manager_or_above(user: User = Depends(get_current_user)) -> User:
+    """Managers and up (manager / admin / owner). Stylists are the leaf level."""
+    if role_rank(user.role) < ROLE_RANK[UserRole.manager]:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only managers and above can provision accounts",
+        )
+    return user
+
+
+def assert_can_create_user(
+    creator: User, target_role: UserRole, target_salon_id: int
+) -> None:
+    """Enforce the delegated-provisioning rules for creating a user.
+
+    * A creator may only create accounts **strictly below** their own rank
+      (owner→admin/manager/stylist, admin→manager/stylist, manager→stylist).
+    * Non super-admins (managers) are confined to **their own salon**.
+    """
+    if role_rank(target_role) >= role_rank(creator.role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can only create accounts below your own level",
+        )
+    if not is_super_admin(creator) and target_salon_id != creator.salon_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can only create users in your own salon",
+        )
+
+
+def assert_can_manage_user(actor: User, target: User) -> None:
+    """Enforce who may edit / deactivate an existing user.
+
+    Super-admins may manage anyone. A manager may manage only accounts strictly
+    below their rank within their own salon (their direct/indirect reports).
+    """
+    if is_super_admin(actor):
+        return
+    if role_rank(target.role) >= role_rank(actor.role) or target.salon_id != actor.salon_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can only manage subordinate accounts in your own salon",
+        )
 
 
 def assert_salon_access(user: User, salon_id: int | None) -> None:

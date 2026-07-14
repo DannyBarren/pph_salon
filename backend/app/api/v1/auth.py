@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+import secrets
+
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_user, require_super_admin
+from app.api.deps import (
+    assert_can_create_user,
+    get_current_user,
+    is_super_admin,
+    require_manager_or_above,
+)
 from app.core import security
 from app.core.config import Settings, get_settings
 from app.core.limiter import limiter
 from app.db.session import get_session
-from app.models import User
+from app.models import Salon, User, UserRole
 from app.schemas.auth import (
+    BootstrapRequest,
     CurrentUser,
     LoginRequest,
     RefreshRequest,
@@ -20,6 +28,7 @@ from app.schemas.auth import (
     Token,
 )
 from app.schemas.user import UserRead
+from app.services.audit import record_audit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -30,12 +39,13 @@ _LOGIN_LIMIT = get_settings().rate_limit_login
 def register(
     body: RegisterRequest,
     session: Session = Depends(get_session),
-    _admin: User = Depends(require_super_admin),
+    creator: User = Depends(require_manager_or_above),
 ) -> User:
-    """Invite-only: a super-admin creates a user with an initial password.
+    """Invite-only, hierarchical: create a subordinate account with a password.
 
-    Self-registration is intentionally disabled — accounts are provisioned by an
-    admin (single form) or via the CSV bulk importer.
+    Self-registration is disabled. A creator may only invite roles below their
+    own; managers are confined to stylists in their own salon (auto-assigned as
+    the report's manager). Prefer ``POST /users`` for admin-generated passwords.
     """
     existing = session.exec(select(User).where(User.email == body.email)).first()
     if existing is not None:
@@ -44,12 +54,17 @@ def register(
         security.validate_password(body.password)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    salon_id = body.salon_id if is_super_admin(creator) else creator.salon_id
+    manager_id = body.manager_id if is_super_admin(creator) else creator.id
+    assert_can_create_user(creator, body.role, salon_id)
+
     user = User(
         name=body.name,
         email=body.email,
         role=body.role,
-        salon_id=body.salon_id,
-        manager_id=body.manager_id,
+        salon_id=salon_id,
+        manager_id=manager_id,
         title=body.title,
         hashed_password=security.hash_password(body.password),
         is_active=True,
@@ -58,6 +73,61 @@ def register(
     session.commit()
     session.refresh(user)
     return user
+
+
+@router.post("/bootstrap", response_model=Token, status_code=status.HTTP_201_CREATED)
+@limiter.limit(_LOGIN_LIMIT)
+def bootstrap(
+    request: Request,
+    body: BootstrapRequest,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> Token:
+    """Create the first owner (top of the hierarchy) — token-gated, one-time.
+
+    Guards:
+    * ``BOOTSTRAP_TOKEN`` must be configured (else the endpoint is disabled), and
+      the provided token must match (constant-time compare).
+    * Only succeeds while **no users exist** — prevents re-use as a backdoor.
+
+    Returns a JWT pair so the new owner is immediately signed in.
+    """
+    if not settings.bootstrap_token:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bootstrap is disabled")
+    provided = body.token or request.headers.get("X-Bootstrap-Token") or ""
+    if not secrets.compare_digest(provided, settings.bootstrap_token):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid bootstrap token")
+    if session.exec(select(User)).first() is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Application is already initialised")
+    try:
+        security.validate_password(body.password)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    salon = session.exec(select(Salon).where(Salon.name == body.salon_name)).first()
+    if salon is None:
+        salon = Salon(name=body.salon_name)
+        session.add(salon)
+        session.commit()
+        session.refresh(salon)
+
+    owner = User(
+        name=body.name,
+        email=body.email,
+        role=UserRole.owner,
+        salon_id=salon.id,
+        hashed_password=security.hash_password(body.password),
+        is_active=True,
+    )
+    session.add(owner)
+    session.commit()
+    session.refresh(owner)
+    record_audit(session, actor=owner, action="auth.bootstrap", target_type="user",
+                 target_id=owner.id, salon_id=salon.id, detail={"email": owner.email})
+    return Token(
+        access_token=security.create_access_token(owner.id, role=str(owner.role)),
+        refresh_token=security.create_refresh_token(owner.id),
+    )
 
 
 @router.post("/login", response_model=Token)

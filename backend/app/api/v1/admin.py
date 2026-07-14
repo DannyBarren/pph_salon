@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, stat
 from fastapi.responses import PlainTextResponse
 from sqlmodel import Session
 
-from app.api.deps import require_super_admin
+from app.api.deps import require_manager_or_above, require_super_admin
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.db.session import get_session
@@ -100,8 +100,8 @@ def download_import_template(_: User = Depends(require_super_admin)) -> str:
 
 
 @router.get("/import-users-template", response_class=PlainTextResponse)
-def download_users_template(_: User = Depends(require_super_admin)) -> str:
-    """Bulk-user import CSV template."""
+def download_users_template(_: User = Depends(require_manager_or_above)) -> str:
+    """Bulk-user import CSV template (managers may bulk-import their stylists)."""
     return _csv(USERS_TEMPLATE_COLUMNS, _USERS_TEMPLATE_SAMPLE)
 
 
@@ -298,17 +298,21 @@ async def import_users(
     file: UploadFile,
     email_credentials: bool = False,
     session: Session = Depends(get_session),
-    admin: User = Depends(require_super_admin),
+    creator: User = Depends(require_manager_or_above),
 ) -> BulkUserResult:
-    """Bulk-create/update users from a CSV.
+    """Bulk-create/update users from a CSV (delegated, hierarchical).
 
     Columns: ``email, name, role, salon_id|salon_name, manager_id|manager_email,
-    title, phone, guarantee_rate``. Set ``email_credentials=true`` to email temp
-    passwords instead of returning them in the response.
+    title, phone, guarantee_rate``. Super-admins may import any role/salon;
+    managers may import only stylists into their own salon (auto-assigned to
+    report to them). Set ``email_credentials=true`` to email temp passwords.
     """
     raw_rows = await _read_and_parse(file)
-    result = bulk_create_users(session, raw_rows, email_credentials=email_credentials)
-    record_audit(session, actor=admin, action="user.bulk_import", target_type="user",
+    result = bulk_create_users(
+        session, raw_rows, creator=creator, email_credentials=email_credentials
+    )
+    record_audit(session, actor=creator, action="user.bulk_import", target_type="user",
+                 salon_id=None if creator.role in ("admin", "owner") else creator.salon_id,
                  detail={"created": result.created, "updated": result.updated,
                          "skipped": result.skipped})
     return result
