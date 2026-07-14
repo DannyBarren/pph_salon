@@ -6,6 +6,8 @@ crypto in one module makes it easy to audit and swap implementations.
 
 from __future__ import annotations
 
+import secrets
+import string
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -25,6 +27,29 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
+
+
+def validate_password(password: str) -> None:
+    """Enforce the minimum password policy. Raises ``ValueError`` on failure."""
+    settings = get_settings()
+    if len(password) < settings.min_password_length:
+        raise ValueError(
+            f"Password must be at least {settings.min_password_length} characters"
+        )
+
+
+def generate_temp_password(length: int = 14) -> str:
+    """Cryptographically-strong temporary password for provisioned users."""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*-_"
+    # Guarantee at least one of each class for downstream policy checks.
+    while True:
+        pwd = "".join(secrets.choice(alphabet) for _ in range(length))
+        if (
+            any(c.islower() for c in pwd)
+            and any(c.isupper() for c in pwd)
+            and any(c.isdigit() for c in pwd)
+        ):
+            return pwd
 
 
 def _create_token(subject: str | int, token_type: TokenType, expires: timedelta, **claims: Any) -> str:

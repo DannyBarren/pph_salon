@@ -159,12 +159,12 @@ def test_real_mode_invite_only_register_rbac(client, engine, real_mode):
     ).json()
     admin_h = {"Authorization": f"Bearer {admin_tokens['access_token']}"}
 
-    # admin can register a stylist
+    # admin can register a stylist (password must meet the policy: >=8 chars)
     reg = client.post(
         f"{PP}/auth/register",
         json={
             "email": "maya@pph.com",
-            "password": "pw2",
+            "password": "pw2secure",
             "name": "Maya",
             "role": "stylist",
             "salon_id": 1,
@@ -175,7 +175,7 @@ def test_real_mode_invite_only_register_rbac(client, engine, real_mode):
 
     # the new stylist can log in but CANNOT register others (403)
     stylist_tokens = client.post(
-        f"{PP}/auth/login", json={"email": "maya@pph.com", "password": "pw2"}
+        f"{PP}/auth/login", json={"email": "maya@pph.com", "password": "pw2secure"}
     ).json()
     stylist_h = {"Authorization": f"Bearer {stylist_tokens['access_token']}"}
     forbidden = client.post(
