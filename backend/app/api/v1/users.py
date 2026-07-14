@@ -22,7 +22,7 @@ from app.api.deps import (
 from app.core import security
 from app.db.session import get_session
 from app.models import Salon, User, UserRole
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.user import ResetPasswordResponse, UserCreate, UserRead, UserUpdate
 from app.services.audit import record_audit
 from app.services.notifications_out import send_welcome_email
 
@@ -162,6 +162,42 @@ def update_user(
                  target_id=user.id, salon_id=user.salon_id,
                  detail={"fields": list(updates)})
     return user
+
+
+@router.post("/{user_id}/reset-password", response_model=ResetPasswordResponse)
+def reset_password(
+    user_id: int,
+    email_credentials: bool = False,
+    session: Session = Depends(get_session),
+    actor: User = Depends(require_manager_or_above),
+) -> ResetPasswordResponse:
+    """Reset a subordinate's password to a new temporary value.
+
+    Super-admins may reset anyone; managers may reset only their own-salon
+    subordinates. The temp password is returned once (or emailed when
+    ``email_credentials=true`` and the user has an email + SendGrid is set).
+    """
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    assert_can_manage_user(actor, user)
+
+    temp = security.generate_temp_password()
+    user.hashed_password = security.hash_password(temp)
+    session.add(user)
+    session.commit()
+
+    emailed = False
+    if email_credentials and user.email:
+        emailed = send_welcome_email(user.email, user.name, temp_password=temp).delivered
+    record_audit(session, actor=actor, action="user.reset_password", target_type="user",
+                 target_id=user.id, salon_id=user.salon_id, detail={"emailed": emailed})
+    return ResetPasswordResponse(
+        user_id=user.id,
+        email=user.email,
+        emailed=emailed,
+        temporary_password=None if emailed else temp,
+    )
 
 
 @router.post("/{user_id}/deactivate", response_model=UserRead)

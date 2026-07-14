@@ -69,3 +69,13 @@ class UserRead(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
+
+
+class ResetPasswordResponse(BaseModel):
+    """Result of an admin/manager-initiated password reset."""
+
+    user_id: int
+    email: str | None = None
+    emailed: bool = False
+    # The new temporary password, returned once unless it was emailed instead.
+    temporary_password: str | None = None

@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  KeyRound,
 } from "lucide-react";
 import { Card, CardBody, Button, Badge, Select } from "@/components/ui/primitives";
 import { adminApi, salonApi, userApi } from "@/lib/api/endpoints";
@@ -170,6 +171,8 @@ function UserManager({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [resetInfo, setResetInfo] = useState<{ email: string | null; password: string | null } | null>(null);
+  const [resetBusyId, setResetBusyId] = useState<number | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -236,6 +239,19 @@ function UserManager({
       setBulkError(errMessage(err));
     } finally {
       setBulkBusy(false);
+    }
+  };
+
+  const resetPassword = async (id: number) => {
+    setResetBusyId(id);
+    setResetInfo(null);
+    try {
+      const r = await userApi.resetPassword(id);
+      setResetInfo({ email: r.email, password: r.temporary_password });
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setResetBusyId(null);
     }
   };
 
@@ -364,6 +380,20 @@ function UserManager({
               <RefreshCw size={14} /> Refresh
             </Button>
           </div>
+          {resetInfo && (
+            <div className="mb-3">
+              <Notice kind="success">
+                {resetInfo.password ? (
+                  <>
+                    New temporary password for {resetInfo.email ?? "user"}:{" "}
+                    <code className="font-mono font-semibold">{resetInfo.password}</code>. Share it securely; they should change it on next sign-in.
+                  </>
+                ) : (
+                  <>Password reset and emailed to {resetInfo.email}.</>
+                )}
+              </Notice>
+            </div>
+          )}
           {loading ? (
             <p className="text-sm text-[var(--color-ink-faint)]">Loading…</p>
           ) : (
@@ -375,6 +405,7 @@ function UserManager({
                     <th>Email</th>
                     <th>Role</th>
                     <th>Salon</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,6 +417,12 @@ function UserManager({
                         <Badge tone={u.role === "stylist" ? "brand" : u.role === "manager" ? "warning" : "success"}>{u.role}</Badge>
                       </td>
                       <td>#{u.salon_id}</td>
+                      <td className="text-right">
+                        <Button variant="ghost" size="sm" disabled={resetBusyId === u.id} onClick={() => resetPassword(u.id)}>
+                          {resetBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
+                          Reset password
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

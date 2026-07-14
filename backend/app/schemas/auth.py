@@ -46,6 +46,13 @@ class BootstrapRequest(BaseModel):
     salon_name: str = "Main Salon"
 
 
+class ChangePasswordRequest(BaseModel):
+    """Self-service password change (requires the current password)."""
+
+    current_password: str
+    new_password: str
+
+
 class CurrentUser(BaseModel):
     """Public shape of the authenticated principal (also used in demo mode)."""
 

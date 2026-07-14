@@ -29,6 +29,12 @@ export const authApi = {
   me(): Promise<CurrentUserDTO> {
     return api.get<CurrentUserDTO>("/auth/me");
   },
+  changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    return api.post<void>("/auth/change-password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  },
   logout(): void {
     tokenStore.clear();
   },
@@ -82,6 +88,10 @@ export const userApi = {
   update: (id: number, patch: Partial<CreateUserInput>) =>
     api.patch<UserDTO>(`/users/${id}`, patch),
   deactivate: (id: number) => api.post<UserDTO>(`/users/${id}/deactivate`),
+  resetPassword: (id: number, emailCredentials = false) =>
+    api.post<{ user_id: number; email: string | null; emailed: boolean; temporary_password: string | null }>(
+      `/users/${id}/reset-password?email_credentials=${emailCredentials}`,
+    ),
 };
 
 // ── Admin imports + audit ─────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ from app.db.session import get_session
 from app.models import Salon, User, UserRole
 from app.schemas.auth import (
     BootstrapRequest,
+    ChangePasswordRequest,
     CurrentUser,
     LoginRequest,
     RefreshRequest,
@@ -172,6 +173,34 @@ def refresh(
         access_token=security.create_access_token(user.id, role=str(user.role)),
         refresh_token=security.create_refresh_token(user.id),
     )
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    body: ChangePasswordRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Self-service password change for the signed-in user.
+
+    Requires the current password. Not available to the synthetic demo principal.
+    Users should do this on first login after receiving a temporary password.
+    """
+    if settings.demo_mode or not user.id or user.hashed_password is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Password change requires a real signed-in account",
+        )
+    if not security.verify_password(body.current_password, user.hashed_password):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is incorrect")
+    try:
+        security.validate_password(body.new_password)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    user.hashed_password = security.hash_password(body.new_password)
+    session.add(user)
+    session.commit()
 
 
 @router.get("/me", response_model=CurrentUser)

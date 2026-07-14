@@ -156,6 +156,54 @@ def test_manager_bulk_import_scoped_to_own_salon_stylists(client, engine):
             assert u.manager_id == ids["mgr"]  # auto-assigned as the report's manager
 
 
+# ── Password reset (delegated) + self change ────────────────────────────────────
+def test_manager_can_reset_own_report_password_but_not_others(client, engine):
+    ids = _seed(engine)
+    reb = client.post(
+        f"{PP}/users",
+        json={"name": "Reb", "role": "stylist", "salon_id": 1, "email": "reb3@x.com"},
+        headers=_as(ids["mgr"]),
+    ).json()
+    # Manager resets their own report → gets a fresh temp password back.
+    r = client.post(f"{PP}/users/{reb['id']}/reset-password", headers=_as(ids["mgr"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["temporary_password"]
+    # Manager cannot reset a stylist in another salon.
+    bad = client.post(f"{PP}/users/{ids['other']}/reset-password", headers=_as(ids["mgr"]))
+    assert bad.status_code == 403
+
+
+def test_self_change_password_flow(client, engine):
+    """End-to-end in real mode: login with temp password, then change it."""
+    settings = get_settings()
+    with Session(engine) as s:
+        s.add(Salon(id=1, name="Aria"))
+        s.commit()
+        from app.core import security
+        u = User(name="Reb", role=UserRole.stylist, salon_id=1, email="reb@x.com",
+                 hashed_password=security.hash_password("temp-pass-1"))
+        s.add(u)
+        s.commit()
+    prev = settings.demo_mode
+    settings.demo_mode = False
+    try:
+        tok = client.post(f"{PP}/auth/login", json={"email": "reb@x.com", "password": "temp-pass-1"}).json()
+        h = {"Authorization": f"Bearer {tok['access_token']}"}
+        # wrong current password rejected
+        bad = client.post(f"{PP}/auth/change-password",
+                          json={"current_password": "nope", "new_password": "brand-new-pass"}, headers=h)
+        assert bad.status_code == 400
+        # correct change succeeds
+        ok = client.post(f"{PP}/auth/change-password",
+                         json={"current_password": "temp-pass-1", "new_password": "brand-new-pass"}, headers=h)
+        assert ok.status_code == 204
+        # old password no longer works, new one does
+        assert client.post(f"{PP}/auth/login", json={"email": "reb@x.com", "password": "temp-pass-1"}).status_code == 401
+        assert client.post(f"{PP}/auth/login", json={"email": "reb@x.com", "password": "brand-new-pass"}).status_code == 200
+    finally:
+        settings.demo_mode = prev
+
+
 # ── First-run bootstrap ────────────────────────────────────────────────────────
 @pytest.fixture()
 def bootstrap_token():

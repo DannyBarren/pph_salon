@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, ChevronDown, LogOut, Repeat2, ShieldCheck, Store, Users } from "lucide-react";
+import Link from "next/link";
+import { Check, ChevronDown, KeyRound, LogOut, Repeat2, ShieldCheck, Store, Users } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { useAuth } from "@/store/AuthContext";
 import { DEMO_ACCOUNT_IDS, USERS, salonById, stylistsForUser, userById } from "@/lib/mockData";
@@ -27,6 +28,14 @@ function UserMenu() {
         <span className="block text-xs text-[var(--color-ink-faint)]">{meta.label}</span>
       </span>
       <Avatar initials={currentUser.initials} hue={currentUser.hue} size={34} />
+      <Link
+        href="/account"
+        aria-label="Account settings"
+        className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-ink-soft)] transition hover:bg-[var(--color-surface-2)]"
+      >
+        <KeyRound size={14} />
+        <span className="hidden sm:inline">Account</span>
+      </Link>
       <button
         onClick={logout}
         aria-label="Sign out"
