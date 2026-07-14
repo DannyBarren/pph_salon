@@ -99,6 +99,12 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-xs text-[var(--color-ink-faint)]">
           Accounts are provisioned by your salon admin. Need access? Contact your manager or owner.
         </p>
+        <p className="mt-2 text-center text-xs text-[var(--color-ink-faint)]">
+          Setting up a new deployment?{" "}
+          <a href="/setup" className="font-semibold text-[var(--color-brand)] hover:underline">
+            First-run setup
+          </a>
+        </p>
       </div>
     </div>
   );

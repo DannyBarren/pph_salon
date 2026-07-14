@@ -147,13 +147,20 @@ function SalonManager({ salons, reload }: { salons: SalonDTO[]; reload: () => vo
 }
 
 // ── Users (single + bulk) ──────────────────────────────────────────────────────
-function UserManager({ salons }: { salons: SalonDTO[] }) {
+function UserManager({
+  salons,
+  restrict,
+}: {
+  salons: SalonDTO[];
+  /** Manager mode: lock creation to stylists in the given salon (reporting to the manager). */
+  restrict?: { salonId: number };
+}) {
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<BackendRole>("stylist");
-  const [salonId, setSalonId] = useState<number | "">("");
+  const [salonId, setSalonId] = useState<number | "">(restrict ? restrict.salonId : "");
   const [managerId, setManagerId] = useState<number | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +190,9 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
 
   const submitSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (salonId === "") {
+    const effectiveSalon = restrict ? restrict.salonId : salonId;
+    const effectiveRole: BackendRole = restrict ? "stylist" : role;
+    if (effectiveSalon === "") {
       setError("Choose a salon");
       return;
     }
@@ -194,9 +203,9 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
       await userApi.create({
         name: name.trim(),
         email: email.trim() || undefined,
-        role,
-        salon_id: Number(salonId),
-        manager_id: managerId === "" ? undefined : Number(managerId),
+        role: effectiveRole,
+        salon_id: Number(effectiveSalon),
+        manager_id: restrict ? undefined : managerId === "" ? undefined : Number(managerId),
       });
       setCreated(`Created ${name.trim()}. A temporary password was generated${email ? " and emailed (if SendGrid is configured)" : ""}.`);
       setName("");
@@ -251,35 +260,43 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
         <Card>
           <CardBody>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <Plus size={16} /> Add a single user
+              <Plus size={16} /> {restrict ? "Add a team member" : "Add a single user"}
             </h3>
             <form onSubmit={submitSingle} className="space-y-3">
               <input className={input} placeholder="Full name" required value={name} onChange={(e) => setName(e.target.value)} />
               <input className={input} type="email" placeholder="Email (used to sign in)" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <div className="grid grid-cols-2 gap-2">
-                <Select value={role} onChange={(e) => setRole(e.target.value as BackendRole)}>
-                  <option value="stylist">Stylist</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                  <option value="owner">Owner</option>
-                </Select>
-                <Select value={salonId} onChange={(e) => setSalonId(e.target.value === "" ? "" : Number(e.target.value))}>
-                  <option value="">Salon…</option>
-                  {salons.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <Select value={managerId} onChange={(e) => setManagerId(e.target.value === "" ? "" : Number(e.target.value))}>
-                <option value="">Manager (optional)…</option>
-                {managers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </Select>
+              {restrict ? (
+                <p className="text-xs text-[var(--color-ink-faint)]">
+                  New team members are created as <b>stylists</b> in your salon and report to you.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select value={role} onChange={(e) => setRole(e.target.value as BackendRole)}>
+                      <option value="stylist">Stylist</option>
+                      <option value="manager">Manager</option>
+                      <option value="admin">Admin</option>
+                      <option value="owner">Owner</option>
+                    </Select>
+                    <Select value={salonId} onChange={(e) => setSalonId(e.target.value === "" ? "" : Number(e.target.value))}>
+                      <option value="">Salon…</option>
+                      {salons.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <Select value={managerId} onChange={(e) => setManagerId(e.target.value === "" ? "" : Number(e.target.value))}>
+                    <option value="">Manager (optional)…</option>
+                    {managers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.role})
+                      </option>
+                    ))}
+                  </Select>
+                </>
+              )}
               {error && <Notice kind="error">{error}</Notice>}
               {created && <Notice kind="success">{created}</Notice>}
               <Button type="submit" disabled={busy}>
@@ -300,8 +317,9 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
               </Button>
             </div>
             <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
-              Columns: email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate.
-              Provision hundreds of stylists/managers at once.
+              {restrict
+                ? "Columns: email, name (+ optional title, phone, guarantee_rate). Everyone is imported as a stylist in your salon, reporting to you."
+                : "Columns: email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate. Provision hundreds of stylists/managers at once."}
             </p>
             <form onSubmit={submitBulk} className="space-y-3">
               <input ref={fileRef} type="file" accept=".csv,.xlsx" className={input} />
@@ -629,8 +647,16 @@ function AuditViewer() {
 }
 
 // ── Container ───────────────────────────────────────────────────────────────────
-export function AdminManagement() {
-  const [tab, setTab] = useState<Tab>("salons");
+export function AdminManagement({
+  mode = "admin",
+  defaultSalonId,
+}: {
+  mode?: "admin" | "manager";
+  /** Manager mode: the salon new hires are created in (their own salon). */
+  defaultSalonId?: number;
+} = {}) {
+  const isManager = mode === "manager";
+  const [tab, setTab] = useState<Tab>(isManager ? "users" : "salons");
   const [salons, setSalons] = useState<SalonDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -650,11 +676,36 @@ export function AdminManagement() {
     void reload();
   }, [reload]);
 
+  // Managers only manage their staff; the salon is their own.
+  const managerSalonId = defaultSalonId ?? salons[0]?.id;
+  const tabs = isManager ? TABS.filter((t) => t.id === "users") : TABS;
+
+  if (isManager) {
+    return (
+      <Card>
+        <CardBody>
+          {error && !loaded && (
+            <Notice kind="error">
+              Couldn&apos;t reach the backend API. Confirm <code>NEXT_PUBLIC_API_BASE_URL</code> is set and the backend is running. ({error})
+            </Notice>
+          )}
+          <div className={error && !loaded ? "pointer-events-none opacity-50" : ""}>
+            {managerSalonId != null ? (
+              <UserManager salons={salons} restrict={{ salonId: managerSalonId }} />
+            ) : (
+              <p className="text-sm text-[var(--color-ink-faint)]">Loading your salon…</p>
+            )}
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardBody>
         <div className="mb-4 flex flex-wrap gap-1.5">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}

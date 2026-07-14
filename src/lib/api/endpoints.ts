@@ -43,6 +43,18 @@ export const authApi = {
   }): Promise<UserDTO> {
     return api.post<UserDTO>("/auth/register", input);
   },
+  /** First-run: create the very first owner (token-gated) and sign in. */
+  async bootstrap(input: {
+    token: string;
+    email: string;
+    password: string;
+    name: string;
+    salon_name: string;
+  }): Promise<CurrentUserDTO> {
+    const tokens = await api.post<TokenResponse>("/auth/bootstrap", input, { auth: false });
+    tokenStore.set(tokens.access_token, tokens.refresh_token);
+    return authApi.me();
+  },
 };
 
 // ── Salons + pay-plan config ──────────────────────────────────────────────────

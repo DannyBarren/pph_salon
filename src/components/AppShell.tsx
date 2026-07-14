@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone, Flag, CalendarDays, Tag, Bell } from "lucide-react";
+import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone, Flag, CalendarDays, Tag, Bell, UserPlus } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
@@ -32,6 +32,7 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
       { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
+      { href: "/staff", label: "Staff", icon: <UserPlus size={20} />, roles: ["manager"] },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ]
   : [
@@ -42,6 +43,7 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
+      { href: "/staff", label: "Staff", icon: <UserPlus size={20} />, roles: ["manager"] },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ];
 

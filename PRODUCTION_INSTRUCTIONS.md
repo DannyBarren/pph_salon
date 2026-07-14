@@ -61,6 +61,7 @@ postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME
 | `ALLOWED_HOSTS` | your backend hostname, e.g. `your-backend.up.railway.app` |
 | `ENABLE_DOCS` | `false` (keep Swagger private) |
 | `WEB_CONCURRENCY` | `4` (gunicorn workers; tune to CPU) |
+| `BOOTSTRAP_TOKEN` | one-time secret for the `/setup` first-owner flow (set for initial deploy, then unset) — see §3.3 |
 | *(optional)* `SENDGRID_API_KEY`, `EMAIL_FROM` | to email user invites |
 | *(optional)* `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | to send SMS |
 | *(optional)* `SENTRY_DSN` | backend error reporting |
@@ -72,17 +73,24 @@ postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME
 
 > If your host doesn't run the container entrypoint (e.g. a buildpack), run migrations manually once in the service console: `alembic upgrade head`.
 
-### 3.3 Create the first super-admin (critical, one-time)
-This is the **only** account you create by hand. Run in the backend service console (or locally against the prod `DATABASE_URL`):
+### 3.3 Create the first owner (critical, one-time)
+This is the **only** account you create by hand — it sits at the top of the provisioning hierarchy (see §5.1). Choose **one** of the two secure methods:
 
+**Option A — Web setup page (no console access needed).**
+1. Set `BOOTSTRAP_TOKEN` to a one-time secret on the backend (see `backend/.env.production.example`).
+2. Visit `https://your-app.vercel.app/setup`, enter that token + the owner's name/email/password + salon name, and submit. This only works **while the users table is empty** (the endpoint returns 409 afterward), so it can't be reused as a backdoor.
+3. **Unset/rotate `BOOTSTRAP_TOKEN`** after the owner exists.
+
+**Option B — CLI (server console or local against the prod `DATABASE_URL`).**
 ```bash
 python -m scripts.create_superadmin \
   --email owner@yoursalon.com \
   --name "Jordan Avery" \
   --salon "Aria Studio"
 ```
+It prints a temporary password (omit `--password` to auto-generate) and is idempotent.
 
-It prints a temporary password (omit `--password` to auto-generate). The command is idempotent. Everyone else is provisioned from the Admin panel (single form or CSV bulk import).
+Everyone else is provisioned **down the hierarchy** — never by hand (§5).
 
 ---
 
@@ -103,19 +111,35 @@ It prints a temporary password (omit `--password` to auto-generate). The command
 
 ---
 
-## 5. First-run: admin bootstraps the org
+## 5. Provisioning model — a delegated hierarchy
 
-Log in at `https://your-app.vercel.app/login` with the super-admin credentials from §3.3, then open **Admin**:
+### 5.1 How accounts are created
+Accounts cascade down the chain **owner → admin → manager → stylist**. Each level can only create accounts **strictly below** its own, and this is enforced by the backend on every endpoint (single create, bulk CSV, and `register`):
 
+| Signed-in role | Can create | Where |
+|---|---|---|
+| **Owner** | admins, managers, stylists | any salon |
+| **Admin** | managers, stylists | any salon |
+| **Manager** | **stylists only** | **their own salon** (new stylist auto-reports to them) |
+| **Stylist** | — (leaf level) | — |
+
+Managers are therefore **responsible for setting up their own stylists**, and they cannot touch other salons or create peers/superiors. Self-registration is disabled entirely.
+
+### 5.2 Owner/admin bootstraps the org (Admin panel)
+Sign in as the owner (§3.3) → open **Admin**:
 1. **Salons** tab → create each salon (name, city, guarantee $/hr, haircut/color prices).
-2. **Pay Plan** tab → set each salon's pay-tier ladder (desired $/hr → required PPH). Leave empty to use the app defaults (the Excel-accurate table).
-3. **Users** tab →
-   - **Bulk import**: download the CSV template, fill it (`email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate`), and upload. Provision hundreds at once. Temporary passwords are returned in the response (or emailed if SendGrid is configured).
-   - **Single user**: quick form for one-off additions; assign role + manager.
-4. **Data Import** tab → upload weekly or daily performance CSV/XLSX. Choose the **source** (`native`, `zenoti`, `paycor`) to auto-map vendor columns. Weekly imports upsert by `(user, week)`; daily imports also aggregate the parent week and populate `DailyPerformance`.
-5. **Audit Log** tab → confirm your actions are recorded.
+2. **Pay Plan** tab → set each salon's pay-tier ladder (desired $/hr → required PPH). Leave empty to use the Excel-accurate defaults.
+3. **Users** tab → create your **managers** (assign each to a salon). Single form or CSV bulk import (`email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate`). Temporary passwords are returned in the response (or emailed if SendGrid is configured).
+4. **Data Import** tab → upload weekly/daily performance CSV/XLSX; choose the **source** (`native`, `zenoti`, `paycor`) to auto-map vendor columns.
+5. **Audit Log** tab → every privileged action is recorded here.
 
-Distribute each stylist/manager their email + temporary password. On first login they should change it.
+### 5.3 Managers set up their stylists (Staff page)
+Each manager signs in and opens **Staff** (the `/staff` page in their nav):
+- **Add a team member** — one-off stylist creation (role + salon are fixed automatically).
+- **Bulk import** — CSV of their stylists (`email, name` + optional `title, phone, guarantee_rate`); everyone lands in the manager's salon reporting to them. Rows for other salons/roles are safely skipped.
+- The list shows only their team; they can deactivate a stylist who leaves.
+
+Distribute each new user their email + temporary password. On first login they should change it.
 
 ---
 
@@ -141,8 +165,10 @@ Download the exact templates from the Admin **Data Import** / **Users** tabs (th
 - [x] Rate limiting on (`/auth/login` tight, imports throttled).
 - [x] Security headers + CSP applied by both the frontend (`next.config.mjs`) and backend middleware.
 - [x] Passwords hashed with argon2; password policy enforced; login is rate-limited.
-- [x] Self-registration disabled — accounts are admin-provisioned only.
-- [x] Row-level salon scoping + super-admin gating on all admin endpoints.
+- [x] Self-registration disabled — accounts are provisioned down the owner→admin→manager→stylist hierarchy only.
+- [x] Delegated provisioning enforced server-side (managers limited to stylists in their own salon).
+- [ ] `BOOTSTRAP_TOKEN` unset/rotated once the first owner exists (see §3.3).
+- [x] Row-level salon scoping + role-rank gating on all admin/provisioning endpoints.
 - [x] Audit log records every privileged action.
 - [ ] `ENABLE_DOCS=false` (or gate `/docs`) if you don't want the schema public.
 - [ ] Configure `SENTRY_DSN` (front + back) for error monitoring.
