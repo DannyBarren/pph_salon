@@ -38,6 +38,11 @@ class User(TimestampMixin, table=True):
     # Per-stylist guaranteed $/hr floor (falls back to the salon/global rate).
     guarantee_rate: Optional[float] = Field(default=None)
 
+    # External payroll/booking identifier (e.g. Zenoti/SSF "Employee code" like
+    # ``VG1116``). Not globally unique — the same code can appear in more than one
+    # salon — so imports resolve users by ``(salon_id, employee_code)``.
+    employee_code: Optional[str] = Field(default=None, index=True)
+
     salon_id: int = Field(foreign_key="salon.id", index=True)
     # Self-referential: a stylist reports to a manager (also a User).
     manager_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
