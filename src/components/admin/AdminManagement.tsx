@@ -17,10 +17,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  Info,
 } from "lucide-react";
 import { Card, CardBody, Button, Badge, Select } from "@/components/ui/primitives";
 import { adminApi, salonApi, userApi } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
+import { DEMO_MODE } from "@/lib/featureFlags";
 import type {
   AuditLogDTO,
   BackendRole,
@@ -745,6 +747,17 @@ export function AdminManagement() {
             </button>
           ))}
         </div>
+
+        {DEMO_MODE && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg bg-[var(--color-brand-soft)] px-3 py-2 text-sm text-[var(--color-brand-ink)]">
+            <Info size={16} className="mt-0.5 shrink-0" />
+            <div>
+              <b>Demo mode.</b> These panels run on the offline sample data — reads are live, and creating salons/users, editing pay
+              tiers, or importing files work for this session (not saved to a server). Templates download instantly. Connect the
+              FastAPI backend (credentialed build) to persist everything.
+            </div>
+          </div>
+        )}
 
         {error && !loaded && (
           <Notice kind="error">

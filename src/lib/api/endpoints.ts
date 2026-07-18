@@ -1,6 +1,8 @@
 /** Typed API surface — thin wrappers over the shared client. */
 
 import { api, apiRequest, tokenStore } from "@/lib/api/client";
+import { DEMO_MODE } from "@/lib/featureFlags";
+import { DEMO_TEMPLATES, demoBackend } from "@/lib/api/demoBackend";
 import type {
   AuditLogDTO,
   BackendRole,
@@ -48,18 +50,21 @@ export const authApi = {
 
 // ── Salons + pay-plan config ──────────────────────────────────────────────────
 export const salonApi = {
-  list: () => api.get<SalonDTO[]>("/salons"),
-  create: (input: CreateSalonInput) => api.post<SalonDTO>("/salons", input),
+  list: () => (DEMO_MODE ? demoBackend.listSalons() : api.get<SalonDTO[]>("/salons")),
+  create: (input: CreateSalonInput) =>
+    DEMO_MODE ? demoBackend.createSalon(input) : api.post<SalonDTO>("/salons", input),
   update: (id: number, patch: Partial<CreateSalonInput>) =>
     api.patch<SalonDTO>(`/salons/${id}`, patch),
-  listPayTiers: (id: number) => api.get<PayTierDTO[]>(`/salons/${id}/pay-tiers`),
+  listPayTiers: (id: number) =>
+    DEMO_MODE ? demoBackend.listPayTiers(id) : api.get<PayTierDTO[]>(`/salons/${id}/pay-tiers`),
   replacePayTiers: (id: number, tiers: { salon_id: number; desired_rate: number; pph: number }[]) =>
-    api.put<PayTierDTO[]>(`/salons/${id}/pay-tiers`, tiers),
+    DEMO_MODE ? demoBackend.replacePayTiers(id, tiers) : api.put<PayTierDTO[]>(`/salons/${id}/pay-tiers`, tiers),
 };
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const userApi = {
   list: (params?: { salon_id?: number; role?: BackendRole }) => {
+    if (DEMO_MODE) return demoBackend.listUsers();
     const qs = new URLSearchParams();
     if (params?.salon_id != null) qs.set("salon_id", String(params.salon_id));
     if (params?.role) qs.set("role", params.role);
@@ -67,7 +72,8 @@ export const userApi = {
     return api.get<UserDTO[]>(`/users${q ? `?${q}` : ""}`);
   },
   visibleStylists: () => api.get<UserDTO[]>("/users/visible-stylists"),
-  create: (input: CreateUserInput) => api.post<UserDTO>("/users", input),
+  create: (input: CreateUserInput) =>
+    DEMO_MODE ? demoBackend.createUser(input) : api.post<UserDTO>("/users", input),
   update: (id: number, patch: Partial<CreateUserInput>) =>
     api.patch<UserDTO>(`/users/${id}`, patch),
   deactivate: (id: number) => api.post<UserDTO>(`/users/${id}/deactivate`),
@@ -82,21 +88,31 @@ function upload<T>(path: string, file: File): Promise<T> {
 
 export const adminApi = {
   importUsers: (file: File, emailCredentials = false) =>
-    upload<BulkUserResult>(`/admin/import-users?email_credentials=${emailCredentials}`, file),
+    DEMO_MODE
+      ? demoBackend.importUsers(file)
+      : upload<BulkUserResult>(`/admin/import-users?email_credentials=${emailCredentials}`, file),
   importWeekly: (file: File, source = "native") =>
-    upload<WeeklyImportResult>(`/admin/import-weekly?source=${source}`, file),
+    DEMO_MODE
+      ? demoBackend.importWeekly(file)
+      : upload<WeeklyImportResult>(`/admin/import-weekly?source=${source}`, file),
   importDaily: (file: File, source = "native") =>
-    upload<WeeklyImportResult>(`/admin/import-daily?source=${source}`, file),
+    DEMO_MODE
+      ? demoBackend.importDaily(file)
+      : upload<WeeklyImportResult>(`/admin/import-daily?source=${source}`, file),
   importClient: (file: File, weekStart?: string) =>
-    upload<ClientImportResult>(
-      `/admin/import-client${weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : ""}`,
-      file,
-    ),
-  audit: (limit = 100) => api.get<AuditLogDTO[]>(`/admin/audit?limit=${limit}`),
-  usersTemplate: () => api.get<string>("/admin/import-users-template", { raw: false }),
-  weeklyTemplate: () => api.get<string>("/admin/import-template", { raw: false }),
-  dailyTemplate: () => api.get<string>("/admin/import-daily-template", { raw: false }),
-  clientTemplate: () => api.get<string>("/admin/import-client-template", { raw: false }),
+    DEMO_MODE
+      ? demoBackend.importClient(file, weekStart)
+      : upload<ClientImportResult>(
+          `/admin/import-client${weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : ""}`,
+          file,
+        ),
+  audit: (limit = 100) => (DEMO_MODE ? demoBackend.audit(limit) : api.get<AuditLogDTO[]>(`/admin/audit?limit=${limit}`)),
+  // Templates are static and generated client-side so downloads never depend on
+  // a live backend or session (fixes the demo "Failed to fetch").
+  usersTemplate: () => Promise.resolve(DEMO_TEMPLATES.users),
+  weeklyTemplate: () => Promise.resolve(DEMO_TEMPLATES.weekly),
+  dailyTemplate: () => Promise.resolve(DEMO_TEMPLATES.daily),
+  clientTemplate: () => Promise.resolve(DEMO_TEMPLATES.client),
 };
 
 // ── Health ────────────────────────────────────────────────────────────────────
