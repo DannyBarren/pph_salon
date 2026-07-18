@@ -9,8 +9,6 @@ import { resolveSelection, sliceDays } from "@/lib/selection";
 import { summarize, guaranteeRateFor, plan } from "@/lib/payEngine";
 import { Card, CardBody, Badge, ProgressRing, Progress } from "@/components/ui/primitives";
 import { DailyBreakdown } from "@/components/DailyBreakdown";
-import { CURRENT_WEEK } from "@/lib/time";
-import { COMMISSION_RATE } from "@/lib/planner";
 import { money, num, rate } from "@/lib/format";
 
 function roundUpTo(n: number, step: number) {
@@ -18,7 +16,7 @@ function roundUpTo(n: number, step: number) {
 }
 
 export function StylistDashboard({ stylistId }: { stylistId: string }) {
-  const { config, timeView, selectedWeekId, selectedPeriodIndex, getDays, getActiveGoal } = useApp();
+  const { config, timeView, selectedWeekId, selectedPeriodIndex, getDays } = useApp();
   const stylist = userById(stylistId)!;
   const salon = salonById(stylist.salonId);
   const usage = USAGE[stylistId];
@@ -50,26 +48,6 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
     () => plan(summary, config, { targetRate: goalRate, extraHours: 0, serviceMixHaircut: config.serviceMixHaircut }, guarantee),
     [summary, config, goalRate, guarantee],
   );
-
-  // Per-day goals for the daily breakdown deltas (§11). Prefer the stylist's
-  // active weekly goal (spread over its scheduled days); fall back to the admin
-  // config's minimum-services expectation.
-  const activeGoal = getActiveGoal(stylistId, CURRENT_WEEK.start);
-  const dailyGoals = useMemo(() => {
-    if (activeGoal) {
-      const goalDays = Math.max(1, Math.round(activeGoal.targetHours / 8));
-      return {
-        rate: Math.round(activeGoal.targetPph * COMMISSION_RATE),
-        haircuts: activeGoal.targetHaircuts / goalDays,
-        colors: activeGoal.targetColors / goalDays,
-      };
-    }
-    return {
-      rate: goalRate,
-      haircuts: config.minServicesPerDay * config.serviceMixHaircut,
-      colors: config.minServicesPerDay * (1 - config.serviceMixHaircut),
-    };
-  }, [activeGoal, goalRate, config]);
 
   const ringValue = goalRate > 0 ? summary.effectiveRate / goalRate : 0;
   const cleared = goalPlan.remainingProduction <= 0;
@@ -231,7 +209,7 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
         </CardBody>
       </Card>
 
-      <DailyBreakdown days={periodDays} salonId={stylist.salonId} config={config} dailyGoals={dailyGoals} />
+      <DailyBreakdown days={periodDays} salonId={stylist.salonId} config={config} goalRate={goalRate} />
     </div>
   );
 }
