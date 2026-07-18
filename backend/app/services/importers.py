@@ -13,6 +13,8 @@ Two responsibilities:
 
 from __future__ import annotations
 
+import re
+from datetime import date
 from typing import Any
 
 from sqlmodel import Session, select
@@ -20,6 +22,11 @@ from sqlmodel import Session, select
 from app.core import security
 from app.models import Salon, User, UserRole
 from app.schemas.user import BulkUserResult
+from app.schemas.weekly import ClientImportResult, WeeklyDataInput
+from app.services.weekly_repo import (
+    get_salon_by_name,
+    upsert_weekly_data_by_user_and_week,
+)
 
 # ── Vendor column mappings → our canonical import columns ────────────────────
 # Keys are canonical column names; values are candidate source headers (lowercased).
@@ -45,10 +52,81 @@ _PAYCOR_MAP = {
     "notes": ["notes"],
 }
 
+# The real client / Salon Success (SSF) roster + weekly-performance export. One
+# file provisions salons + users AND carries a week of production. See
+# ``import_client_export`` for the combined pipeline. Net service Rev arrives in
+# an Excel "accounting" format (e.g. ``_($* 2418.15_)``) parsed by ``parse_money``.
+_CLIENT_EXPORT_MAP = {
+    "salon_code": ["salon"],
+    "salon_name": ["salon name"],
+    "employee_code": ["employee code", "emp code", "employee id"],
+    "name": ["employee name", "name"],
+    "position": ["position", "role", "title"],
+    "guarantee_rate": ["guaranteed pay-rate", "guaranteed pay rate", "guarantee rate", "guaranteed payrate"],
+    "scheduled_hrs": ["scheduled hours", "scheduled hrs", "sched hours"],
+    "actual_hrs": ["hours worked", "worked hours", "actual hours"],
+    "net_service_rev": ["net service rev", "net service revenue", "net rev", "service revenue"],
+    "avg_haircut": ["avg haircut", "average haircut", "haircut price"],
+    "avg_color": ["avg color", "average color", "color price"],
+}
+
 SOURCE_MAPS: dict[str, dict[str, list[str]]] = {
     "zenoti": _ZENOTI_MAP,
     "paycor": _PAYCOR_MAP,
+    "client_export": _CLIENT_EXPORT_MAP,
+    "ssff": _CLIENT_EXPORT_MAP,
 }
+
+# Aliases that all mean "the real client export" for the source selector.
+CLIENT_EXPORT_SOURCES = {"client_export", "ssff", "ssf", "client"}
+
+
+def parse_money(value: Any) -> float | None:
+    """Parse a currency amount from messy real-world exports.
+
+    Handles plain numbers, ``$1,234.56``, and Excel accounting format such as
+    ``_($* 2418.15_)`` (the format *code* leaks into CSV exports — the ``_(``/
+    ``_)`` are spacing placeholders, NOT a negative sign). Returns ``None`` for
+    blank/uninterpretable input. Revenue is never negative here, so we simply
+    strip everything that is not a digit, dot or minus.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip()
+    if not s:
+        return None
+    cleaned = re.sub(r"[^0-9.\-]", "", s)
+    # Guard against stray separators leaving something unparseable.
+    if cleaned in ("", "-", ".", "-.", "--"):
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _looks_like_client_export(raw_rows: list[dict[str, Any]]) -> bool:
+    """Heuristic: detect the client roster+performance export by its headers."""
+    if not raw_rows:
+        return False
+    headers = {str(k).strip().lower() for k in raw_rows[0]}
+    return "employee code" in headers and (
+        "net service rev" in headers or "guaranteed pay-rate" in headers
+    )
+
+
+def _map_role(position: Any) -> UserRole:
+    """Map the export's Position column onto a UserRole (defaults to stylist)."""
+    p = str(position or "").strip().lower()
+    if p.startswith("manager") or p in {"gm", "general manager", "salon manager"}:
+        return UserRole.manager
+    if p in {"owner", "sdl"}:
+        return UserRole.owner
+    if p in {"admin", "administrator"}:
+        return UserRole.admin
+    return UserRole.stylist
 
 
 def normalize_weekly_rows(
@@ -61,10 +139,19 @@ def normalize_weekly_rows(
     preserved so nothing is silently dropped.
     """
     source = (source or "native").strip().lower()
+    if source in CLIENT_EXPORT_SOURCES:
+        source = "client_export"
+
+    # Auto-detect the client export even when the caller left source="native",
+    # so a straight upload of the real file still normalises correctly.
+    if source in ("native", "") and _looks_like_client_export(raw_rows):
+        source = "client_export"
+
     if source == "native" or source not in SOURCE_MAPS:
         return raw_rows
 
     mapping = SOURCE_MAPS[source]
+    is_client = source == "client_export"
     out: list[dict[str, Any]] = []
     for raw in raw_rows:
         lowered = {str(k).strip().lower(): v for k, v in raw.items()}
@@ -74,6 +161,13 @@ def normalize_weekly_rows(
                 if cand in lowered and lowered[cand] not in (None, ""):
                     mapped[canonical] = lowered[cand]
                     break
+        if is_client:
+            # Net service Rev is the total production for the week; store the
+            # parsed dollar amount in ``actual_other_value`` so the shared
+            # production-derivation path (weekly_repo) picks it up unchanged.
+            rev = parse_money(mapped.get("net_service_rev"))
+            if rev is not None:
+                mapped["actual_other_value"] = rev
         out.append(mapped)
     return out
 
@@ -242,5 +336,212 @@ def bulk_create_users(
         else:
             result.credentials[email] = password
 
+    session.commit()
+    return result
+
+
+# ── Combined client-export import (salons + users + weekly performance) ───────
+
+def _clean_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
+
+
+def _num(value: Any) -> float | None:
+    """Parse a plain numeric cell (hours, rate). Tolerates $/commas via parse_money."""
+    return parse_money(value)
+
+
+def _resolve_or_create_salon(
+    session: Session,
+    salon_code: str | None,
+    salon_name: str,
+    row: dict[str, Any],
+    cache: dict[str, Salon],
+    default_haircut_price: float,
+    default_color_price: float,
+) -> tuple[Salon, bool]:
+    """Resolve a salon by its stable code (stored in ``location``) or display
+    name, creating it if missing. Service prices come from Avg Haircut / Avg
+    Color (falling back to the workbook defaults 23/85)."""
+    key = (salon_code or salon_name).strip().lower()
+    if key in cache:
+        return cache[key], False
+
+    salon: Salon | None = None
+    if salon_code:
+        salon = session.exec(select(Salon).where(Salon.location == salon_code)).first()
+    if salon is None:
+        salon = get_salon_by_name(session, salon_name)
+
+    haircut_price = _num(row.get("avg_haircut")) or default_haircut_price
+    color_price = _num(row.get("avg_color")) or default_color_price
+    prices = {"haircut": float(haircut_price), "color": float(color_price)}
+
+    created = False
+    if salon is None:
+        salon = Salon(
+            name=salon_name,
+            city=salon_name,
+            location=salon_code,
+            service_prices=prices,
+        )
+        session.add(salon)
+        session.flush()  # assign id for downstream user/week writes
+        created = True
+    else:
+        # Keep the stable code + prices in sync on re-import.
+        if salon_code and salon.location != salon_code:
+            salon.location = salon_code
+        salon.service_prices = prices
+        session.add(salon)
+
+    cache[key] = salon
+    return salon, created
+
+
+def _resolve_or_create_user(
+    session: Session,
+    salon: Salon,
+    employee_code: str | None,
+    name: str | None,
+    row: dict[str, Any],
+) -> tuple[User, bool]:
+    """Resolve a user within ``salon`` by ``employee_code`` (preferred) or name,
+    creating them if missing. Employee codes are unique only per salon."""
+    role = _map_role(row.get("position"))
+    guarantee = _num(row.get("guarantee_rate"))
+
+    user: User | None = None
+    if employee_code:
+        user = session.exec(
+            select(User).where(
+                User.salon_id == salon.id, User.employee_code == employee_code
+            )
+        ).first()
+    if user is None and name:
+        user = session.exec(
+            select(User).where(User.salon_id == salon.id, User.name == name)
+        ).first()
+
+    if user is None:
+        user = User(
+            name=name or employee_code or "Unknown",
+            role=role,
+            salon_id=salon.id,
+            employee_code=employee_code,
+            guarantee_rate=guarantee,
+            is_active=True,
+        )
+        session.add(user)
+        session.flush()
+        return user, True
+
+    # Idempotent update on re-import.
+    if name:
+        user.name = name
+    user.role = role
+    if employee_code:
+        user.employee_code = employee_code
+    if guarantee is not None:
+        user.guarantee_rate = guarantee
+    session.add(user)
+    return user, False
+
+
+def _link_salon_managers(session: Session, salon_ids: set[int]) -> None:
+    """For each touched salon, point stylists (with no manager) at the salon's
+    manager so the team hierarchy works out of the box."""
+    for sid in salon_ids:
+        members = list(session.exec(select(User).where(User.salon_id == sid)).all())
+        manager = next((u for u in members if u.role == UserRole.manager), None)
+        if manager is None:
+            continue
+        for u in members:
+            if u.id != manager.id and u.role == UserRole.stylist and u.manager_id is None:
+                u.manager_id = manager.id
+                session.add(u)
+
+
+def import_client_export(
+    session: Session,
+    raw_rows: list[dict[str, Any]],
+    *,
+    week_start: date,
+    week_end: date | None = None,
+    default_haircut_price: float = 23.0,
+    default_color_price: float = 85.0,
+) -> ClientImportResult:
+    """Import the real client roster + weekly-performance export in one pass.
+
+    For every row this will, idempotently:
+
+    1. Resolve/create the **salon** (by its stable code or display name) and set
+       its service prices from Avg Haircut / Avg Color.
+    2. Resolve/create the **user** within that salon (by employee code or name),
+       mapping Position → role and storing the per-employee guarantee rate.
+    3. Upsert that user's **week** for ``week_start`` with scheduled/worked hours
+       and Net service Rev (stored so weekly production = the net revenue).
+
+    Finally, stylists are linked to their salon's manager. Safe to re-run: the
+    same file re-imported updates in place rather than duplicating.
+    """
+    rows = normalize_weekly_rows(raw_rows, "client_export")
+    result = ClientImportResult(week_start=week_start)
+    salon_cache: dict[str, Salon] = {}
+    touched_salons: set[int] = set()
+
+    for i, raw in enumerate(rows, start=2):  # header is row 1
+        try:
+            employee_code = _clean_str(raw.get("employee_code"))
+            name = _clean_str(raw.get("name"))
+            salon_code = _clean_str(raw.get("salon_code"))
+            salon_name = _clean_str(raw.get("salon_name")) or salon_code
+
+            # Skip genuinely blank rows silently.
+            if not any((employee_code, name, salon_code, salon_name)):
+                continue
+            if not salon_name:
+                raise ValueError("missing Salon / Salon Name")
+            if not (employee_code or name):
+                raise ValueError("missing Employee code / Employee Name")
+
+            salon, salon_created = _resolve_or_create_salon(
+                session, salon_code, salon_name, raw, salon_cache,
+                default_haircut_price, default_color_price,
+            )
+            if salon_created:
+                result.salons_created += 1
+            touched_salons.add(salon.id)
+
+            user, user_created = _resolve_or_create_user(
+                session, salon, employee_code, name, raw
+            )
+            if user_created:
+                result.users_created += 1
+            else:
+                result.users_updated += 1
+
+            data = WeeklyDataInput(
+                scheduled_hrs=_num(raw.get("scheduled_hrs")) or 0.0,
+                actual_hrs=_num(raw.get("actual_hrs")),
+                actual_other_value=parse_money(raw.get("net_service_rev")),
+                week_end=week_end,
+            )
+            _, wk_created = upsert_weekly_data_by_user_and_week(
+                session, user.id, week_start, data, commit=False
+            )
+            if wk_created:
+                result.weeks_inserted += 1
+            else:
+                result.weeks_updated += 1
+        except Exception as exc:  # noqa: BLE001 — one bad row never fails the batch
+            result.skipped += 1
+            result.errors.append(f"Row {i}: {exc}")
+            continue
+
+    _link_salon_managers(session, touched_salons)
     session.commit()
     return result

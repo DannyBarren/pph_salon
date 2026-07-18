@@ -31,7 +31,9 @@ import { useAuth } from "@/store/AuthContext";
 import { authUserToFrontend } from "@/lib/authUser";
 import { DEMO_MODE } from "@/lib/featureFlags";
 
-const STORAGE_KEY = "pph-state-v1";
+// Bumped to v2 when the demo dataset switched to the client's real roster, so
+// any stale persisted state referencing the old sample ids is discarded.
+const STORAGE_KEY = "pph-state-v2";
 
 /** Composite key for the WeeklyData map. */
 const weeklyKey = (userId: string, weekStart: string) => `${userId}:${weekStart}`;
@@ -122,8 +124,10 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentUserId, setCurrentUserIdState] = useState("st1");
-  const [viewedStylistIdRaw, setViewedStylistId] = useState<string | null>("st1");
+  // Default persona: the owner/SDL POC, so the demo lands on the full
+  // cross-salon team view with every account browsable (no login).
+  const [currentUserId, setCurrentUserIdState] = useState("owner");
+  const [viewedStylistIdRaw, setViewedStylistId] = useState<string | null>(null);
   const [config, setConfig] = useState<PayConfig>(DEFAULT_CONFIG);
   const [overrides, setOverrides] = useState<Record<string, DayRecord[]>>({});
   const [weeklyData, setWeeklyData] = useState<Record<string, WeeklyData>>({});

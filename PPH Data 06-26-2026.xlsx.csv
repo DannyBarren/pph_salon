@@ -1,0 +1,58 @@
+﻿Salon,Salon Name,Employee code,Employee Name,Position,Guaranteed Pay-Rate,Scheduled hours,Hours worked,Net service Rev,Avg Haircut,Avg Color
+"11016-Burleson,TX-SSF","Burleson, TX",VG1116,LINDA JONES,Manager,12,61,62.920000000000002,_($* 2418.15_),23,85
+"11016-Burleson,TX-SSF","Burleson, TX",VG1296,Mariah Perez,Stylist,9,16,15.58,_($* 359.10_),23,85
+"11016-Burleson,TX-SSF","Burleson, TX",VG1426,Holliean Miller,Stylist,10,42,33.18,_($* 1043.85_),23,85
+"11020-Sherman,TX-SSF","Sherman,TX",VG1406,Louis Davis,Manager,17,53,61.450000000000003,_($* 1520.15_),23,85
+"11020-Sherman,TX-SSF","Sherman,TX",VG1494,Justine Norris,Stylist,12,51,52.43,_($* 984.50_),23,85
+"11020-Sherman,TX-SSF","Sherman,TX",VG1496,Del Reno,Stylist,12,46,39.520000000000003,_($* 617.80_),23,85
+"11027-Paris,TX-SSF","Paris, TX",VG1443,Kellie Phillips,Manager,16,68,49.25,_($* 2308.00_),23,85
+"11027-Paris,TX-SSF","Paris, TX",VG1475,Tonya Jackson,Stylist,13,64,66.299999999999997,_($* 1479.45_),23,85
+"11027-Paris,TX-SSF","Paris, TX",VG1486,Stephanie Montgomery,Stylist,12,59,64.230000000000004,_($* 1298.40_),23,85
+"11027-Paris,TX-SSF","Paris, TX",VG1499,Kelly Bryan,Stylist,13,56,41.520000000000003,_($* 548.50_),23,85
+"11027-Paris,TX-SSF","Paris, TX",VG1500,DeAnn Motl,Stylist,13,60,67.599999999999994,_($* 1276.50_),23,85
+"11407-Payson,UT-SSF","Payson, TX",VG1210,CHELSEY JOHNSON,Stylist,11,29,27.120000000000001,_($* 784.70_),23,85
+"11407-Payson,UT-SSF","Payson, TX",VG1235,KALEEN HOWARD,Manager,15,76.75,75.879999999999995,_($* 2914.40_),23,85
+"11407-Payson,UT-SSF","Payson, TX",VG1368,Kelci STARKS,Stylist,11,3,4.4699999999999998,_($* 180.00_),23,85
+"11407-Payson,UT-SSF","Payson, TX",VG1376,STORY WENTZ,Stylist,11,40,41.399999999999999,_($* 1302.30_),23,85
+"11407-Payson,UT-SSF","Payson, TX",VG1452,Tori Knight,Stylist,11,36,34.579999999999998,_($* 384.00_),23,85
+"11919- Main St - Billings,MT-SSF","Main St-Billings,MT",VG1363,Trisha Hanner,Manager,13,68,65.420000000000002,_($* 2482.00_),23,85
+"11919- Main St - Billings,MT-SSF","Main St-Billings,MT",VG1469,Ravin Hansen,Stylist,13,68,67.329999999999998,_($* 2800.10_),23,85
+"11919- Main St - Billings,MT-SSF","Main St-Billings,MT",VG1498,Angela Odea,Stylist,11.25,38,12.800000000000001,_($* 364.40_),23,85
+"11920- King Ave-Billings,MT-SSF","King Ave-Billings, MT",VG1438,Jasmyne Kelly,Stylist,11,63,41.5,_($* 979.00_),23,85
+"11920- King Ave-Billings,MT-SSF","King Ave-Billings, MT",VG1460,Jessica Garza,Manager,13,56,52.130000000000003,_($* 1990.50_),23,85
+"11920- King Ave-Billings,MT-SSF","King Ave-Billings, MT",VG1467,Madison Brown,Stylist,11,54,54.43,_($* 1147.32_),23,85
+"11922-Kalispell,MT-SSF","Kalispell,MT",VG1134,JORDAN CHANEY,Stylist,10,35,37.479999999999997,_($* 883.60_),23,85
+"11922-Kalispell,MT-SSF","Kalispell,MT",VG1344,Jennifer Tiefenbach,Stylist,12,64,68.670000000000002,_($* 2732.10_),23,85
+"11922-Kalispell,MT-SSF","Kalispell,MT",VG1473,Terah Schexnider,Stylist,11,22,20.870000000000001,_($* 454.60_),23,85
+"11923-Butte,MT-SSF","Butte, MT",VG1143,MICHELLE MANKINS,Manager,13,39.5,39.579999999999998,_($* 1424.40_),23,85
+"11923-Butte,MT-SSF","Butte, MT",VG1158,Whitney McKernan,Stylist,12,44,43.43,_($* 1827.90_),23,85
+"11923-Butte,MT-SSF","Butte, MT",VG1301,NICOLE PERKINS,Stylist,12,22,7.7000000000000002,_($* 286.90_),23,85
+"11923-Butte,MT-SSF","Butte, MT",VG1381,LINDSEY CLARK,Stylist,12,80,81.5,_($* 2268.80_),23,85
+"11924-Missoula,MT-SSF","Missoula,ND",VG1137,BONNIE TURNER,Manager,13,88,91.480000000000004,_($* 4756.80_),23,85
+"11924-Missoula,MT-SSF","Missoula,ND",VG1140,RYANN PECNICK,Stylist,11,48,49.219999999999999,_($* 2137.00_),23,85
+"11924-Missoula,MT-SSF","Missoula,ND",VG1305,APRIL SYBRANT,Stylist,12,66,51.670000000000002,_($* 2146.60_),23,85
+"11925- Bismarck-Skyline ,ND-SSF","Bismarck-Skyline ,ND",VG1124,KELLY FRANKS,Manager,13,66,67.25,_($* 1662.30_),23,85
+"11925- Bismarck-Skyline ,ND-SSF","Bismarck-Skyline ,ND",VG1126,MICHELE FISHER,Stylist,12,29,19,_($* 695.00_),23,85
+"11925- Bismarck-Skyline ,ND-SSF","Bismarck-Skyline ,ND",VG1280,ARLENE PFEILER,Stylist,11,69,71.079999999999998,_($* 1579.00_),23,85
+"11925- Bismarck-Skyline ,ND-SSF","Bismarck-Skyline ,ND",VG1295,Charon Abbate,Stylist,11,72,73.900000000000006,_($* 1722.00_),23,85
+"11930-Cody,WY-SSF","Cody,WY",VG1161,Amber Foster,Manager,18,67,69.5,_($* 2382.10_),23,85
+"11930-Cody,WY-SSF","Cody,WY",VG1480,Emma Short,Stylist,13,75,72.75,_($* 2457.80_),23,85
+11931-Casper Cy Ave. WY-SSF,"Casper Cy Ave,WY",VG1346,Regina Patterson,Manager,14,67,70.319999999999993,_($* 2657.40_),23,85
+11931-Casper Cy Ave. WY-SSF,"Casper Cy Ave,WY",VG1392,Rebecca Fox,Stylist,11,70,70.780000000000001,_($* 2511.60_),23,85
+11931-Casper Cy Ave. WY-SSF,"Casper Cy Ave,WY",VG1429,Michelle Moore,Stylist,11,8,8.0999999999999996,_($* 253.70_),23,85
+"11932-Casper, 2nd St., WY-SSF","Casper 2nd St,WY",VG1165,SHELBY MIDDAUGH,Manager,12,80,81.269999999999996,_($* 3065.60_),23,85
+"11932-Casper, 2nd St., WY-SSF","Casper 2nd St,WY",VG1170,SHEILA LOPEZ,Stylist,15,55,53.619999999999997,_($* 2022.50_),23,85
+"11932-Casper, 2nd St., WY-SSF","Casper 2nd St,WY",VG1348,Yvonne Whetham,Stylist,11,21,22.25,_($* 749.90_),23,85
+"11932-Casper, 2nd St., WY-SSF","Casper 2nd St,WY",VG1429,Michelle Moore,Stylist,11,22,13.82,_($* 426.80_),23,85
+"16818-Bismarck,ND-Civic Plaza-CC","Bismarck-Civic Plaza, ND",VG1327,Brittany Watson,Manager,18,81,86.769999999999996,_($* 2123.35_),23,85
+"16818-Bismarck,ND-Civic Plaza-CC","Bismarck-Civic Plaza, ND",VG1478,Aparna Georgeson,Stylist,15,66,65.049999999999997,_($* 2486.45_),23,85
+"16818-Bismarck,ND-Civic Plaza-CC","Bismarck-Civic Plaza, ND",VG1488,Jaede Eiseman,Stylist,16,48,45.950000000000003,_($* 1538.80_),23,85
+"18938-Wichita Falls,TX-Lawrence","Wichita Falls Lawrence,TX",VG1361,Terri Gibson,Manager,15,70,70.129999999999995,_($* 1871.45_),23,85
+"18938-Wichita Falls,TX-Lawrence","Wichita Falls Lawrence,TX",VG1455,Keilea Mcmillan,Stylist,11,4.5,4.5800000000000001,_($* 33.70_),23,85
+"18938-Wichita Falls,TX-Lawrence","Wichita Falls Lawrence,TX",VG1472,Lauren Arrington,Stylist,12,47.5,48.43,_($* 1018.00_),23,85
+"18938-Wichita Falls,TX-Lawrence","Wichita Falls Lawrence,TX",VG1476,Amber Hatcher,Stylist,12,60,61.950000000000003,_($* 1958.20_),23,85
+"18938-Wichita Falls,TX-Lawrence","Wichita Falls Lawrence,TX",VG1501,Sydney Whaley,Stylist,12,8,6.4299999999999997,_($* 124.00_),23,85
+"18939-Wichita Falls,TX-Central","Wichita Falls Central,TX",VG1313,Rebeca Ortega,Stylist,12,42.75,41.43,_($* 1435.40_),23,85
+"18939-Wichita Falls,TX-Central","Wichita Falls Central,TX",VG1373,Debbie Porter,Manager,13,73.25,53.719999999999999,_($* 1876.55_),23,85
+"18939-Wichita Falls,TX-Central","Wichita Falls Central,TX",VG1455,Keilea Mcmillan,Stylist,11,33.5,24.079999999999998,_($* 480.80_),23,85
+"18939-Wichita Falls,TX-Central","Wichita Falls Central,TX",VG1477,Addisyn Haynes,Stylist,11,59,45.729999999999997,_($* 915.00_),23,85

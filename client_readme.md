@@ -407,6 +407,7 @@ Structure under `backend/app/`:
 | `POST /payplan/effective-rate` | Compute pay/effective-rate for production+hours. |
 | `POST /payplan/what-if` | Required/remaining production for a target rate. |
 | `GET /admin/import-template` · `POST /admin/import-weekly` | CSV/XLSX weekly-data template + bulk upsert. |
+| `GET /admin/import-client-template` · `POST /admin/import-client` | Real client / SSF export: auto-provision salons + employees (per-employee guarantee) and record each person's Net service Rev for a chosen week. |
 | `GET/POST /messages` · `POST /messages/{id}/acknowledge` · `GET /messages/{id}/acknowledgments` | Message board. |
 | `POST /goals` · `GET /goals/active|history|team|hierarchy` · `POST /goals/{id}/review` | Goals. |
 | `GET /notifications` · `POST /notifications/{id}/read` | Notifications. |
@@ -418,6 +419,8 @@ Structure under `backend/app/`:
 3. `b1f2a3c4d5e6` weekly-data fields, salon `service_prices`, `owner` role.
 4. `c3d4e5f6a7b8` message board + acknowledgments.
 5. `d4e5f6a7b8c9` goals + notifications.
+6. `e5f6a7b8c9d0` audit log.
+7. `f6a7b8c9d0e1` `employee_code` on user (client / SSF import key).
 
 Apply with `alembic upgrade head`.
 

@@ -65,6 +65,18 @@ export interface WeeklyImportResult {
   errors: string[];
 }
 
+export interface ClientImportResult {
+  week_start: string;
+  salons_created: number;
+  users_created: number;
+  users_updated: number;
+  weeks_inserted: number;
+  weeks_updated: number;
+  skipped: number;
+  errors: string[];
+  credentials: Record<string, string>;
+}
+
 export interface AuditLogDTO {
   id: number;
   actor_id: number | null;
