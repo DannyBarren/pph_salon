@@ -83,13 +83,15 @@ export function DailyBreakdown({
                 </div>
               </div>
 
-              {/* Per-day bars: dollars, haircuts, colors, hours — actual vs goal. */}
+              {/* Per-day bars: dollars, haircuts, colors, hours — actual vs goal.
+                  Vertically stacked with the numbers to the right so they read
+                  cleanly on mobile. */}
               {!isFuture && (
-                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 pl-[3.75rem] sm:grid-cols-4">
-                  <MetricBar icon={<DollarSign size={12} />} label="Dollars" actual={d.production} goal={g.dollars} format={(v) => money(v)} />
-                  <MetricBar icon={<Scissors size={12} />} label="Haircuts" actual={d.haircuts} goal={g.haircuts} format={(v) => num(v)} />
-                  <MetricBar icon={<Palette size={12} />} label="Colors" actual={d.colors} goal={g.colors} format={(v) => num(v)} />
-                  <MetricBar icon={<Clock size={12} />} label="Hours" actual={d.workedHours} goal={g.hours} format={(v) => `${Math.round(v * 10) / 10}h`} />
+                <div className="mt-2 space-y-1.5 pl-[3.75rem]">
+                  <MetricBar icon={<DollarSign size={12} />} label="Dollars" actual={d.production} goal={g.dollars} color={METRIC_COLORS.dollars} format={(v) => money(v)} />
+                  <MetricBar icon={<Scissors size={12} />} label="Haircuts" actual={d.haircuts} goal={g.haircuts} color={METRIC_COLORS.haircuts} format={(v) => num(v)} />
+                  <MetricBar icon={<Palette size={12} />} label="Colors" actual={d.colors} goal={g.colors} color={METRIC_COLORS.colors} format={(v) => num(v)} />
+                  <MetricBar icon={<Clock size={12} />} label="Hours" actual={d.workedHours} goal={g.hours} color={METRIC_COLORS.hours} format={(v) => `${Math.round(v * 10) / 10}h`} />
                 </div>
               )}
             </div>
@@ -101,47 +103,52 @@ export function DailyBreakdown({
   );
 }
 
+/** A distinct color per metric so the four bars are easy to tell apart. */
+const METRIC_COLORS = {
+  dollars: "var(--color-success)", // green
+  haircuts: "var(--color-brand)", // purple
+  colors: "#ec4899", // pink
+  hours: "#f59e0b", // amber
+} as const;
+
 /**
- * A compact per-metric progress bar: fills toward the day's goal and turns green
- * once the goal is met (amber/brand while short). Shows "actual / goal".
+ * One metric as a horizontal row: label on the left, the progress bar in the
+ * middle (filling toward the day's goal in its own color), and the "actual /
+ * goal" numbers on the right. Stacks cleanly on mobile.
  */
 function MetricBar({
   icon,
   label,
   actual,
   goal,
+  color,
   format,
 }: {
   icon: React.ReactNode;
   label: string;
   actual: number;
   goal: number;
+  color: string;
   format: (v: number) => string;
 }) {
   const hasGoal = goal > 1e-9;
   const pct = hasGoal ? Math.max(0, Math.min(1, actual / goal)) : actual > 0 ? 1 : 0;
-  const met = hasGoal ? actual >= goal - 1e-9 : actual > 0;
   return (
-    <div title={`${label}: ${format(actual)} of ${hasGoal ? format(goal) : "—"} goal`}>
-      <div className="mb-0.5 flex items-center justify-between gap-1 text-[10px]">
-        <span className="inline-flex items-center gap-1 font-medium tracking-wide text-[var(--color-ink-faint)] uppercase">
-          {icon}
-          {label}
-        </span>
-        <span className="tabular-nums text-[var(--color-ink-soft)]">
-          {format(actual)}
-          {hasGoal && <span className="text-[var(--color-ink-faint)]"> / {format(goal)}</span>}
-        </span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-2)]">
+    <div className="flex items-center gap-2" title={`${label}: ${format(actual)} of ${hasGoal ? format(goal) : "—"} goal`}>
+      <span className="flex w-14 shrink-0 items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-ink-faint)] sm:w-16">
+        <span style={{ color }}>{icon}</span>
+        {label}
+      </span>
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-2)]">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${pct * 100}%`,
-            background: met ? "var(--color-success)" : "var(--color-brand)",
-          }}
+          style={{ width: `${pct * 100}%`, background: color }}
         />
       </div>
+      <span className="w-[5.5rem] shrink-0 text-right text-[11px] tabular-nums text-[var(--color-ink-soft)]">
+        {format(actual)}
+        {hasGoal && <span className="text-[var(--color-ink-faint)]"> / {format(goal)}</span>}
+      </span>
     </div>
   );
 }
