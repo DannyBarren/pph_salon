@@ -60,18 +60,23 @@ TEMPLATE_COLUMNS = [
 ]
 
 _TEMPLATE_SAMPLE = [
+    # Historical / back-dated pay periods import exactly like the current one —
+    # just set an earlier week_start (e.g. June 8 or June 15).
+    ["18939", "Aria Studio", "2026-06-08", "12", "27.25", "26.5", "18", "9", "40", "Back-filled period"],
     ["18939", "Aria Studio", "2026-06-29", "12", "27.25", "26.5", "18", "9", "40", "Great color week"],
     ["11027", "Aria Studio", "2026-06-29", "13", "28", "0", "0", "0", "0", "Full-week call-off (sick)"],
 ]
 
 USERS_TEMPLATE_COLUMNS = [
     "email", "name", "role", "salon_id", "salon_name", "manager_id",
-    "manager_email", "title", "phone", "guarantee_rate",
+    "manager_email", "title", "phone", "guarantee_rate", "password",
 ]
 
 _USERS_TEMPLATE_SAMPLE = [
-    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17"],
-    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", ""],
+    # Leave `password` blank to auto-generate a temp password, or set an initial
+    # login password the team member can change later.
+    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17", "Welcome123!"],
+    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", ""],
 ]
 
 DAILY_TEMPLATE_COLUMNS = [
@@ -80,6 +85,8 @@ DAILY_TEMPLATE_COLUMNS = [
 ]
 
 _DAILY_TEMPLATE_SAMPLE = [
+    # Any date works — back-fill historical days (e.g. June 8) or the current week.
+    ["18939", "2026-06-08", "8", "7.5", "5", "2", "10"],
     ["18939", "2026-06-30", "8", "7.5", "5", "2", "10"],
     ["18939", "2026-07-01", "8", "8", "6", "3", "0"],
 ]
