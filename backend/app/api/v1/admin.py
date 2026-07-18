@@ -32,13 +32,18 @@ from app.db.session import get_session
 from app.models import User
 from app.schemas.audit import AuditLogRead
 from app.schemas.user import BulkUserResult
-from app.schemas.weekly import WeeklyImportResult, WeeklyImportRow
+from app.schemas.weekly import ClientImportResult, WeeklyImportResult, WeeklyImportRow
 from app.services.audit import list_audit, record_audit
-from app.services.importers import bulk_create_users, normalize_weekly_rows
+from app.services.importers import (
+    bulk_create_users,
+    import_client_export,
+    normalize_weekly_rows,
+)
 from app.services.weekly_repo import (
     get_salon_by_name,
     upsert_daily_performance,
     upsert_weekly_data_by_user_and_week,
+    week_start_for,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -91,6 +96,22 @@ _DAILY_TEMPLATE_SAMPLE = [
     ["18939", "2026-07-01", "8", "8", "6", "3", "0"],
 ]
 
+# The real client / Salon Success (SSF) export layout. One file provisions
+# salons + users AND carries a week of production (Net service Rev). The
+# ``week_start`` is supplied at upload time (this file has no date column).
+CLIENT_TEMPLATE_COLUMNS = [
+    "Salon", "Salon Name", "Employee code", "Employee Name", "Position",
+    "Guaranteed Pay-Rate", "Scheduled hours", "Hours worked", "Net service Rev",
+    "Avg Haircut", "Avg Color",
+]
+
+_CLIENT_TEMPLATE_SAMPLE = [
+    ["11016-Burleson,TX-SSF", "Burleson, TX", "VG1116", "Linda Jones", "Manager",
+     "12", "61", "62.92", "_($* 2418.15_)", "23", "85"],
+    ["11016-Burleson,TX-SSF", "Burleson, TX", "VG1296", "Mariah Perez", "Stylist",
+     "9", "16", "15.58", "_($* 359.10_)", "23", "85"],
+]
+
 
 def _csv(columns: list[str], rows: list[list[str]]) -> str:
     buf = io.StringIO()
@@ -116,6 +137,12 @@ def download_users_template(_: User = Depends(require_super_admin)) -> str:
 def download_daily_template(_: User = Depends(require_super_admin)) -> str:
     """Daily performance import CSV template."""
     return _csv(DAILY_TEMPLATE_COLUMNS, _DAILY_TEMPLATE_SAMPLE)
+
+
+@router.get("/import-client-template", response_class=PlainTextResponse)
+def download_client_template(_: User = Depends(require_super_admin)) -> str:
+    """Client / SSF combined roster + weekly-performance import template."""
+    return _csv(CLIENT_TEMPLATE_COLUMNS, _CLIENT_TEMPLATE_SAMPLE)
 
 
 def _to_float(value: str | float | int | None) -> float | None:
@@ -317,6 +344,38 @@ async def import_users(
     result = bulk_create_users(session, raw_rows, email_credentials=email_credentials)
     record_audit(session, actor=admin, action="user.bulk_import", target_type="user",
                  detail={"created": result.created, "updated": result.updated,
+                         "skipped": result.skipped})
+    return result
+
+
+@router.post("/import-client", response_model=ClientImportResult)
+@limiter.limit(_IMPORT_LIMIT)
+async def import_client(
+    request: Request,
+    file: UploadFile,
+    week_start: date | None = None,
+    session: Session = Depends(get_session),
+    admin: User = Depends(require_super_admin),
+) -> ClientImportResult:
+    """Import the real client / SSF export (roster + weekly performance) in one
+    pass: creates salons and users as needed, sets per-employee guarantee rates
+    and salon service prices (Avg Haircut / Avg Color), and records each user's
+    week from Net service Rev.
+
+    The export has no date column, so ``week_start`` is supplied here. When
+    omitted it defaults to the Monday of the current week. Handles multiple
+    salons in one file and is safe to re-run.
+    """
+    resolved_week = week_start_for(week_start) if week_start else week_start_for(date.today())
+    raw_rows = await _read_and_parse(file)
+    result = import_client_export(session, raw_rows, week_start=resolved_week)
+    record_audit(session, actor=admin, action="import.client", target_type="week",
+                 detail={"week_start": resolved_week.isoformat(),
+                         "salons_created": result.salons_created,
+                         "users_created": result.users_created,
+                         "users_updated": result.users_updated,
+                         "weeks_inserted": result.weeks_inserted,
+                         "weeks_updated": result.weeks_updated,
                          "skipped": result.skipped})
     return result
 

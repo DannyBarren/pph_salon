@@ -25,6 +25,7 @@ import type {
   AuditLogDTO,
   BackendRole,
   BulkUserResult,
+  ClientImportResult,
   PayTierDTO,
   SalonDTO,
   UserDTO,
@@ -487,11 +488,23 @@ function PayPlanConfig({ salons }: { salons: SalonDTO[] }) {
   );
 }
 
-// ── Data import (weekly / daily) ────────────────────────────────────────────────
+// ── Data import (weekly / daily / client) ───────────────────────────────────────
+type ImportKind = "weekly" | "daily" | "client";
+
+/** Monday (ISO) of the current week — sensible default for the client export. */
+function currentMondayIso(): string {
+  const now = new Date();
+  const day = (now.getDay() + 6) % 7; // Mon=0 … Sun=6
+  now.setDate(now.getDate() - day);
+  return now.toISOString().slice(0, 10);
+}
+
 function ImportPanel() {
-  const [kind, setKind] = useState<"weekly" | "daily">("weekly");
+  const [kind, setKind] = useState<ImportKind>("weekly");
   const [source, setSource] = useState("native");
+  const [weekStart, setWeekStart] = useState<string>(currentMondayIso());
   const [result, setResult] = useState<WeeklyImportResult | null>(null);
+  const [clientResult, setClientResult] = useState<ClientImportResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -506,9 +519,15 @@ function ImportPanel() {
     setBusy(true);
     setError(null);
     setResult(null);
+    setClientResult(null);
     try {
-      const r = kind === "weekly" ? await adminApi.importWeekly(file, source) : await adminApi.importDaily(file, source);
-      setResult(r);
+      if (kind === "client") {
+        setClientResult(await adminApi.importClient(file, weekStart || undefined));
+      } else if (kind === "weekly") {
+        setResult(await adminApi.importWeekly(file, source));
+      } else {
+        setResult(await adminApi.importDaily(file, source));
+      }
     } catch (err) {
       setError(errMessage(err));
     } finally {
@@ -518,7 +537,12 @@ function ImportPanel() {
 
   const downloadTemplate = async () => {
     try {
-      const csv = kind === "weekly" ? await adminApi.weeklyTemplate() : await adminApi.dailyTemplate();
+      const csv =
+        kind === "client"
+          ? await adminApi.clientTemplate()
+          : kind === "weekly"
+            ? await adminApi.weeklyTemplate()
+            : await adminApi.dailyTemplate();
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -538,19 +562,38 @@ function ImportPanel() {
         <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
           Upload Zenoti/PayCor exports or the native template. Weekly imports upsert by (user, week); daily imports also aggregate the parent week.
           Any <b>week_start</b>/<b>date</b> is accepted, so you can back-fill historical or past-dated pay periods (e.g. June 8–21) alongside the current one.
+          The <b>Client / SSF export</b> auto-provisions salons + employees (with per-employee guarantee rates) and records each person&apos;s Net service Rev for the chosen week.
         </p>
         <form onSubmit={submit} className="space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
-            <Select value={kind} onChange={(e) => setKind(e.target.value as "weekly" | "daily")}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value as ImportKind)}>
               <option value="weekly">Weekly data</option>
               <option value="daily">Daily performance</option>
+              <option value="client">Client / SSF export (roster + revenue)</option>
             </Select>
-            <Select value={source} onChange={(e) => setSource(e.target.value)}>
-              <option value="native">Native template</option>
-              <option value="zenoti">Zenoti export</option>
-              <option value="paycor">PayCor export</option>
-            </Select>
+            {kind === "client" ? (
+              <label className="flex items-center gap-2 text-sm text-[var(--color-ink-soft)]">
+                <span className="whitespace-nowrap text-xs font-medium">Week starting</span>
+                <input
+                  type="date"
+                  className={input}
+                  value={weekStart}
+                  onChange={(e) => setWeekStart(e.target.value)}
+                />
+              </label>
+            ) : (
+              <Select value={source} onChange={(e) => setSource(e.target.value)}>
+                <option value="native">Native template</option>
+                <option value="zenoti">Zenoti export</option>
+                <option value="paycor">PayCor export</option>
+              </Select>
+            )}
           </div>
+          {kind === "client" && (
+            <p className="text-xs text-[var(--color-ink-faint)]">
+              The client export has no date column, so its rows are recorded against the Monday you pick above. Safe to re-run — rows update in place.
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <input ref={fileRef} type="file" accept=".csv,.xlsx" className={input} />
             <Button type="button" variant="ghost" size="sm" onClick={downloadTemplate}>
@@ -564,6 +607,21 @@ function ImportPanel() {
               {result.errors.length > 0 && (
                 <ul className="mt-1 list-disc pl-4 text-xs text-red-600">
                   {result.errors.slice(0, 5).map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              )}
+            </Notice>
+          )}
+          {clientResult && (
+            <Notice kind="success">
+              Imported week of {clientResult.week_start}: {clientResult.salons_created} salons created ·{" "}
+              {clientResult.users_created} employees created, {clientResult.users_updated} updated ·{" "}
+              {clientResult.weeks_inserted} weeks inserted, {clientResult.weeks_updated} updated
+              {clientResult.skipped > 0 ? ` · ${clientResult.skipped} skipped` : ""}.
+              {clientResult.errors.length > 0 && (
+                <ul className="mt-1 list-disc pl-4 text-xs text-red-600">
+                  {clientResult.errors.slice(0, 5).map((e, i) => (
                     <li key={i}>{e}</li>
                   ))}
                 </ul>

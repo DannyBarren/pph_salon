@@ -5,6 +5,7 @@ import type {
   AuditLogDTO,
   BackendRole,
   BulkUserResult,
+  ClientImportResult,
   CreateSalonInput,
   CreateUserInput,
   CurrentUserDTO,
@@ -86,10 +87,16 @@ export const adminApi = {
     upload<WeeklyImportResult>(`/admin/import-weekly?source=${source}`, file),
   importDaily: (file: File, source = "native") =>
     upload<WeeklyImportResult>(`/admin/import-daily?source=${source}`, file),
+  importClient: (file: File, weekStart?: string) =>
+    upload<ClientImportResult>(
+      `/admin/import-client${weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : ""}`,
+      file,
+    ),
   audit: (limit = 100) => api.get<AuditLogDTO[]>(`/admin/audit?limit=${limit}`),
   usersTemplate: () => api.get<string>("/admin/import-users-template", { raw: false }),
   weeklyTemplate: () => api.get<string>("/admin/import-template", { raw: false }),
   dailyTemplate: () => api.get<string>("/admin/import-daily-template", { raw: false }),
+  clientTemplate: () => api.get<string>("/admin/import-client-template", { raw: false }),
 };
 
 // ── Health ────────────────────────────────────────────────────────────────────
