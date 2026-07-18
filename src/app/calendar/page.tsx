@@ -7,7 +7,6 @@ import { Card, CardBody, Badge } from "@/components/ui/primitives";
 import { StylistSwitcher } from "@/components/StylistSwitcher";
 import { WEEKS, CURRENT_WEEK } from "@/lib/time";
 import { daysOfWeek, WEEKDAY_LABELS, fmtShort, isFuture, isToday } from "@/lib/time";
-import { canSeeMoney } from "@/lib/roles";
 import { money } from "@/lib/format";
 
 export default function CalendarPage() {
@@ -22,7 +21,6 @@ export default function CalendarPage() {
   }, [getDays, stylistId]);
 
   const days = daysOfWeek(week);
-  const showMoney = canSeeMoney(currentUser.role);
 
   const totals = days.reduce(
     (acc, iso) => {
@@ -103,7 +101,7 @@ export default function CalendarPage() {
                           {d!.haircuts + d!.colors} services
                         </div>
                       )}
-                      {!future && showMoney && d!.production > 0 && (
+                      {!future && d!.production > 0 && (
                         <Badge tone="success">{money(d!.production)}</Badge>
                       )}
                       {future && <Badge tone="brand">Upcoming</Badge>}
@@ -117,7 +115,7 @@ export default function CalendarPage() {
           <div className="mt-4 flex flex-wrap gap-4 border-t border-[var(--color-border)] pt-4 text-sm">
             <span><b>{totals.worked.toFixed(1)}</b> / {totals.scheduled.toFixed(1)}h worked</span>
             <span><b>{totals.services}</b> services</span>
-            {showMoney && <span><b>{money(totals.production)}</b> production</span>}
+            <span><b>{money(totals.production)}</b> service total</span>
           </div>
         </CardBody>
       </Card>
