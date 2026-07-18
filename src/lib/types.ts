@@ -90,9 +90,14 @@ export interface UsageStat {
 export interface PayConfig {
   /** Global base hourly guarantee (used when a salon has no override). */
   guaranteeRate: number;
-  /** Fraction (0-1) of production paid out as commission. */
+  /**
+   * Net-production share (0-1). Effective $/hr is driven by the tiered PPH ladder
+   * (`tiers.ts`); this is the aligned net rate (0.40) used for commission display.
+   */
   commissionRate: number;
+  /** Net production ($) per haircut — used to project production into service counts. */
   avgTicketHaircut: number;
+  /** Net production ($) per color — used to project production into service counts. */
   avgTicketColor: number;
   /** Fraction (0-1) of projected future services that are haircuts. */
   serviceMixHaircut: number;

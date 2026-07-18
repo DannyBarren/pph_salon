@@ -23,8 +23,8 @@ export function TeamOverview() {
     () =>
       allowedStylists.map((s) => {
         const days = sliceDays(getDays(s.id), sel.start, sel.end);
-        const summary = summarize(days, s.salonId, config);
-        const guarantee = guaranteeRateFor(s.salonId, config);
+        const guarantee = s.guaranteeRate ?? guaranteeRateFor(s.salonId, config);
+        const summary = summarize(days, s.salonId, config, guarantee);
         return { stylist: s, summary, guarantee, usage: USAGE[s.id] };
       }),
     [allowedStylists, getDays, sel.start, sel.end, config],

@@ -29,7 +29,7 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
     // Prefer the employee's own guaranteed rate (from the client roster);
     // fall back to the salon/global config floor.
     const guarantee = stylist.guaranteeRate ?? guaranteeRateFor(stylist.salonId, config);
-    const summary = summarize(periodDays, stylist.salonId, config);
+    const summary = summarize(periodDays, stylist.salonId, config, guarantee);
     const probe = plan(summary, config, { targetRate: guarantee, extraHours: 0, serviceMixHaircut: config.serviceMixHaircut }, guarantee);
     const paceRate = probe.pacedRate;
     const suggestedGoalRate = Math.max(roundUpTo(Math.max(paceRate + 1, summary.effectiveRate + 2), 2), guarantee + 4);
@@ -209,7 +209,7 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
         </CardBody>
       </Card>
 
-      <DailyBreakdown days={periodDays} salonId={stylist.salonId} config={config} goalRate={goalRate} />
+      <DailyBreakdown days={periodDays} salonId={stylist.salonId} config={config} goalRate={goalRate} guaranteeRate={guarantee} />
     </div>
   );
 }
