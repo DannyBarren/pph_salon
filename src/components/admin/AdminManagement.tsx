@@ -153,6 +153,7 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<BackendRole>("stylist");
   const [salonId, setSalonId] = useState<number | "">("");
   const [managerId, setManagerId] = useState<number | "">("");
@@ -192,16 +193,23 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
     setError(null);
     setCreated(null);
     try {
+      const chosenPassword = password.trim();
       await userApi.create({
         name: name.trim(),
         email: email.trim() || undefined,
         role,
         salon_id: Number(salonId),
         manager_id: managerId === "" ? undefined : Number(managerId),
+        password: chosenPassword || undefined,
       });
-      setCreated(`Created ${name.trim()}. A temporary password was generated${email ? " and emailed (if SendGrid is configured)" : ""}.`);
+      setCreated(
+        chosenPassword
+          ? `Created ${name.trim()} with the initial password you set. They can change it after signing in.`
+          : `Created ${name.trim()}. A temporary password was generated${email ? " and emailed (if SendGrid is configured)" : ""}.`,
+      );
       setName("");
       setEmail("");
+      setPassword("");
       void loadUsers();
     } catch (err) {
       setError(errMessage(err));
@@ -257,6 +265,17 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
             <form onSubmit={submitSingle} className="space-y-3">
               <input className={input} placeholder="Full name" required value={name} onChange={(e) => setName(e.target.value)} />
               <input className={input} type="email" placeholder="Email (used to sign in)" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input
+                className={input}
+                type="text"
+                autoComplete="new-password"
+                placeholder="Initial password (optional — leave blank to auto-generate)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <p className="-mt-1 text-xs text-[var(--color-ink-faint)]">
+                Set a login password for the team member now, or leave blank to generate a temporary one. They can change it after signing in.
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <Select value={role} onChange={(e) => setRole(e.target.value as BackendRole)}>
                   <option value="stylist">Stylist</option>
@@ -301,8 +320,8 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
               </Button>
             </div>
             <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
-              Columns: email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate.
-              Provision hundreds of stylists/managers at once.
+              Columns: email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate, password.
+              Set an initial password per row (or leave blank to auto-generate). Provision hundreds of stylists/managers at once.
             </p>
             <form onSubmit={submitBulk} className="space-y-3">
               <input ref={fileRef} type="file" accept=".csv,.xlsx" className={input} />
@@ -542,6 +561,7 @@ function ImportPanel() {
         <h3 className="mb-1 text-sm font-semibold">Import performance data</h3>
         <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
           Upload Zenoti/PayCor exports or the native template. Weekly imports upsert by (user, week); daily imports also aggregate the parent week.
+          Any <b>week_start</b>/<b>date</b> is accepted, so you can back-fill historical or past-dated pay periods (e.g. June 8–21) alongside the current one.
           The <b>Client / SSF export</b> auto-provisions salons + employees (with per-employee guarantee rates) and records each person&apos;s Net service Rev for the chosen week.
         </p>
         <form onSubmit={submit} className="space-y-3">
