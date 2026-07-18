@@ -14,11 +14,11 @@
  * examples in `docs/pay-plan-logic.md`. The zero-dependency regression checks in
  * `scripts/test-team-calculations.mjs` assert the exact workbook values.
  *
- * TODO: Review with Danny — the older `src/lib/payEngine.ts` uses a simplified
- * flat-commission approximation. The Team Dashboard intentionally uses this
- * tiered engine (per `docs/spec/README.md`, the planner should be reconciled to
- * the tiered model over time). Both still coexist so the existing stylist views
- * keep working unchanged.
+ * This tiered engine is now the single source of truth for effective $/hr across
+ * the whole UI: `src/lib/payEngine.ts` (stylist dashboard + overview) delegates
+ * to it, so a stylist's rate is identical on their own dashboard and the team
+ * roll-up. `scripts/test-dashboard-parity.mjs` guards against regressing to the
+ * old flat-commission approximation.
  */
 
 /** A single pay tier: the PPH (production per hour) required to earn `payRate`. */

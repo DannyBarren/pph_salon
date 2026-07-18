@@ -7,6 +7,7 @@ import { Card, Badge } from "@/components/ui/primitives";
 import { SectionTitle } from "@/components/ui/primitives";
 import { fmtShort, isToday, weekdayIndex, WEEKDAY_LABELS } from "@/lib/time";
 import { guaranteeRateFor } from "@/lib/payEngine";
+import { getCurrentEffectivePayRate, getRequiredProductionForPayRate } from "@/lib/tiers";
 import { salonById } from "@/lib/mockData";
 import { servicePricesFor } from "@/lib/privacy";
 import { money, num, rate } from "@/lib/format";
@@ -17,6 +18,7 @@ export function DailyBreakdown({
   salonId,
   config,
   goalRate = 0,
+  guaranteeRate,
 }: {
   days: DayRecord[];
   salonId: string;
@@ -27,17 +29,19 @@ export function DailyBreakdown({
    * the goal changes on the dashboard.
    */
   goalRate?: number;
+  /** Per-employee guaranteed $/hr (falls back to the salon/global floor). */
+  guaranteeRate?: number;
 }) {
   const worked = days.filter((d) => d.scheduledHours > 0 || d.production > 0);
-  const guarantee = guaranteeRateFor(salonId, config);
+  const guarantee = guaranteeRate ?? guaranteeRateFor(salonId, config);
   const prices = servicePricesFor(salonById(salonId), config.salonServicePrices[salonId]);
   const mix = config.serviceMixHaircut;
-  const commission = config.commissionRate > 0 ? config.commissionRate : 0.42;
 
   /** Per-day goal targets derived from the goal pay rate + that day's schedule. */
   function goalsFor(d: DayRecord) {
-    // Production needed on this day to earn the goal rate over its scheduled hrs.
-    const dollars = goalRate > 0 ? (goalRate * d.scheduledHours) / commission : 0;
+    // Production needed on this day to earn the goal rate over its scheduled hrs
+    // (tiered PPH ladder — same math as the rest of the app).
+    const dollars = goalRate > 0 ? getRequiredProductionForPayRate(d.scheduledHours, goalRate) : 0;
     return {
       dollars,
       haircuts: prices.haircut > 0 ? (dollars * mix) / prices.haircut : 0,
@@ -52,7 +56,7 @@ export function DailyBreakdown({
       <div className="space-y-1.5">
         {worked.map((d) => {
           const isFuture = d.workedHours === 0 && d.production === 0;
-          const dayRate = d.workedHours > 0 ? Math.max(d.production * commission, d.workedHours * guarantee) / d.workedHours : 0;
+          const dayRate = getCurrentEffectivePayRate(d.production, d.workedHours, guarantee);
           const g = goalsFor(d);
           return (
             <div
