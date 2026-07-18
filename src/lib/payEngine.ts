@@ -1,4 +1,10 @@
 import type { DayRecord, PayConfig } from "./types";
+import {
+  NP_RATE,
+  getCurrentEffectivePayRate,
+  getEffectiveRateFromPph,
+  getRequiredProductionForPayRate,
+} from "./tiers";
 
 export function guaranteeRateFor(salonId: string, config: PayConfig): number {
   return config.salonGuarantee[salonId] ?? config.guaranteeRate;
@@ -24,9 +30,21 @@ export interface PeriodSummary {
   onGuarantee: boolean;
 }
 
-/** Aggregate a set of day records for one stylist into a period summary. */
-export function summarize(days: DayRecord[], salonId: string, config: PayConfig): PeriodSummary {
-  const guarantee = guaranteeRateFor(salonId, config);
+/**
+ * Aggregate a set of day records for one stylist into a period summary.
+ *
+ * Effective $/hr uses the SAME Excel-accurate tiered PPH engine as the Team
+ * Dashboard (`tiers.ts`), so a stylist's headline rate is identical on their own
+ * dashboard and in the manager roll-up. Pass `guaranteeRate` to honor the
+ * per-employee guarantee (falls back to the salon/global floor).
+ */
+export function summarize(
+  days: DayRecord[],
+  salonId: string,
+  config: PayConfig,
+  guaranteeRate?: number,
+): PeriodSummary {
+  const guarantee = guaranteeRate ?? guaranteeRateFor(salonId, config);
   let scheduledHours = 0;
   let workedHours = 0;
   let productionToDate = 0;
@@ -59,10 +77,16 @@ export function summarize(days: DayRecord[], salonId: string, config: PayConfig)
     }
   }
 
-  const commissionPay = productionToDate * config.commissionRate;
+  // Tiered, workbook-accurate effective rate (production-per-hour → pay tier,
+  // floored at the guarantee) — identical to the Team Dashboard.
+  const effectiveRate = getCurrentEffectivePayRate(productionToDate, workedHours, guarantee);
+  const tierRateNoFloor =
+    workedHours > 0 ? getEffectiveRateFromPph(productionToDate / workedHours, guarantee, { applyGuarantee: false }) : 0;
+  const onGuarantee = workedHours > 0 && tierRateNoFloor < guarantee;
+  const pay = effectiveRate * workedHours;
+  // Informational splits (not the rate driver): net-production commission vs floor.
+  const commissionPay = productionToDate * NP_RATE;
   const guaranteePay = workedHours * guarantee;
-  const pay = Math.max(commissionPay, guaranteePay);
-  const effectiveRate = workedHours > 0 ? pay / workedHours : 0;
 
   return {
     scheduledHours,
@@ -78,7 +102,7 @@ export function summarize(days: DayRecord[], salonId: string, config: PayConfig)
     guaranteePay,
     pay,
     effectiveRate,
-    onGuarantee: guaranteePay >= commissionPay,
+    onGuarantee,
   };
 }
 
@@ -128,13 +152,14 @@ export function plan(
   input: PlannerInput,
   guaranteeRate: number,
 ): PlannerResult {
-  const { commissionRate, avgTicketHaircut, avgTicketColor, minServicesPerDay } = config;
+  const { avgTicketHaircut, avgTicketColor, minServicesPerDay } = config;
 
   const planHours = summary.scheduledHours + input.extraHours;
   const targetPay = input.targetRate * planHours;
 
-  // Production required so that commission alone hits the target pay.
-  const requiredProduction = commissionRate > 0 ? targetPay / commissionRate : 0;
+  // Production required to earn the target rate, via the tiered PPH ladder
+  // (same source of truth as the Team Dashboard + backend).
+  const requiredProduction = getRequiredProductionForPayRate(planHours, input.targetRate);
   const remainingProduction = Math.max(0, requiredProduction - summary.productionToDate);
 
   // Add extra hours to capacity as additional working days-equivalent.
@@ -148,11 +173,10 @@ export function plan(
   const projectedColors = projectedServices * (1 - mix);
   const perDayServices = remainingDays > 0 ? projectedServices / remainingDays : projectedServices;
 
-  // Current-pace projection for the whole period.
+  // Current-pace projection for the whole period, scored on the tiered engine.
   const ratePerCompletedHour = summary.workedHours > 0 ? summary.productionToDate / summary.workedHours : 0;
   const pacedProduction = summary.productionToDate + ratePerCompletedHour * summary.remainingScheduledHours;
-  const pacedPay = Math.max(pacedProduction * commissionRate, planHours * guaranteeRate);
-  const pacedRate = planHours > 0 ? pacedPay / planHours : 0;
+  const pacedRate = getEffectiveRateFromPph(planHours > 0 ? pacedProduction / planHours : 0, guaranteeRate);
 
   // Feasibility: required services/day vs realistic capacity ceiling.
   const capacityPerDay = Math.max(minServicesPerDay, minServicesPerDay * 1.8);

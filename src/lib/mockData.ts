@@ -195,9 +195,14 @@ for (const p of CLIENT_ROSTER) {
 
 export const DEFAULT_CONFIG: PayConfig = {
   guaranteeRate: 12,
-  commissionRate: 0.42,
-  avgTicketHaircut: 48,
-  avgTicketColor: 135,
+  // Net-production share (workbook NP rate). Effective $/hr is driven by the
+  // tiered PPH ladder (tiers.ts); this stays aligned for any commission display.
+  commissionRate: 0.4,
+  // Net production per service — the client's Avg Haircut / Avg Color ($23/$85),
+  // matching tiers.ts and the daily goal bars so production→service-count
+  // projections are consistent everywhere.
+  avgTicketHaircut: 23,
+  avgTicketColor: 85,
   serviceMixHaircut: 0.6,
   minServicesPerDay: 6,
   salonGuarantee,

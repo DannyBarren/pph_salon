@@ -11,7 +11,8 @@
     "test:planner": "node --test scripts/test-planner.mjs",
     "test:calc": "node --test scripts/test-team-calculations.mjs",
     "test:parity": "node --test scripts/test-pay-parity.mjs",
-    "test": "npm run test:calc && npm run test:planner && npm run test:parity"
+    "test:dashboard": "node --test scripts/test-dashboard-parity.mjs",
+    "test": "npm run test:calc && npm run test:planner && npm run test:parity && npm run test:dashboard"
   },
   "dependencies": {
     "lucide-react": "^1.22.0",
