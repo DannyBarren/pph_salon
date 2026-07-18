@@ -28,13 +28,15 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
     const sel = resolveSelection(view, selectedWeekId, selectedPeriodIndex);
     const all = getDays(stylistId);
     const periodDays = sliceDays(all, sel.start, sel.end);
-    const guarantee = guaranteeRateFor(stylist.salonId, config);
+    // Prefer the employee's own guaranteed rate (from the client roster);
+    // fall back to the salon/global config floor.
+    const guarantee = stylist.guaranteeRate ?? guaranteeRateFor(stylist.salonId, config);
     const summary = summarize(periodDays, stylist.salonId, config);
     const probe = plan(summary, config, { targetRate: guarantee, extraHours: 0, serviceMixHaircut: config.serviceMixHaircut }, guarantee);
     const paceRate = probe.pacedRate;
     const suggestedGoalRate = Math.max(roundUpTo(Math.max(paceRate + 1, summary.effectiveRate + 2), 2), guarantee + 4);
     return { summary, periodDays, guarantee, suggestedGoalRate, paceRate };
-  }, [config, timeView, selectedWeekId, selectedPeriodIndex, getDays, stylistId, stylist.salonId]);
+  }, [config, timeView, selectedWeekId, selectedPeriodIndex, getDays, stylistId, stylist.salonId, stylist.guaranteeRate]);
 
   // The stylist can override the suggested goal with their own $/hr target
   // (§3). Null means "use the app's suggestion"; any number is their own goal.
