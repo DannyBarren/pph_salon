@@ -42,6 +42,25 @@ class WeeklyImportResult(BaseModel):
     errors: list[str] = []
 
 
+class ClientImportResult(BaseModel):
+    """Summary returned by the combined client-export import.
+
+    The client export is a single file that provisions salons and users AND
+    carries a week of performance data, so the result reports each dimension.
+    """
+
+    week_start: date
+    salons_created: int = 0
+    users_created: int = 0
+    users_updated: int = 0
+    weeks_inserted: int = 0
+    weeks_updated: int = 0
+    skipped: int = 0
+    errors: list[str] = []
+    # Employee codes that could not be resolved/created, for quick triage.
+    credentials: dict[str, str] = {}
+
+
 class WeeklyDataRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
