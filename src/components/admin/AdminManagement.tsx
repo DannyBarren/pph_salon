@@ -19,6 +19,8 @@ import {
   Loader2,
   KeyRound,
   Info,
+  Send,
+  Copy,
 } from "lucide-react";
 import { Card, CardBody, Button, Badge, Select } from "@/components/ui/primitives";
 import { adminApi, salonApi, userApi } from "@/lib/api/endpoints";
@@ -177,6 +179,8 @@ function UserManager({
   const fileRef = useRef<HTMLInputElement>(null);
   const [resetInfo, setResetInfo] = useState<{ email: string | null; password: string | null } | null>(null);
   const [resetBusyId, setResetBusyId] = useState<number | null>(null);
+  const [inviteInfo, setInviteInfo] = useState<{ email: string | null; link: string | null; emailed: boolean } | null>(null);
+  const [inviteBusyId, setInviteBusyId] = useState<number | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -263,6 +267,27 @@ function UserManager({
       setError(errMessage(err));
     } finally {
       setResetBusyId(null);
+    }
+  };
+
+  const sendSetupLink = async (u: UserDTO) => {
+    let email = u.email ?? "";
+    if (!email) {
+      const entered = typeof window !== "undefined" ? window.prompt(`Enter ${u.name}'s email to send their setup link:`) : null;
+      if (!entered || !entered.trim()) return;
+      email = entered.trim();
+    }
+    setInviteBusyId(u.id);
+    setError(null);
+    setInviteInfo(null);
+    try {
+      const r = await userApi.invite(u.id, u.email ? undefined : email);
+      setInviteInfo({ email: r.email, link: r.setup_link, emailed: r.emailed });
+      void loadUsers();
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setInviteBusyId(null);
     }
   };
 
@@ -416,6 +441,31 @@ function UserManager({
               </Notice>
             </div>
           )}
+          {inviteInfo && (
+            <div className="mb-3">
+              <Notice kind="success">
+                {inviteInfo.emailed ? (
+                  <>Setup link emailed to {inviteInfo.email}. They&apos;ll set their own password and sign in with their email.</>
+                ) : (
+                  <>
+                    Account unlocked for {inviteInfo.email ?? "user"}. Share this one-time setup link so they can set their password:
+                    {inviteInfo.link && (
+                      <span className="mt-1 flex items-center gap-2">
+                        <code className="min-w-0 flex-1 truncate rounded bg-[var(--color-surface-2)] px-2 py-1 font-mono text-xs">{inviteInfo.link}</code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { if (inviteInfo.link) void navigator.clipboard?.writeText(inviteInfo.link); }}
+                        >
+                          <Copy size={13} /> Copy
+                        </Button>
+                      </span>
+                    )}
+                  </>
+                )}
+              </Notice>
+            </div>
+          )}
           {loading ? (
             <p className="text-sm text-[var(--color-ink-faint)]">Loading…</p>
           ) : (
@@ -440,10 +490,16 @@ function UserManager({
                       </td>
                       <td>#{u.salon_id}</td>
                       <td className="text-right">
-                        <Button variant="ghost" size="sm" disabled={resetBusyId === u.id} onClick={() => resetPassword(u.id)}>
-                          {resetBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
-                          Reset password
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" disabled={inviteBusyId === u.id} onClick={() => sendSetupLink(u)}>
+                            {inviteBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                            Send setup link
+                          </Button>
+                          <Button variant="ghost" size="sm" disabled={resetBusyId === u.id} onClick={() => resetPassword(u.id)}>
+                            {resetBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
+                            Reset password
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

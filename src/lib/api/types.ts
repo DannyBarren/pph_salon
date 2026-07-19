@@ -32,6 +32,21 @@ export interface UserDTO {
   updated_at: string;
 }
 
+export interface InviteResponse {
+  user_id: number;
+  email: string | null;
+  emailed: boolean;
+  /** One-time setup link, present when email delivery isn't configured. */
+  setup_link: string | null;
+  expires_at: string;
+}
+
+export interface InvitePreview {
+  name: string;
+  email: string | null;
+  valid: boolean;
+}
+
 export interface SalonDTO {
   id: number;
   name: string;

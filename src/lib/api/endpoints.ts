@@ -11,6 +11,8 @@ import type {
   CreateSalonInput,
   CreateUserInput,
   CurrentUserDTO,
+  InvitePreview,
+  InviteResponse,
   PayTierDTO,
   SalonDTO,
   TokenResponse,
@@ -40,6 +42,20 @@ export const authApi = {
   },
   logout(): void {
     tokenStore.clear();
+  },
+  /** Public: preview whom a setup link is for (validates the token). */
+  validateInvite(token: string): Promise<InvitePreview> {
+    return api.get<InvitePreview>(`/auth/invite/${encodeURIComponent(token)}`, { auth: false });
+  },
+  /** Public: complete account setup by choosing a password → signs the user in. */
+  async acceptInvite(token: string, newPassword: string): Promise<CurrentUserDTO> {
+    const tokens = await api.post<TokenResponse>(
+      "/auth/accept-invite",
+      { token, new_password: newPassword },
+      { auth: false },
+    );
+    tokenStore.set(tokens.access_token, tokens.refresh_token);
+    return authApi.me();
   },
   register(input: {
     email: string;
@@ -96,9 +112,14 @@ export const userApi = {
     api.patch<UserDTO>(`/users/${id}`, patch),
   deactivate: (id: number) => api.post<UserDTO>(`/users/${id}/deactivate`),
   resetPassword: (id: number, emailCredentials = false) =>
-    api.post<{ user_id: number; email: string | null; emailed: boolean; temporary_password: string | null }>(
-      `/users/${id}/reset-password?email_credentials=${emailCredentials}`,
-    ),
+    DEMO_MODE
+      ? demoBackend.resetPassword(id)
+      : api.post<{ user_id: number; email: string | null; emailed: boolean; temporary_password: string | null }>(
+          `/users/${id}/reset-password?email_credentials=${emailCredentials}`,
+        ),
+  /** Unlock an account + email a "set your password" link (email optional to set it). */
+  invite: (id: number, email?: string) =>
+    DEMO_MODE ? demoBackend.invite(id, email) : api.post<InviteResponse>(`/users/${id}/invite`, email ? { email } : {}),
 };
 
 // ── Admin imports + audit ─────────────────────────────────────────────────────

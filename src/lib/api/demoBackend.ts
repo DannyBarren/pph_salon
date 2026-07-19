@@ -18,6 +18,7 @@ import type {
   ClientImportResult,
   CreateSalonInput,
   CreateUserInput,
+  InviteResponse,
   PayTierDTO,
   SalonDTO,
   UserDTO,
@@ -207,6 +208,27 @@ export const demoBackend = {
       skipped: 0,
       errors: [],
       credentials: {},
+    };
+  },
+
+  // ── Account setup: reset password + invite (session-local simulation) ──────
+  async resetPassword(userId: number): Promise<{ user_id: number; email: string | null; emailed: boolean; temporary_password: string | null }> {
+    const u = users.find((x) => x.id === userId);
+    logAudit("user.reset_password", "user", String(userId));
+    return { user_id: userId, email: u?.email ?? null, emailed: false, temporary_password: "Demo-Temp-1234" };
+  },
+  async invite(userId: number, email?: string): Promise<InviteResponse> {
+    const u = users.find((x) => x.id === userId);
+    const to = email ?? u?.email ?? null;
+    if (u && email) u.email = email;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    logAudit("user.invite", "user", String(userId));
+    return {
+      user_id: userId,
+      email: to,
+      emailed: false,
+      setup_link: `${origin}/accept-invite?token=demo-${userId}`,
+      expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
     };
   },
 

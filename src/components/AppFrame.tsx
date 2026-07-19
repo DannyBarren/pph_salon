@@ -9,7 +9,7 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { initSentry } from "@/lib/sentry";
 
 /** Routes that render standalone (no app chrome / auth gate). */
-const BARE_ROUTES = ["/login", "/register", "/setup"];
+const BARE_ROUTES = ["/login", "/register", "/setup", "/accept-invite"];
 
 /**
  * Top-level frame: initialises telemetry + PWA, shows the offline banner, and

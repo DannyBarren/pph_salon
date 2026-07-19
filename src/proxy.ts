@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
 
 // Paths that never require auth.
-const PUBLIC_PATHS = ["/login", "/register", "/setup"];
+const PUBLIC_PATHS = ["/login", "/register", "/setup", "/accept-invite"];
 
 export function proxy(req: NextRequest) {
   if (DEMO_MODE) return NextResponse.next();

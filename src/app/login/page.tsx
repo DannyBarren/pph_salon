@@ -51,12 +51,12 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
-              Email
+              Email or username
             </label>
             <input
               id="email"
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
