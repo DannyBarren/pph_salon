@@ -396,5 +396,62 @@ managers are confined to their own salon.
 
 ---
 
+## This deployment — admin account, real roster & unlocking accounts
+
+### The admin account
+
+The organization admin signs in with a **username** (not an email):
+
+| Field | Value |
+| --- | --- |
+| Username | `Venita_Admin` |
+| Password | `Salon_Admin` |
+
+The admin can change this password anytime from **Account → Change password**
+(or `/account`). Everyone else signs in with their **email address**.
+
+### Seeding the admin + the real salons/employees (one-time, per deploy)
+
+After the database is migrated (`alembic upgrade head`), seed the admin and the
+real roster (all real salons + employees from the client export) with:
+
+```bash
+cd backend
+python -m scripts.seed_production \
+    --admin-username Venita_Admin \
+    --admin-password 'Salon_Admin' \
+    --csv "../PPH Data 06-26-2026.xlsx.csv"
+```
+
+This is **idempotent** (safe to re-run). Every salon and employee is created in a
+**pending-setup** state — they exist in the system but **cannot log in yet**
+because they have no password. No plaintext passwords are stored for staff.
+
+### Unlocking accounts ("send setup link")
+
+Instead of handing out temporary passwords, accounts are activated with a secure,
+expiring **setup link** — the person sets their own password:
+
+1. **Admin → Users** (or a **Manager → My Team**): find the person and click
+   **Send setup link**. If the account has no email yet, you'll be asked for one
+   (that becomes their username).
+2. They receive an email with a link to **`/accept-invite`**, choose a password,
+   and are signed straight in. Afterward they log in with their **email + password**.
+3. If email delivery isn't configured, the link is shown once in the UI to copy
+   and share directly.
+
+**Who can unlock whom** (same delegated hierarchy as account creation):
+
+- **Admin/Owner** can unlock **anyone** (any salon).
+- **Managers** can unlock **their own stylists** (their salon only).
+
+Links are one-time and expire (default 72h). Re-send anytime; you can also still
+**Reset password** to issue a temporary password if preferred.
+
+> Configure `APP_BASE_URL` (backend) to your site's public URL so the links point
+> to the right place, and set `SENDGRID_API_KEY` to actually deliver the emails.
+
+---
+
 *Questions? See `PRODUCTION_INSTRUCTIONS.md` for deployment, or contact whoever
 administers your deployment.*
