@@ -79,3 +79,21 @@ class ResetPasswordResponse(BaseModel):
     emailed: bool = False
     # The new temporary password, returned once unless it was emailed instead.
     temporary_password: str | None = None
+
+
+class InviteRequest(BaseModel):
+    """Optional payload when unlocking an account: set/fix the email first."""
+
+    email: str | None = None
+
+
+class InviteResponse(BaseModel):
+    """Result of unlocking (inviting) an account to set up its own password."""
+
+    user_id: int
+    email: str | None = None
+    emailed: bool = False
+    # The one-time setup link, returned so the admin can share it directly when
+    # email delivery isn't configured. Null once emailing is confirmed.
+    setup_link: str | None = None
+    expires_at: datetime

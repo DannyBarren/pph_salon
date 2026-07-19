@@ -6,6 +6,7 @@ crypto in one module makes it easy to audit and swap implementations.
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
@@ -36,6 +37,27 @@ def validate_password(password: str) -> None:
         raise ValueError(
             f"Password must be at least {settings.min_password_length} characters"
         )
+
+
+def generate_setup_token() -> str:
+    """A high-entropy, URL-safe one-time token for account-setup / invite links.
+
+    The raw token is emailed to the user and never stored; only its
+    :func:`hash_token` digest is persisted, so a DB leak can't be replayed.
+    """
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """Stable SHA-256 hex digest used to store/look up setup tokens."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def token_matches(raw_token: str, stored_hash: str | None) -> bool:
+    """Constant-time comparison of a presented token against a stored hash."""
+    if not stored_hash:
+        return False
+    return secrets.compare_digest(hash_token(raw_token), stored_hash)
 
 
 def generate_temp_password(length: int = 14) -> str:

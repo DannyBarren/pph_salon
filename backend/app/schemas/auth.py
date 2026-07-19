@@ -17,7 +17,10 @@ class RefreshRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    # Accepts an email OR a plain username (e.g. the admin's "Venita_Admin").
+    # The login identifier is matched exactly against the user's `email` field,
+    # which may hold either an email address or a username.
+    email: str
     password: str
 
 
@@ -51,6 +54,21 @@ class ChangePasswordRequest(BaseModel):
 
     current_password: str
     new_password: str
+
+
+class AcceptInviteRequest(BaseModel):
+    """Complete account setup from an emailed link: set the first password."""
+
+    token: str
+    new_password: str
+
+
+class InvitePreview(BaseModel):
+    """Public, non-sensitive preview shown on the 'set your password' page."""
+
+    name: str
+    email: str | None = None
+    valid: bool = True
 
 
 class CurrentUser(BaseModel):

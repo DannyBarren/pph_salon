@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     # Minimum password length enforced on user creation / registration.
     min_password_length: int = 8
 
+    # ── Account setup / invite links ────────────────────────────────────
+    # Public base URL of the Next.js frontend, used to build the "set your
+    # password" links emailed when an admin/manager unlocks (invites) an account.
+    app_base_url: str = "http://localhost:3000"
+    # How long a setup / invite link stays valid before it must be re-sent.
+    invite_token_expire_hours: int = 72
+
     # ── Rate limiting ───────────────────────────────────────────────────
     rate_limit_enabled: bool = True
     # Default per-client limit for general endpoints (slowapi syntax).

@@ -8,6 +8,8 @@ and audit-logged. Single-user creation here complements the CSV bulk import in
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -20,11 +22,19 @@ from app.api.deps import (
     visible_stylist_ids,
 )
 from app.core import security
+from app.core.config import Settings, get_settings
 from app.db.session import get_session
 from app.models import Salon, User, UserRole
-from app.schemas.user import ResetPasswordResponse, UserCreate, UserRead, UserUpdate
+from app.schemas.user import (
+    InviteRequest,
+    InviteResponse,
+    ResetPasswordResponse,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from app.services.audit import record_audit
-from app.services.notifications_out import send_welcome_email
+from app.services.notifications_out import send_invite_email, send_welcome_email
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -197,6 +207,67 @@ def reset_password(
         email=user.email,
         emailed=emailed,
         temporary_password=None if emailed else temp,
+    )
+
+
+@router.post("/{user_id}/invite", response_model=InviteResponse)
+def invite_user(
+    user_id: int,
+    body: InviteRequest | None = None,
+    session: Session = Depends(get_session),
+    actor: User = Depends(require_manager_or_above),
+    settings: Settings = Depends(get_settings),
+) -> InviteResponse:
+    """Unlock an account so its owner can set their own password via an emailed
+    link ("send setup link").
+
+    Delegated + hierarchical: super-admins may unlock anyone; a manager may only
+    unlock subordinate accounts in their own salon (their stylists). The account
+    must have an email (supply one in the body to set it now if missing). A
+    one-time, expiring token is generated — only its hash is stored — and the
+    link is emailed (returned directly when email delivery isn't configured so it
+    can be shared manually). This does NOT set a password; the user chooses it.
+    """
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    assert_can_manage_user(actor, user)
+
+    # Set/fix the email (their future username) if provided.
+    if body and body.email:
+        new_email = body.email.strip()
+        clash = session.exec(
+            select(User).where(User.email == new_email, User.id != user.id)
+        ).first()
+        if clash is not None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Email already in use")
+        user.email = new_email
+    if not user.email:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "This account has no email. Provide one to send the setup link.",
+        )
+
+    raw_token = security.generate_setup_token()
+    expires_at = datetime.now(UTC) + timedelta(hours=settings.invite_token_expire_hours)
+    user.setup_token_hash = security.hash_token(raw_token)
+    user.setup_token_expires_at = expires_at
+    user.is_active = True  # unlock (reactivate if previously disabled)
+    session.add(user)
+    session.commit()
+
+    setup_link = f"{settings.app_base_url.rstrip('/')}/accept-invite?token={raw_token}"
+    delivery = send_invite_email(user.email, user.name, setup_link)
+    record_audit(session, actor=actor, action="user.invite", target_type="user",
+                 target_id=user.id, salon_id=user.salon_id,
+                 detail={"emailed": delivery.delivered})
+    return InviteResponse(
+        user_id=user.id,
+        email=user.email,
+        emailed=delivery.delivered,
+        # Only withhold the link when we're confident it was delivered by email.
+        setup_link=None if delivery.delivered else setup_link,
+        expires_at=expires_at,
     )
 
 

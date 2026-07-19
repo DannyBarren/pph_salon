@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -20,9 +21,11 @@ from app.core.limiter import limiter
 from app.db.session import get_session
 from app.models import Salon, User, UserRole
 from app.schemas.auth import (
+    AcceptInviteRequest,
     BootstrapRequest,
     ChangePasswordRequest,
     CurrentUser,
+    InvitePreview,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -30,6 +33,23 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserRead
 from app.services.audit import record_audit
+
+
+def _find_by_setup_token(session: Session, token: str) -> User | None:
+    """Resolve a live (unexpired) account-setup token to its user, or None."""
+    if not token:
+        return None
+    user = session.exec(
+        select(User).where(User.setup_token_hash == security.hash_token(token))
+    ).first()
+    if user is None or user.setup_token_expires_at is None:
+        return None
+    expires = user.setup_token_expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=UTC)
+    if expires < datetime.now(UTC):
+        return None
+    return user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -201,6 +221,54 @@ def change_password(
     user.hashed_password = security.hash_password(body.new_password)
     session.add(user)
     session.commit()
+
+
+@router.get("/invite/{token}", response_model=InvitePreview)
+def preview_invite(token: str, session: Session = Depends(get_session)) -> InvitePreview:
+    """Public: validate a setup link and return whom it's for (for the UI).
+
+    Never leaks details for an invalid/expired token — returns ``valid: false``.
+    """
+    user = _find_by_setup_token(session, token)
+    if user is None:
+        return InvitePreview(name="", email=None, valid=False)
+    return InvitePreview(name=user.name, email=user.email, valid=True)
+
+
+@router.post("/accept-invite", response_model=Token)
+@limiter.limit(_LOGIN_LIMIT)
+def accept_invite(
+    request: Request,
+    body: AcceptInviteRequest,
+    session: Session = Depends(get_session),
+) -> Token:
+    """Public: complete account setup from an emailed link by choosing a password.
+
+    Validates the one-time token, sets the password, activates the account, and
+    invalidates the token. Returns a JWT pair so the user is signed straight in.
+    Afterward they log in with their email + this password.
+    """
+    user = _find_by_setup_token(session, body.token)
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This setup link is invalid or has expired")
+    try:
+        security.validate_password(body.new_password)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    user.hashed_password = security.hash_password(body.new_password)
+    user.is_active = True
+    user.setup_token_hash = None
+    user.setup_token_expires_at = None
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    record_audit(session, actor=user, action="auth.accept_invite", target_type="user",
+                 target_id=user.id, salon_id=user.salon_id, detail={"email": user.email})
+    return Token(
+        access_token=security.create_access_token(user.id, role=str(user.role)),
+        refresh_token=security.create_refresh_token(user.id),
+    )
 
 
 @router.get("/me", response_model=CurrentUser)

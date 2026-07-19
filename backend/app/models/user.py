@@ -1,6 +1,7 @@
 """User model (stylists, managers, admins) with a self-referential manager link."""
 
 import enum
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship
@@ -34,6 +35,13 @@ class User(TimestampMixin, table=True):
     phone: Optional[str] = Field(default=None)
     hashed_password: Optional[str] = Field(default=None)
     is_active: bool = Field(default=True)
+
+    # Account-setup / invite link. When an admin or manager "unlocks" an account
+    # we store the SHA-256 of a one-time token (never the raw token) plus its
+    # expiry; the user sets their own password via the emailed link, then it's
+    # cleared. hashed_password stays null until they complete setup.
+    setup_token_hash: Optional[str] = Field(default=None, index=True)
+    setup_token_expires_at: Optional[datetime] = Field(default=None)
 
     # Per-stylist guaranteed $/hr floor (falls back to the salon/global rate).
     guarantee_rate: Optional[float] = Field(default=None)

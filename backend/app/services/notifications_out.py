@@ -65,6 +65,30 @@ def send_sms(to: str, body: str) -> DeliveryResult:
         return DeliveryResult("sms", to, delivered=False, provider="twilio", detail=str(exc))
 
 
+def send_invite_email(to: str, name: str, setup_link: str) -> DeliveryResult:
+    """Account-setup invite: the user clicks the link to set their own password.
+
+    Preferred over sending a temporary password — no reusable secret is emailed,
+    and the link expires. The user signs in afterward with their email + the
+    password they chose.
+    """
+    lines = [
+        f"Hi {name},",
+        "",
+        "You've been given access to the PPH Stylist App. Set your password to",
+        "finish activating your account:",
+        "",
+        setup_link,
+        "",
+        "This link expires soon. After setting your password, sign in with your",
+        "email address and the password you chose.",
+        "",
+        "See you inside,",
+        "The PPH Team",
+    ]
+    return send_email(to, "Set up your PPH Stylist App account", "\n".join(lines))
+
+
 def send_welcome_email(to: str, name: str, temp_password: str | None = None) -> DeliveryResult:
     """Invite email sent when an admin provisions a new user."""
     lines = [
