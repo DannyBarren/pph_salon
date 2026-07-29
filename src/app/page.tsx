@@ -3,7 +3,6 @@
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/store/AppContext";
-import { TimeNavigator } from "@/components/TimeNavigator";
 import { StylistSwitcher } from "@/components/StylistSwitcher";
 import { StylistDashboard } from "@/components/StylistDashboard";
 import { Card, CardBody } from "@/components/ui/primitives";
@@ -27,7 +26,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <TimeNavigator />
       {currentUser.role !== "stylist" && <StylistSwitcher />}
       {targetId ? (
         <StylistDashboard key={targetId} stylistId={targetId} />
