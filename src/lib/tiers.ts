@@ -36,38 +36,33 @@ export interface Tier {
 }
 
 /**
- * Pay tiers hardcoded from `PPH Based Payplan.xlsx` (columns B & C, identical on
- * both the "Sched View" and "Actual" sheets). The underlying relationship is
- * `payRate = roundHalfUp(pph * NP_RATE)`, but the table is stored explicitly so
- * results match the workbook to the cent.
+ * Pay tiers from the client's `OtherData` sheet (UAT 2.xlsx). Each row maps a
+ * pay rate ($/hr) to the Production-Per-Hour required to earn it, at the exact
+ * relationship `payRate = pphRequired * NP_RATE` (NP_RATE = 0.40). The PPH
+ * thresholds are therefore `payRate / 0.40` and can be fractional (e.g. $9/hr
+ * requires 22.5 PPH). This is the seeded default; the highest admin can edit it.
  */
 export const PPH_TIERS: readonly Tier[] = [
-  { payRate: 11, pphRequired: 28 },
+  { payRate: 8, pphRequired: 20 },
+  { payRate: 9, pphRequired: 22.5 },
+  { payRate: 10, pphRequired: 25 },
+  { payRate: 11, pphRequired: 27.5 },
   { payRate: 12, pphRequired: 30 },
-  { payRate: 13, pphRequired: 33 },
+  { payRate: 13, pphRequired: 32.5 },
   { payRate: 14, pphRequired: 35 },
-  { payRate: 15, pphRequired: 38 },
+  { payRate: 15, pphRequired: 37.5 },
   { payRate: 16, pphRequired: 40 },
-  { payRate: 17, pphRequired: 43 },
+  { payRate: 17, pphRequired: 42.5 },
   { payRate: 18, pphRequired: 45 },
-  { payRate: 19, pphRequired: 48 },
+  { payRate: 19, pphRequired: 47.5 },
   { payRate: 20, pphRequired: 50 },
-  { payRate: 21, pphRequired: 53 },
-  { payRate: 22, pphRequired: 55 },
-  { payRate: 23, pphRequired: 58 },
-  { payRate: 24, pphRequired: 60 },
-  { payRate: 25, pphRequired: 63 },
-  { payRate: 26, pphRequired: 65 },
-  { payRate: 27, pphRequired: 68 },
-  { payRate: 28, pphRequired: 70 },
-  { payRate: 29, pphRequired: 73 },
 ] as const;
 
-/** Net-production share implied by the tiers (cell B6 on both sheets). */
+/** Net-production share (Pay Rate ≈ PPH × 0.40). */
 export const NP_RATE = 0.4;
-/** Net-profit percentage surfaced on the sheet (column O, ≈ 19.5%). */
+/** Net-profit percentage surfaced on reports (informational). */
 export const NP_PERCENT = 0.195;
-/** Per-service production values (cells T6 / AC6). */
+/** Per-service production values (client's Avg Haircut / Avg Color). */
 export const HAIRCUT_PRICE = 23;
 export const COLOR_PRICE = 85;
 
@@ -82,7 +77,7 @@ setActivePaymentLogic({
   tiers: PPH_TIERS.map((t) => ({ payRate: t.payRate, pphRequired: t.pphRequired })),
   npRate: NP_RATE,
   npPercent: NP_PERCENT,
-  guaranteeRate: 12,
+  guaranteeRate: 10,
   commissionRate: NP_RATE,
   haircutPrice: HAIRCUT_PRICE,
   colorPrice: COLOR_PRICE,
@@ -108,12 +103,16 @@ export function roundHalfUp(n: number): number {
 }
 
 /**
- * PPH required to earn `payRate`. Exact tier value when `payRate` is a table
- * row; otherwise the exact `payRate / NP_RATE` relationship for off-tier rates.
+ * PPH required to earn a Desired Pay Rate (DPR).
+ *
+ * Client rule: `Required PPH = DPR / NP_RATE, rounded UP to the nearest whole
+ * dollar`. e.g. $14 → `ceil(14 / 0.40)` = 35 PPH. Because the target rounds to a
+ * whole dollar it can sit slightly above the (possibly fractional) tier
+ * threshold used by the effective-rate lookup — that is intended.
  */
 export function pphForRate(payRate: number): number {
-  const exact = activeTiers().find((t) => t.payRate === payRate);
-  return exact ? exact.pphRequired : payRate / activeNpRate();
+  const np = activeNpRate();
+  return np > 0 ? Math.ceil(payRate / np) : 0;
 }
 
 /**

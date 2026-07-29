@@ -7,6 +7,22 @@
 >
 > Documentation only (not shown in the app UI). Companion to `client_readme.md`.
 
+> **⚠️ UPDATED DEFAULTS (2026-07-29 — client UAT 2.xlsx "OtherData"/"Holliean").**
+> The seeded/default payment logic now uses the client's new tier table and rules:
+>
+> - **Tier table (PPH → Pay Rate):** 20→8, 22.5→9, 25→10, 27.5→11, 30→12,
+>   32.5→13, 35→14, 37.5→15, 40→16, 42.5→17, 45→18, 47.5→19, 50→20.
+> - **NP rate = 0.40**, so `Pay Rate = PPH × 0.40` (thresholds = `rate / 0.40`,
+>   which can be fractional, e.g. $9/hr ⇒ 22.5 PPH).
+> - **Required PPH for a Desired Pay Rate = `ceil(DPR / 0.40)`** (rounded UP to
+>   the nearest whole dollar); **Required Service Revenue = scheduled hours × that**.
+> - **Guarantee example = $10** (Holliean). Service prices $23 haircut / $85 color.
+> - Holliean check: DPR $14, 21 hrs → Req PPH **35**, Req Svc Rev **$735**.
+>
+> These are the *defaults*; the highest admin (Owner) can edit all of them globally
+> at `/admin/payment-logic`. The Rebeca/Steph worked examples below reference the
+> **prior** workbook and are retained for historical context only.
+
 ---
 
 ## 0. Accuracy check — results first
@@ -67,35 +83,33 @@ Defined in `pay_engine.py`:
 | Guarantee rate | e.g. `12` / `13` | `E3` | Hourly pay floor (per stylist/salon). |
 | NP% | `19.5%` | col `O` | `1 − 0.4 − (16%+5%+1.5%+18%)` overhead. |
 
-`DEFAULT_PPH_TIERS` hardcodes the pay-rate → required-PPH table (rates $11–$29),
-identical to columns B & C of both sheets.
+`DEFAULT_PPH_TIERS` hardcodes the pay-rate → required-PPH table (rates **$8–$20**,
+client `OtherData` sheet). See the updated table in §3.
 
 ---
 
 ## 3. PPH — the required production-per-hour for a pay rate
 
-**Formula (Excel `C = ROUND(rate / 0.4, 0)`):**
+**Formula (client rule — round UP to the nearest whole dollar):**
 
 ```
-PPH(rate) = round_half_up(rate / 0.4)
+Required PPH(rate) = ceil(rate / 0.4)
 ```
 
-- Uses **half-up** rounding, so `13 / 0.4 = 32.5 → 33` (Python's banker's `round`
-  would give `32` — a real bug avoided).
-- `PayPlanEngine.pph_for_rate(rate)` returns the **exact table value** for on-tier
-  rates, or `rate / np_rate` for off-tier rates.
+- `PayPlanEngine.pph_for_rate(rate)` returns `ceil(rate / np_rate)`. e.g. $14 →
+  `ceil(35) = 35`; $9 → `ceil(22.5) = 23`. The tier **thresholds** used by the
+  effective-rate lookup keep the exact `rate / 0.40` values (which can be
+  fractional), so a required target can sit slightly above its tier threshold.
 
-Resulting table (verified against columns B/C on both sheets):
+Tier table (client `OtherData`; `Pay Rate = PPH × 0.40`):
 
-| Rate | PPH | Rate | PPH | Rate | PPH |
+| PPH | Rate | PPH | Rate | PPH | Rate |
 | --- | --- | --- | --- | --- | --- |
-| 11 | 28 | 18 | 45 | 25 | 63 |
-| 12 | 30 | 19 | 48 | 26 | 65 |
-| 13 | 33 | 20 | 50 | 27 | 68 |
-| 14 | 35 | 21 | 53 | 28 | 70 |
-| 15 | 38 | 22 | 55 | 29 | 73 |
-| 16 | 40 | 23 | 58 | | |
-| 17 | 43 | 24 | 60 | | |
+| 20 | 8 | 32.5 | 13 | 45 | 18 |
+| 22.5 | 9 | 35 | 14 | 47.5 | 19 |
+| 25 | 10 | 37.5 | 15 | 50 | 20 |
+| 27.5 | 11 | 40 | 16 | | |
+| 30 | 12 | 42.5 | 17 | | |
 
 ---
 

@@ -11,11 +11,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-// ── Mirror of the tiered engine (src/lib/tiers.ts) ─────────────────────────
+// ── Mirror of the tiered engine (src/lib/tiers.ts — client OtherData table) ─
 const PPH_TIERS = [
-  [11, 28], [12, 30], [13, 33], [14, 35], [15, 38], [16, 40], [17, 43],
-  [18, 45], [19, 48], [20, 50], [21, 53], [22, 55], [23, 58], [24, 60],
-  [25, 63], [26, 65], [27, 68], [28, 70], [29, 73],
+  [8, 20], [9, 22.5], [10, 25], [11, 27.5], [12, 30], [13, 32.5], [14, 35],
+  [15, 37.5], [16, 40], [17, 42.5], [18, 45], [19, 47.5], [20, 50],
 ].map(([payRate, pphRequired]) => ({ payRate, pphRequired }));
 
 function effectiveRate(production, hours, guarantee) {
@@ -40,15 +39,15 @@ function flatRate(production, hours, guarantee, commission = 0.42) {
 
 // ── Real client figures (PPH Data 06-26-2026) ──────────────────────────────
 test("mid producer — Linda Jones (Burleson): tiered = $15/hr", () => {
-  assert.equal(effectiveRate(2418.15, 62.92, 12), 15); // pph 38.4 → tier 38
+  assert.equal(effectiveRate(2418.15, 62.92, 12), 15); // pph 38.4 → tier 37.5 → $15
 });
 
 test("top producer — Bonnie Turner (Missoula): tiered = $20/hr", () => {
-  assert.equal(effectiveRate(4756.8, 91.48, 13), 20); // pph 52.0 → tier 50
+  assert.equal(effectiveRate(4756.8, 91.48, 13), 20); // pph 52.0 → tier 50 → $20 (top)
 });
 
 test("guarantee floor — Angela Odea (Billings): floored at $11.25/hr", () => {
-  // pph 28.5 → tier 28 (rate 11) but guarantee 11.25 wins.
+  // pph 28.5 → tier 27.5 (rate 11) but guarantee 11.25 wins.
   assert.equal(effectiveRate(364.4, 12.8, 11.25), 11.25);
 });
 

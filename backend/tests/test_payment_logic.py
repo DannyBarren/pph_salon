@@ -39,14 +39,16 @@ def test_get_seeds_defaults_with_formula(client):
     r = client.get(f"{PP}/payment-logic")
     assert r.status_code == 200, r.text
     body = r.json()
-    # Seeded from pay_engine defaults.
+    # Seeded from pay_engine defaults (client's OtherData tier table).
     assert len(body["tiers"]) == len(pay_engine.DEFAULT_PPH_TIERS)
-    assert body["tiers"][0] == {"pay_rate": 11.0, "pph_required": 28.0}
+    assert body["tiers"][0] == {"pay_rate": 8.0, "pph_required": 20.0}
+    assert body["tiers"][-1] == {"pay_rate": 20.0, "pph_required": 50.0}
     assert body["np_rate"] == pay_engine.DEFAULT_NP_RATE
+    assert body["guarantee_rate"] == 10.0
     assert body["haircut_price"] == pay_engine.DEFAULT_HAIRCUT_PRICE
     assert body["color_price"] == pay_engine.DEFAULT_COLOR_PRICE
     # A plain-language breakdown is included.
-    assert body["formula"]["parameters"]["tier_count"] == 19
+    assert body["formula"]["parameters"]["tier_count"] == 13
     assert body["formula"]["definitions"]
 
 
@@ -124,7 +126,7 @@ def test_preview_uses_proposed_config_without_saving(client):
 
     # Preview did NOT persist: stored config is still the defaults.
     got = client.get(f"{PP}/payment-logic").json()
-    assert len(got["tiers"]) == 19
+    assert len(got["tiers"]) == 13
 
 
 def test_role_guard_blocks_non_highest_admin(engine):

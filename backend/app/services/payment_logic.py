@@ -38,7 +38,8 @@ def default_config_values() -> dict[str, Any]:
         "tiers": default_tiers(),
         "np_rate": pay_engine.DEFAULT_NP_RATE,
         "np_percent": 0.195,
-        "guarantee_rate": 12.0,
+        # The client's Holliean example uses a $10 guarantee.
+        "guarantee_rate": 10.0,
         "commission_rate": pay_engine.DEFAULT_NP_RATE,
         "haircut_price": pay_engine.DEFAULT_HAIRCUT_PRICE,
         "color_price": pay_engine.DEFAULT_COLOR_PRICE,

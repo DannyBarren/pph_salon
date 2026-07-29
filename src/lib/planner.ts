@@ -67,7 +67,8 @@ export function getRequiredProduction(
 ): number {
   if (scheduledHrs <= 0) return 0; // full-week call-off: nothing to produce
   if (desiredPayRate <= guaranteeRate) return 0;
-  const pph = Math.round(desiredPayRate / commissionRate);
+  // Client rule: Required PPH = DPR / NP_RATE, rounded UP to the nearest dollar.
+  const pph = Math.ceil(desiredPayRate / commissionRate);
   return pph * scheduledHrs;
 }
 
