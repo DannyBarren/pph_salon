@@ -9,9 +9,24 @@
  * (full-week call-off) case gracefully.
  */
 
+import { getActivePaymentLogic } from "@/lib/paymentLogic";
+
+// Legacy fallbacks (workbook values). The live defaults come from the global
+// payment logic — see `activePrices()` / `getActiveCommissionRate()`.
 export const DEFAULT_HAIRCUT_PRICE = 23;
 export const DEFAULT_COLOR_PRICE = 85;
 export const COMMISSION_RATE = 0.4;
+
+/** The active (admin-configured) net-production commission rate. */
+export function getActiveCommissionRate(): number {
+  return getActivePaymentLogic().commissionRate;
+}
+
+/** The active (admin-configured) global service prices. */
+export function activePrices(): PlannerPrices {
+  const logic = getActivePaymentLogic();
+  return { haircut: logic.haircutPrice, color: logic.colorPrice };
+}
 
 /** Fraction of target production the auto-snap aims to earn from haircuts. */
 export const DEFAULT_HAIRCUT_VALUE_SHARE = 0.55;
@@ -28,8 +43,6 @@ export interface ServiceMix {
   haircuts: number;
   colors: number;
 }
-
-const DEFAULT_PRICES: PlannerPrices = { haircut: DEFAULT_HAIRCUT_PRICE, color: DEFAULT_COLOR_PRICE };
 
 const clampCount = (n: number) => Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
 
@@ -50,7 +63,7 @@ export function getRequiredProduction(
   scheduledHrs: number,
   desiredPayRate: number,
   guaranteeRate: number,
-  commissionRate: number = COMMISSION_RATE,
+  commissionRate: number = getActiveCommissionRate(),
 ): number {
   if (scheduledHrs <= 0) return 0; // full-week call-off: nothing to produce
   if (desiredPayRate <= guaranteeRate) return 0;
@@ -64,7 +77,7 @@ export function getRequiredProduction(
  */
 export function snapServiceMix(
   targetProduction: number,
-  prices: PlannerPrices = DEFAULT_PRICES,
+  prices: PlannerPrices = activePrices(),
   haircutValueShare: number = DEFAULT_HAIRCUT_VALUE_SHARE,
 ): ServiceMix {
   if (targetProduction <= 0) return { haircuts: 0, colors: 0 };
@@ -84,7 +97,7 @@ export function adjustLinkedSlider(
   changed: "haircuts" | "colors",
   newValue: number,
   targetProduction: number,
-  prices: PlannerPrices = DEFAULT_PRICES,
+  prices: PlannerPrices = activePrices(),
 ): ServiceMix {
   const value = clampCount(newValue);
   const p = safePrices(prices);
@@ -97,7 +110,7 @@ export function adjustLinkedSlider(
 }
 
 /** Total production ($) from a service mix. */
-export function productionOf(mix: ServiceMix, prices: PlannerPrices = DEFAULT_PRICES): number {
+export function productionOf(mix: ServiceMix, prices: PlannerPrices = activePrices()): number {
   return mix.haircuts * prices.haircut + mix.colors * prices.color;
 }
 
@@ -115,8 +128,8 @@ export function effectiveRate(
   mix: ServiceMix,
   scheduledHrs: number,
   guaranteeRate: number,
-  commissionRate: number = COMMISSION_RATE,
-  prices: PlannerPrices = DEFAULT_PRICES,
+  commissionRate: number = getActiveCommissionRate(),
+  prices: PlannerPrices = activePrices(),
 ): number {
   if (scheduledHrs <= 0) return 0;
   const production = productionOf(mix, prices);

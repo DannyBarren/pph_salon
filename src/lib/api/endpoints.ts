@@ -11,6 +11,10 @@ import type {
   CreateSalonInput,
   CreateUserInput,
   CurrentUserDTO,
+  PaymentLogicDTO,
+  PaymentLogicPreviewDTO,
+  PaymentLogicPreviewRequestDTO,
+  PaymentLogicUpdateDTO,
   PayTierDTO,
   SalonDTO,
   TokenResponse,
@@ -59,6 +63,20 @@ export const salonApi = {
     DEMO_MODE ? demoBackend.listPayTiers(id) : api.get<PayTierDTO[]>(`/salons/${id}/pay-tiers`),
   replacePayTiers: (id: number, tiers: { salon_id: number; desired_rate: number; pph: number }[]) =>
     DEMO_MODE ? demoBackend.replacePayTiers(id, tiers) : api.put<PayTierDTO[]>(`/salons/${id}/pay-tiers`, tiers),
+};
+
+// ── Global payment logic (highest-admin only) ────────────────────────────────
+export const paymentLogicApi = {
+  get: () =>
+    DEMO_MODE ? demoBackend.getPaymentLogic() : api.get<PaymentLogicDTO>("/payment-logic"),
+  update: (body: PaymentLogicUpdateDTO) =>
+    DEMO_MODE
+      ? demoBackend.updatePaymentLogic(body)
+      : api.put<PaymentLogicDTO>("/payment-logic", body),
+  preview: (body: PaymentLogicPreviewRequestDTO) =>
+    DEMO_MODE
+      ? demoBackend.previewPaymentLogic(body)
+      : api.post<PaymentLogicPreviewDTO>("/payment-logic/preview", body),
 };
 
 // ── Users ─────────────────────────────────────────────────────────────────────

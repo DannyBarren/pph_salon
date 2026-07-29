@@ -11,8 +11,8 @@ import {
   getNextTier,
   pphForRate,
   productionToServices,
-  PPH_TIERS,
 } from "@/lib/tiers";
+import { getActiveTiers } from "@/lib/paymentLogic";
 import { actionMessage, statusHeadline, rateTone } from "@/lib/teamMessaging";
 import { StatusBadge } from "./StatusBadge";
 
@@ -257,7 +257,8 @@ function ByDayTab({ perf }: { perf: StylistPerformance }) {
 
 function WhatIfTab({ perf }: { perf: StylistPerformance }) {
   const guarantee = perf.guaranteeRate;
-  const maxRate = PPH_TIERS[PPH_TIERS.length - 1].payRate;
+  const activeTiers = getActiveTiers();
+  const maxRate = activeTiers[activeTiers.length - 1].payRate;
   const defaultTarget = getNextTier(perf.effectiveRate)?.payRate ?? perf.targetPayRate;
   const [target, setTarget] = useState<number>(Math.max(guarantee, Math.min(maxRate, defaultTarget)));
 

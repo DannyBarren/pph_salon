@@ -12,6 +12,7 @@ from app.models.goal import Goal, GoalApprovalStatus
 from app.models.message import MessageAcknowledgment, MessageBoardPost
 from app.models.notification import Notification, NotificationType
 from app.models.pay_tier import PayTier
+from app.models.payment_logic import PaymentLogicConfig
 from app.models.salon import Salon
 from app.models.user import User, UserRole
 from app.models.week import Week
@@ -23,6 +24,7 @@ __all__ = [
     "User",
     "UserRole",
     "PayTier",
+    "PaymentLogicConfig",
     "Week",
     "DailyPerformance",
     "MessageBoardPost",

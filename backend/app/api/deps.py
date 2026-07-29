@@ -109,6 +109,22 @@ def require_super_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def require_highest_admin(user: User = Depends(get_current_user)) -> User:
+    """Only the **highest admin** (Owner) may pass.
+
+    Gates the organisation-wide payment-logic controls, which govern every
+    calculation shown to every user across every location. ``owner`` is the top
+    role; ``admin`` is treated as the equivalent super-admin persona (the demo
+    principal is an ``admin``), so both pass. Managers and stylists never do.
+    """
+    if user.role not in (UserRole.owner, UserRole.admin):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the highest admin (Owner) can manage global payment logic",
+        )
+    return user
+
+
 def assert_salon_access(user: User, salon_id: int | None) -> None:
     """Row-level salon scoping guard.
 

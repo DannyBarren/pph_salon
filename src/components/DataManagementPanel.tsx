@@ -211,7 +211,7 @@ function StylistEditor({
 }: EditorProps) {
   const user = resolveUser(stylistId)!;
   const salon = salonById(salonId);
-  const prices = servicePricesFor(salon, config.salonServicePrices[salonId]);
+  const prices = servicePricesFor();
   const fallbackGuarantee = guaranteeRateFor(salonId, config);
 
   // Profile form.

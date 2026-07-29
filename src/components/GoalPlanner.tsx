@@ -17,7 +17,6 @@ import {
   servicesPerHour,
   effectiveRate as calcEffectiveRate,
   assessFeasibility,
-  COMMISSION_RATE,
   type ServiceMix,
 } from "@/lib/planner";
 import { Card, CardBody, Badge, Slider, Button, NumberField } from "@/components/ui/primitives";
@@ -41,7 +40,7 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
   const { config, currentUser, getWeeklyData, resolveUser, getDays, setGoal, getActiveGoal, getGoalHistory } = useApp();
   const stylist = resolveUser(stylistId) ?? userById(stylistId)!;
   const salon = salonById(stylist.salonId);
-  const prices = servicePricesFor(salon, config.salonServicePrices[stylist.salonId]);
+  const prices = servicePricesFor();
   const showMoney = canSeeMoney(currentUser.role);
 
   // Guarantee: per-stylist override → salon/global config.
@@ -73,8 +72,8 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
   useEffect(() => {
     const g = getActiveGoal(stylistId, CURRENT_WEEK.start);
     if (g) {
-      // PPH = rate / 0.4  ⇒  rate = PPH × 0.4.
-      setPayRate(Math.min(MAX_PAY_RATE, Math.max(MIN_PAY_RATE, Math.round(g.targetPph * COMMISSION_RATE))));
+      // PPH = rate / npRate  ⇒  rate = PPH × npRate (global commission share).
+      setPayRate(Math.min(MAX_PAY_RATE, Math.max(MIN_PAY_RATE, Math.round(g.targetPph * config.commissionRate))));
       setHours(g.targetHours);
       setMix({ haircuts: g.targetHaircuts, colors: g.targetColors });
       skipNextSnap.current = true; // keep the goal's exact mix, don't re-snap
@@ -87,7 +86,7 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
 
   // Target production is independent of the service sliders (pay + hours only).
   // Kept as a plain (cheap) derivation so the auto-snap effect can key off it.
-  const targetProduction = getRequiredProduction(hours, payRate, guarantee, COMMISSION_RATE);
+  const targetProduction = getRequiredProduction(hours, payRate, guarantee, config.commissionRate);
 
   // Recalc + auto-snap the service mix whenever the target changes (i.e. when
   // the user moves the pay-rate or hours controls). Manual slider drags update
@@ -103,7 +102,7 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const planProduction = productionOf(mix, prices);
-  const planRate = calcEffectiveRate(mix, hours, guarantee, COMMISSION_RATE, prices);
+  const planRate = calcEffectiveRate(mix, hours, guarantee, config.commissionRate, prices);
   const sph = servicesPerHour(mix, hours);
   const feas = assessFeasibility(mix, hours);
   const isCallOff = hours <= 0;
@@ -118,8 +117,8 @@ export function GoalPlanner({ stylistId }: { stylistId: string }) {
   const productionDelta = planProduction - targetProduction;
 
   // ── Goal setting ─────────────────────────────────────────────────────────
-  // target PPH derived from the desired pay rate: PPH = rate / 0.4.
-  const targetPph = Math.round(payRate / COMMISSION_RATE);
+  // target PPH derived from the desired pay rate: PPH = rate / npRate (global).
+  const targetPph = Math.round(payRate / config.commissionRate);
   // Only the stylist themselves (or an admin/owner) can set the goal here.
   const canSetGoal = currentUser.id === stylistId || currentUser.role === "sdl";
   const activeGoal = getActiveGoal(stylistId, CURRENT_WEEK.start);

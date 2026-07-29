@@ -8,7 +8,6 @@ import { SectionTitle } from "@/components/ui/primitives";
 import { fmtShort, isToday, weekdayIndex, WEEKDAY_LABELS } from "@/lib/time";
 import { guaranteeRateFor } from "@/lib/payEngine";
 import { getCurrentEffectivePayRate, getRequiredProductionForPayRate } from "@/lib/tiers";
-import { salonById } from "@/lib/mockData";
 import { servicePricesFor } from "@/lib/privacy";
 import { money, num, rate } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -34,7 +33,7 @@ export function DailyBreakdown({
 }) {
   const worked = days.filter((d) => d.scheduledHours > 0 || d.production > 0);
   const guarantee = guaranteeRate ?? guaranteeRateFor(salonId, config);
-  const prices = servicePricesFor(salonById(salonId), config.salonServicePrices[salonId]);
+  const prices = servicePricesFor();
   const mix = config.serviceMixHaircut;
 
   /** Per-day goal targets derived from the goal pay rate + that day's schedule. */

@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone, Flag, CalendarDays, Tag, Bell } from "lucide-react";
+import { LayoutDashboard, Sliders, Users, Settings, Sparkles, Megaphone, Flag, CalendarDays, Tag, Bell, Calculator } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
@@ -32,6 +32,7 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
       { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
+      { href: "/admin/payment-logic", label: "Pay Logic", icon: <Calculator size={20} />, roles: ["sdl"] },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ]
   : [
@@ -42,6 +43,7 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
+      { href: "/admin/payment-logic", label: "Pay Logic", icon: <Calculator size={20} />, roles: ["sdl"] },
       { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
     ];
 
@@ -50,7 +52,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const items = NAV.filter((n) => n.roles.includes(currentUser.role));
 
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  // `/admin` is matched exactly so its `/admin/payment-logic` child doesn't also
+  // light up the Admin tab; other routes match by prefix.
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
   // Unread announcements = posts the user can see, newer than their last visit,
   // and not authored by them. Computed only after mount (`ready`) to avoid SSR

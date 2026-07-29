@@ -1,6 +1,7 @@
 import type { DayRecord, MessageAcknowledgment, MessageBoardPost, PayConfig, Salon, StylistData, UsageStat, User } from "./types";
 import { CLIENT_ROSTER, CLIENT_SALONS, CLIENT_WEEK_START, type RosterPerson } from "./clientRoster";
 import { addDays } from "./time";
+import { COLOR_PRICE, HAIRCUT_PRICE, NP_PERCENT, NP_RATE, PPH_TIERS } from "./tiers";
 
 /*
  * DEMO DATA — sourced from the client's real export (see `clientRoster.ts`).
@@ -194,17 +195,24 @@ for (const p of CLIENT_ROSTER) {
 }
 
 export const DEFAULT_CONFIG: PayConfig = {
+  // The global payment tier table (seeded from the canonical workbook ladder).
+  tiers: PPH_TIERS.map((t) => ({ payRate: t.payRate, pphRequired: t.pphRequired })),
+  // Net-production share (workbook NP rate) — drives off-tier PPH + guarantee floor.
+  npRate: NP_RATE,
+  npPercent: NP_PERCENT,
+  // Canonical per-service prices — the client's Avg Haircut / Avg Color ($23/$85).
+  haircutPrice: HAIRCUT_PRICE,
+  colorPrice: COLOR_PRICE,
   guaranteeRate: 12,
-  // Net-production share (workbook NP rate). Effective $/hr is driven by the
-  // tiered PPH ladder (tiers.ts); this stays aligned for any commission display.
+  // Net-production share used for the commission-vs-guarantee split display.
   commissionRate: 0.4,
-  // Net production per service — the client's Avg Haircut / Avg Color ($23/$85),
-  // matching tiers.ts and the daily goal bars so production→service-count
-  // projections are consistent everywhere.
-  avgTicketHaircut: 23,
-  avgTicketColor: 85,
+  // Average ticket used to project production into service counts (mirror prices).
+  avgTicketHaircut: HAIRCUT_PRICE,
+  avgTicketColor: COLOR_PRICE,
   serviceMixHaircut: 0.6,
   minServicesPerDay: 6,
+  // Retained for backwards-compatible persistence only — NOT used by the engine
+  // (payment logic is global; there are no per-salon overrides).
   salonGuarantee,
   salonServicePrices: {},
 };
