@@ -90,165 +90,131 @@ def test_tiered_rate_lookup():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  PayPlanEngine — asserts EXACT values from PPH Based Payplan.xlsx
+#  PayPlanEngine — asserts the client's NEW rules (UAT 2.xlsx "OtherData" +
+#  "Holliean" tab). Tier table: PPH → Pay Rate at Pay Rate = PPH × 0.40.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Worked examples straight out of the workbook.
-SCHED_HOURS = {"Mo": 5.25, "Tu": 6.25, "We": 5.25, "Th": 5.25, "Fr": 5.25, "Sa": 0.0, "Su": 0.0}
-SCHED_TOTAL = 27.25  # cell I3, "Sched View" (guarantee 12)
-ACTUAL_HOURS = {"Mo": 3.0, "Tu": 5.0, "We": 4.0, "Th": 4.0, "Fr": 6.0, "Sa": 6.0, "Su": 0.0}
-ACTUAL_TOTAL = 28.0  # cell I3, "Actual" (guarantee 13)
-
-# Full tier table (cols B & C), identical on both sheets.
-EXCEL_TIERS = {
-    11: 28, 12: 30, 13: 33, 14: 35, 15: 38, 16: 40, 17: 43, 18: 45, 19: 48,
-    20: 50, 21: 53, 22: 55, 23: 58, 24: 60, 25: 63, 26: 65, 27: 68, 28: 70, 29: 73,
-}
-# Weekly required production (col K) — "Sched View" @ 27.25h.
-SCHED_WEEKLY_K = {
-    12: 817.5, 13: 899.25, 14: 953.75, 15: 1035.5, 16: 1090.0, 17: 1171.75,
-    18: 1226.25, 19: 1308.0, 20: 1362.5, 21: 1444.25, 22: 1498.75, 23: 1580.5,
-    24: 1635.0, 25: 1716.75, 26: 1771.25, 27: 1853.0, 28: 1907.5, 29: 1989.25,
-}
-# Weekly required production (col K) — "Actual" @ 28h.
-ACTUAL_WEEKLY_K = {
-    13: 924.0, 14: 980.0, 15: 1064.0, 16: 1120.0, 17: 1204.0, 18: 1260.0,
-    19: 1344.0, 20: 1400.0, 21: 1484.0, 22: 1540.0, 23: 1624.0, 24: 1680.0,
-    25: 1764.0, 26: 1820.0, 27: 1904.0, 28: 1960.0, 29: 2044.0,
+# The client's tier table (pay_rate -> pph_required), pay_rate = pph * 0.40.
+CLIENT_TIERS = {
+    8: 20, 9: 22.5, 10: 25, 11: 27.5, 12: 30, 13: 32.5, 14: 35,
+    15: 37.5, 16: 40, 17: 42.5, 18: 45, 19: 47.5, 20: 50,
 }
 
 
-def sched_engine() -> pe.PayPlanEngine:
-    return pe.PayPlanEngine(guarantee_rate=12)
+def holliean_engine() -> pe.PayPlanEngine:
+    """Holliean example: guarantee $10."""
+    return pe.PayPlanEngine(guarantee_rate=10)
 
 
-def actual_engine() -> pe.PayPlanEngine:
-    return pe.PayPlanEngine(guarantee_rate=13)
+def test_default_tiers_match_client_table():
+    eng = pe.PayPlanEngine()
+    assert [(t.pay_rate, t.pph_required) for t in eng.tiers] == [
+        (8.0, 20.0), (9.0, 22.5), (10.0, 25.0), (11.0, 27.5), (12.0, 30.0),
+        (13.0, 32.5), (14.0, 35.0), (15.0, 37.5), (16.0, 40.0), (17.0, 42.5),
+        (18.0, 45.0), (19.0, 47.5), (20.0, 50.0),
+    ]
 
 
-def test_tier_table_matches_excel():
-    eng = sched_engine()
-    for rate, pph in EXCEL_TIERS.items():
-        assert eng.pph_for_rate(rate) == pph, f"rate {rate}"
+def test_tier_table_obeys_np_rate_relationship():
+    # Every tier threshold is pay_rate / 0.40.
+    for rate, pph in CLIENT_TIERS.items():
+        assert pph == pytest.approx(rate / 0.4)
 
 
-def test_pph_for_off_tier_rate_uses_exact_np():
-    eng = sched_engine()
-    assert eng.pph_for_rate(12.5) == pytest.approx(31.25)  # 12.5 / 0.4
+def test_pph_for_rate_rounds_up_to_nearest_dollar():
+    eng = holliean_engine()
+    # DPR / 0.40 rounded UP: $14 -> 35 (exact), $9 -> ceil(22.5) = 23.
+    assert eng.pph_for_rate(14) == 35
+    assert eng.pph_for_rate(9) == 23
+    assert eng.pph_for_rate(15) == 38  # ceil(37.5)
+    assert eng.pph_for_rate(8) == 20
 
 
 def test_load_tiers_returns_default_and_is_deterministic():
-    eng = pe.PayPlanEngine(guarantee_rate=12)
+    eng = pe.PayPlanEngine()
     tiers = eng.load_tiers(salon_id=999)
-    assert [(t.pay_rate, t.pph_required) for t in tiers][:3] == [(11, 28), (12, 30), (13, 33)]
+    assert [(t.pay_rate, t.pph_required) for t in tiers][:3] == [(8, 20), (9, 22.5), (10, 25)]
 
 
-def test_required_weekly_production_sched_view():
-    eng = sched_engine()
-    for rate, expected in SCHED_WEEKLY_K.items():
-        assert eng.get_required_weekly_production(rate, SCHED_TOTAL) == pytest.approx(expected), rate
+def test_holliean_required_service_revenue():
+    """Holliean: DPR $14, 21 scheduled hours -> Req PPH 35, Req Svc Rev $735."""
+    eng = holliean_engine()
+    assert eng.pph_for_rate(14) == 35
+    assert eng.get_required_weekly_production(14, 21) == pytest.approx(735.0)
 
 
-def test_required_weekly_production_actual():
-    eng = actual_engine()
-    for rate, expected in ACTUAL_WEEKLY_K.items():
-        assert eng.get_required_weekly_production(rate, ACTUAL_TOTAL) == pytest.approx(expected), rate
+def test_daily_required_production_holliean():
+    eng = holliean_engine()
+    # DPR 14 -> PPH 35. A 3-day split of 21 hours.
+    daily = eng.get_daily_required_production(14, {"Mo": 7, "Tu": 7, "We": 7})
+    assert daily == pytest.approx({"Mo": 245.0, "Tu": 245.0, "We": 245.0, "Week": 735.0})
 
 
-def test_daily_required_production_sched_rate12():
-    eng = sched_engine()
-    daily = eng.get_daily_required_production(12, SCHED_HOURS)  # PPH 30
-    assert daily == pytest.approx(
-        {"Mo": 157.5, "Tu": 187.5, "We": 157.5, "Th": 157.5, "Fr": 157.5, "Sa": 0.0, "Su": 0.0, "Week": 817.5}
-    )
+def test_min_expected_production_uses_guarantee_over_np():
+    # Holliean guarantee $10 over 21 hours -> (10 / 0.40) * 21 = 525.
+    assert holliean_engine().min_expected_production(21) == pytest.approx(525.0)
 
 
-def test_daily_required_production_actual_rate13():
-    eng = actual_engine()
-    daily = eng.get_daily_required_production(13, ACTUAL_HOURS)  # PPH 33
-    assert daily == pytest.approx(
-        {"Mo": 99.0, "Tu": 165.0, "We": 132.0, "Th": 132.0, "Fr": 198.0, "Sa": 198.0, "Su": 0.0, "Week": 924.0}
-    )
+def test_projected_week_pay():
+    eng = holliean_engine()
+    assert eng.calculate_projected_week_pay(14, 21) == pytest.approx(294.0)  # 14 * 21
+    assert eng.calculate_projected_week_pay(10, 21) == pytest.approx(210.0)
 
 
-def test_min_expected_production_matches_N3():
-    # "Sched View" N3 = 818 (817.5 rounded); "Actual" N3 = 910 exactly.
-    assert sched_engine().min_expected_production(SCHED_TOTAL) == pytest.approx(817.5)
-    assert round(sched_engine().min_expected_production(SCHED_TOTAL)) == 818
-    assert actual_engine().min_expected_production(ACTUAL_TOTAL) == pytest.approx(910.0)
-
-
-def test_projected_week_pay_matches_col_M():
-    eng = sched_engine()
-    assert eng.calculate_projected_week_pay(12, SCHED_TOTAL) == pytest.approx(327.0)
-    assert eng.calculate_projected_week_pay(13, SCHED_TOTAL) == pytest.approx(354.25)
-    assert eng.calculate_projected_week_pay(16, SCHED_TOTAL) == pytest.approx(436.0)
-    a = actual_engine()
-    assert a.calculate_projected_week_pay(13, ACTUAL_TOTAL) == pytest.approx(364.0)
-    assert a.calculate_projected_week_pay(16, ACTUAL_TOTAL) == pytest.approx(448.0)
-
-
-def test_weekly_pay_increment_matches_col_N():
-    eng = sched_engine()  # guarantee 12
-    assert eng.weekly_pay_increment(13, SCHED_TOTAL) == pytest.approx(27.25)
-    assert eng.weekly_pay_increment(14, SCHED_TOTAL) == pytest.approx(54.5)
-    assert eng.weekly_pay_increment(16, SCHED_TOTAL) == pytest.approx(109.0)
-    a = actual_engine()  # guarantee 13
-    assert a.weekly_pay_increment(14, ACTUAL_TOTAL) == pytest.approx(28.0)
-    assert a.weekly_pay_increment(15, ACTUAL_TOTAL) == pytest.approx(56.0)
-    assert a.weekly_pay_increment(16, ACTUAL_TOTAL) == pytest.approx(84.0)
+def test_weekly_pay_increment_over_guarantee():
+    eng = holliean_engine()  # guarantee 10
+    assert eng.weekly_pay_increment(14, 21) == pytest.approx((14 - 10) * 21)  # 84
 
 
 def test_effective_rate_step_lookup():
-    eng = sched_engine()  # guarantee 12
-    assert eng.get_effective_rate(30) == 12
-    assert eng.get_effective_rate(32) == 12  # not enough for tier 13 (needs 33)
-    assert eng.get_effective_rate(33) == 13
-    assert eng.get_effective_rate(40) == 16
-    assert eng.get_effective_rate(41) == 16
-    assert eng.get_effective_rate(73) == 29
-    assert eng.get_effective_rate(500) == 29  # capped at top tier
+    eng = holliean_engine()  # guarantee 10
+    assert eng.get_effective_rate(25) == 10  # exactly tier 25 -> $10
+    assert eng.get_effective_rate(34) == 13  # 32.5 <= 34 < 35 -> $13
+    assert eng.get_effective_rate(35) == 14
+    assert eng.get_effective_rate(49.9) == 19  # just under 50
+    assert eng.get_effective_rate(50) == 20
+    assert eng.get_effective_rate(500) == 20  # capped at top tier
 
 
 def test_effective_rate_respects_guarantee_floor():
-    eng13 = actual_engine()  # guarantee 13
-    # PPH 30 maps to tier rate 12, but guarantee floors it at 13.
-    assert eng13.get_effective_rate(30) == 13
+    eng = pe.PayPlanEngine(guarantee_rate=12)
+    # PPH 25 maps to tier rate 10, but guarantee 12 floors it.
+    assert eng.get_effective_rate(25) == 12
     # Below the lowest tier PPH -> guarantee only.
-    assert eng13.get_effective_rate(10) == 13
-    assert sched_engine().get_effective_rate(10) == 12
+    assert eng.get_effective_rate(10) == 12
+    assert holliean_engine().get_effective_rate(10) == 10
 
 
 def test_effective_rate_interpolation():
-    eng = sched_engine()
-    # Halfway between PPH 30 (rate 12) and PPH 33 (rate 13) -> 12.5.
-    assert eng.get_effective_rate(31.5, interpolate=True) == pytest.approx(12.5)
+    eng = pe.PayPlanEngine(guarantee_rate=0)
+    # Halfway between PPH 30 (rate 12) and PPH 32.5 (rate 13) -> 12.5.
+    assert eng.get_effective_rate(31.25, interpolate=True) == pytest.approx(12.5)
     # Exact tier value is unchanged by interpolation.
-    assert eng.get_effective_rate(33, interpolate=True) == pytest.approx(13.0)
+    assert eng.get_effective_rate(32.5, interpolate=True) == pytest.approx(13.0)
 
 
 def test_production_needed_to_sustain_with_remaining_hours():
-    eng = sched_engine()
+    eng = holliean_engine()
     res = eng.calculate_production_needed_to_sustain(
-        desired_rate=16, scheduled_hours=SCHED_TOTAL, production_so_far=500.0, hours_remaining=10.0
+        desired_rate=14, scheduled_hours=21, production_so_far=300.0, hours_remaining=10.0
     )
-    assert res["required_total"] == pytest.approx(1090.0)
-    assert res["remaining_production"] == pytest.approx(590.0)
-    assert res["required_pph_remaining"] == pytest.approx(59.0)
+    assert res["required_total"] == pytest.approx(735.0)
+    assert res["remaining_production"] == pytest.approx(435.0)
+    assert res["required_pph_remaining"] == pytest.approx(43.5)
     # Already past target -> nothing remaining.
-    done = eng.calculate_production_needed_to_sustain(16, SCHED_TOTAL, production_so_far=1200.0)
+    done = eng.calculate_production_needed_to_sustain(14, 21, production_so_far=800.0)
     assert done["remaining_production"] == 0.0
 
 
 def test_suggest_service_mix_uses_23_and_85():
-    eng = sched_engine()
-    mix = eng.suggest_service_mix(817.5)
+    eng = holliean_engine()
+    mix = eng.suggest_service_mix(735.0)
     assert mix["haircut_price"] == 23.0
     assert mix["color_price"] == 85.0
-    assert mix["all_haircuts"] == pytest.approx(817.5 / 23)   # ~35.54
-    assert mix["all_colors"] == pytest.approx(817.5 / 85)     # ~9.62
-    assert mix["all_haircuts_rounded"] == 36.0
-    assert mix["all_colors_rounded"] == 10.0
+    assert mix["all_haircuts"] == pytest.approx(735.0 / 23)   # ~31.96
+    assert mix["all_colors"] == pytest.approx(735.0 / 85)     # ~8.65
+    assert mix["all_haircuts_rounded"] == 32.0
+    assert mix["all_colors_rounded"] == 9.0
     # Blended 50/50 of production.
-    assert mix["blended"]["haircuts"] == pytest.approx((817.5 * 0.5) / 23)
-    assert mix["blended"]["colors"] == pytest.approx((817.5 * 0.5) / 85)
+    assert mix["blended"]["haircuts"] == pytest.approx((735.0 * 0.5) / 23)
+    assert mix["blended"]["colors"] == pytest.approx((735.0 * 0.5) / 85)

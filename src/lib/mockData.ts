@@ -203,7 +203,8 @@ export const DEFAULT_CONFIG: PayConfig = {
   // Canonical per-service prices — the client's Avg Haircut / Avg Color ($23/$85).
   haircutPrice: HAIRCUT_PRICE,
   colorPrice: COLOR_PRICE,
-  guaranteeRate: 12,
+  // Global default guarantee floor (the client's Holliean example uses $10).
+  guaranteeRate: 10,
   // Net-production share used for the commission-vs-guarantee split display.
   commissionRate: 0.4,
   // Average ticket used to project production into service counts (mirror prices).

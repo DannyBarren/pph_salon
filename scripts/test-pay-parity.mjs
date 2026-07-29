@@ -43,33 +43,36 @@ function extractPairs(text, startMarker, endMarker, pairRe) {
   return pairs;
 }
 
+// PPH thresholds can be fractional (e.g. 22.5), so match integers or decimals.
+const NUM = "(\\d+(?:\\.\\d+)?)";
+
 const frontendTiers = extractPairs(
   read("src/lib/tiers.ts"),
   "export const PPH_TIERS",
   "] as const;",
-  /payRate:\s*(\d+),\s*pphRequired:\s*(\d+)/g,
+  new RegExp(`payRate:\\s*${NUM},\\s*pphRequired:\\s*${NUM}`, "g"),
 );
 
 const backendTiers = extractPairs(
   read("backend/app/services/pay_engine.py"),
-  "DEFAULT_PPH_TIERS: list[tuple[int, int]] = [",
+  "DEFAULT_PPH_TIERS: list[tuple[float, float]] = [",
   "]",
-  /\((\d+),\s*(\d+)\)/g,
+  new RegExp(`\\(${NUM},\\s*${NUM}\\)`, "g"),
 );
 
 const mirrorTiers = extractPairs(
   read("scripts/test-team-calculations.mjs"),
   "const PPH_TIERS = [",
   "].map(",
-  /\[(\d+),\s*(\d+)\]/g,
+  new RegExp(`\\[${NUM},\\s*${NUM}\\]`, "g"),
 );
 
 const roundHalfUp = (n) => Math.floor(n + 0.5);
 
 test("all three tier tables are non-empty and the expected size", () => {
-  assert.equal(frontendTiers.length, 19);
-  assert.equal(backendTiers.length, 19);
-  assert.equal(mirrorTiers.length, 19);
+  assert.equal(frontendTiers.length, 13);
+  assert.equal(backendTiers.length, 13);
+  assert.equal(mirrorTiers.length, 13);
 });
 
 test("frontend tiers.ts == backend pay_engine.py == mirror test table", () => {
@@ -91,10 +94,14 @@ test("service prices + NP rate match across frontend and backend", () => {
   assert.ok(/COLOR_PRICE = 85/.test(fe) && /DEFAULT_COLOR_PRICE = 85\.0/.test(be), "color price mismatch");
 });
 
-test("min-expected production anchors match the workbook (Rebeca/Steph)", () => {
+test("client formulas — Holliean example + min-expected anchor", () => {
+  // Required PPH = ceil(DPR / 0.40); Required Service Revenue = hours × PPH.
+  const requiredPph = (dpr) => Math.ceil(dpr / 0.4);
+  const requiredSvcRev = (hours, dpr) => hours * requiredPph(dpr);
+  // Holliean: DPR $14, 21 scheduled hours → PPH 35, Req Svc Rev $735.
+  assert.equal(requiredPph(14), 35);
+  assert.equal(requiredSvcRev(21, 14), 735);
+  // Min-expected production: (guarantee / 0.40) × hours. Holliean $10 over 21h.
   const minExpected = (hours, guarantee) => (guarantee / 0.4) * hours;
-  // Sched View (Rebeca): guarantee 12, 27.25 scheduled hours → 817.5
-  assert.equal(minExpected(27.25, 12), 817.5);
-  // Actual (Steph): guarantee 13, 28 scheduled hours → 910
-  assert.equal(minExpected(28, 13), 910);
+  assert.equal(minExpected(21, 10), 525);
 });

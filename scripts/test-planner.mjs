@@ -15,7 +15,8 @@ const clampCount = (n) => Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
 function getRequiredProduction(scheduledHrs, desiredPayRate, guaranteeRate, commissionRate = COMMISSION_RATE) {
   if (scheduledHrs <= 0) return 0;
   if (desiredPayRate <= guaranteeRate) return 0;
-  return Math.round(desiredPayRate / commissionRate) * scheduledHrs;
+  // Client rule: Required PPH = DPR / NP_RATE, rounded UP to the nearest dollar.
+  return Math.ceil(desiredPayRate / commissionRate) * scheduledHrs;
 }
 function snapServiceMix(target, prices = PRICES, share = 0.55) {
   if (target <= 0) return { haircuts: 0, colors: 0 };
@@ -29,15 +30,16 @@ function adjustLinkedSlider(changed, newValue, target, prices = PRICES) {
   return { haircuts: clampCount((target - v * prices.color) / prices.haircut), colors: v };
 }
 
-test("getRequiredProduction: pph = round(rate/0.4) × hours", () => {
-  assert.equal(getRequiredProduction(40, 20, 16), 2000); // 50 pph × 40
-  assert.equal(getRequiredProduction(27.25, 19, 12), Math.round(19 / 0.4) * 27.25); // 48 × 27.25
+test("getRequiredProduction: pph = ceil(rate/0.4) × hours", () => {
+  assert.equal(getRequiredProduction(40, 20, 10), 2000); // 50 pph × 40
+  assert.equal(getRequiredProduction(21, 14, 10), 735); // Holliean: ceil(14/0.4)=35 × 21
+  assert.equal(getRequiredProduction(21, 9, 8), Math.ceil(9 / 0.4) * 21); // 23 × 21
 });
 
 test("getRequiredProduction: 0 at/under guarantee and for 0 hours", () => {
-  assert.equal(getRequiredProduction(40, 16, 16), 0);
-  assert.equal(getRequiredProduction(40, 12, 16), 0);
-  assert.equal(getRequiredProduction(0, 25, 16), 0); // full-week call-off
+  assert.equal(getRequiredProduction(40, 10, 10), 0);
+  assert.equal(getRequiredProduction(40, 8, 10), 0);
+  assert.equal(getRequiredProduction(0, 20, 10), 0); // full-week call-off
 });
 
 test("snapServiceMix lands close to target with a haircut-weighted split", () => {

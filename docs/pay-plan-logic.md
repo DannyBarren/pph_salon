@@ -23,41 +23,45 @@
 | **Scheduled hours** | Rostered hours (**Sched View**). **Actual hours** = worked hours (**Actual**). |
 | **Min Expected Svcs** | The guarantee floor expressed as production (cell `N3`). |
 
-## 2. The tier table (hardcoded from the Excel)
+## 2. The tier table (seeded default — client `OtherData`)
 
-Each pay rate requires a specific PPH. This table is **identical on both
-sheets** (columns B & C) and is hardcoded in `DEFAULT_PPH_TIERS`:
+Each pay rate requires a specific PPH. The seeded default comes from the
+client's `OtherData` sheet (UAT 2.xlsx) and is stored in `DEFAULT_PPH_TIERS`.
+It is **global**: the highest admin (Owner) edits it at `/admin/payment-logic`
+and there are no per-salon overrides.
 
-| Pay rate | PPH req | Pay rate | PPH req | Pay rate | PPH req |
+| PPH req | Pay rate | PPH req | Pay rate | PPH req | Pay rate |
 | --- | --- | --- | --- | --- | --- |
-| 11 | 28 | 18 | 45 | 25 | 63 |
-| 12 | 30 | 19 | 48 | 26 | 65 |
-| 13 | 33 | 20 | 50 | 27 | 68 |
-| 14 | 35 | 21 | 53 | 28 | 70 |
-| 15 | 38 | 22 | 55 | 29 | 73 |
-| 16 | 40 | 23 | 58 | | |
-| 17 | 43 | 24 | 60 | | |
+| 20 | 8 | 32.5 | 13 | 45 | 18 |
+| 22.5 | 9 | 35 | 14 | 47.5 | 19 |
+| 25 | 10 | 37.5 | 15 | 50 | 20 |
+| 27.5 | 11 | 40 | 16 | | |
+| 30 | 12 | 42.5 | 17 | | |
 
-The underlying relationship is `pay_rate = round_half_up(PPH × 0.4)`
-(equivalently `PPH ≈ pay_rate ÷ 0.4 = pay_rate × 2.5`). The table is stored
-explicitly so results match the workbook exactly and can later be replaced by
-per-salon, DB-backed tiers via `PayPlanEngine.load_tiers(salon_id)`.
+The exact relationship is `pay_rate = PPH × 0.4` (equivalently
+`PPH = pay_rate ÷ 0.4 = pay_rate × 2.5`), so thresholds can be fractional (e.g.
+$9/hr ⇒ 22.5 PPH). The **Required PPH for a Desired Pay Rate** rounds UP to the
+nearest whole dollar: `ceil(rate ÷ 0.4)`.
 
 ## 3. Core formulas
 
 ```
-pph_required(rate)              = tier lookup   (exact table value)
-required_weekly_production(r,h) = pph_required(r) × scheduled_hours          # col K
-daily_required_production(r)[d] = pph_required(r) × daily_hours[d]           # cols D–J
-projected_week_pay(rate, h)     = rate × scheduled_hours                     # col M
-weekly_pay_increment(rate, h)   = (rate − guarantee) × scheduled_hours       # col N
-min_expected_production(h)      = guarantee ÷ 0.4 × scheduled_hours          # cell N3
+pph_required(rate)              = ceil(rate ÷ 0.4)   (round UP to nearest $)
+required_weekly_production(r,h) = pph_required(r) × scheduled_hours          # Req Svc Rev
+daily_required_production(r)[d] = pph_required(r) × daily_hours[d]           # daily targets
+projected_week_pay(rate, h)     = rate × scheduled_hours
+weekly_pay_increment(rate, h)   = (rate − guarantee) × scheduled_hours
+min_expected_production(h)      = guarantee ÷ 0.4 × scheduled_hours
 ```
 
-> ⚠️ **Subtle but verified:** `required_weekly_production` uses the **rounded
-> tier PPH** (e.g. rate 13 → PPH 33 → `33 × 27.25 = 899.25`), while
-> `min_expected_production` uses the **exact** `guarantee ÷ 0.4` (e.g. guarantee
-> 13 → `32.5 × 28 = 910`, not `33 × 28`). Both behaviours match the sheet.
+> **Holliean example:** guarantee $10, DPR $14, 21 scheduled hours →
+> `pph_required(14) = ceil(35) = 35`, `required_weekly_production = 35 × 21 = 735`,
+> `min_expected_production = (10 ÷ 0.4) × 21 = 525`.
+>
+> ⚠️ `required_weekly_production` uses the **rounded-up** required PPH, while
+> `min_expected_production` uses the **exact** `guarantee ÷ 0.4`. At a fractional
+> tier (e.g. rate 9) the rounded target (23 PPH) sits just above the tier
+> threshold (22.5 PPH) — intended.
 
 ### To sustain a rate (remaining-hours logic)
 
@@ -72,60 +76,50 @@ Given an **achieved PPH**, `get_effective_rate()` returns the pay rate earned:
 
 1. **Step (default).** Take the pay rate of the **highest tier whose
    `pph_required ≤ achieved_pph`**. You must fully reach a tier's PPH to earn
-   its rate — being partway does not round up. (e.g. PPH 32 → rate 12, since
-   tier 13 needs PPH 33; PPH 40 → rate 16.)
+   its rate — being partway does not round up. (e.g. PPH 34 → rate 13, since
+   tier 14 needs PPH 35; PPH 40 → rate 16.)
 2. **Interpolate (opt-in).** Linearly interpolate the rate between the two
-   surrounding tiers for a smooth "progress to next tier" readout (e.g. PPH 31.5
-   → 12.5).
+   surrounding tiers for a smooth "progress to next tier" readout (e.g. PPH
+   31.25 → 12.5, halfway between tier 12 @ 30 and tier 13 @ 32.5).
 3. **Guarantee floor.** In both modes the result is floored at the guarantee
    rate — a stylist never earns below guarantee (e.g. with guarantee 13, PPH 30
    maps to tier rate 12 but returns 13).
 
 ## 5. Service mix (`suggest_service_mix`)
 
-Per-service production values from the workbook (cells `T6` / `AC6`):
+Per-service production values (client Avg Haircut / Avg Color):
 **haircut = `$23`**, **color = `$85`**. Given a production target the engine
 returns the two pure scenarios (all-haircuts, all-colors — counts rounded up)
-plus a configurable blended split. Example for `$817.5`:
+plus a configurable blended split. Example for the Holliean target `$735`:
 
-- all haircuts → `817.5 / 23 ≈ 35.5` → **36**
-- all colors → `817.5 / 85 ≈ 9.6` → **10**
+- all haircuts → `735 / 23 ≈ 31.96` → **32**
+- all colors → `735 / 85 ≈ 8.65` → **9**
 
 > The workbook's per-day haircut/color helper columns (Q–AG) contain an
 > off-by-one row shift (they reference the next tier's production because
 > sub-guarantee rows are zeroed). We deliberately **do not** reproduce that
 > artifact; `suggest_service_mix` uses the straightforward `production ÷ price`.
 
-## 6. Worked examples (encoded as tests)
+## 6. Worked example (encoded as tests)
 
-**Sched View** — guarantee `12`, scheduled `27.25h`, daily
-`Mo 5.25 / Tu 6.25 / We 5.25 / Th 5.25 / Fr 5.25`:
+**Holliean** — guarantee `$10`, scheduled `21h`:
 
-| Rate | PPH | Weekly req (K) | Weekly pay (M) | Incr (N) |
+| DPR | Req PPH `ceil(rate/0.4)` | Req Svc Rev | Weekly pay | Incr |
 | --- | --- | --- | --- | --- |
-| 12 | 30 | 817.50 | 327.00 | 0 |
-| 13 | 33 | 899.25 | 354.25 | 27.25 |
-| 16 | 40 | 1090.00 | 436.00 | 109.00 |
+| 10 | 25 | 525.00 | 210.00 | 0 |
+| 14 | 35 | 735.00 | 294.00 | 84.00 |
 
-Min expected = `12 ÷ 0.4 × 27.25 = 817.5 (≈818)`.
-
-**Actual** — guarantee `13`, scheduled `28h`, daily
-`Mo 3 / Tu 5 / We 4 / Th 4 / Fr 6 / Sa 6`:
-
-| Rate | PPH | Weekly req (K) | Weekly pay (M) | Incr (N) |
-| --- | --- | --- | --- | --- |
-| 13 | 33 | 924.00 | 364.00 | 0 |
-| 14 | 35 | 980.00 | 392.00 | 28.00 |
-| 16 | 40 | 1120.00 | 448.00 | 84.00 |
-
-Min expected = `13 ÷ 0.4 × 28 = 910`. Daily for rate 13:
-`Mo 99 / Tu 165 / We 132 / Th 132 / Fr 198 / Sa 198` (= 924 total).
+Min expected = `10 ÷ 0.4 × 21 = 525`. Service mix for `$735`:
+all-haircuts `ceil(735/23) = 32`, all-colors `ceil(735/85) = 9`.
 
 These exact values are asserted in `backend/tests/test_pay_engine.py`.
 
 ## 7. Configurable / extensible
 
-- `PayPlanEngine(guarantee_rate, np_rate, haircut_price, color_price, tiers, salon_tiers)`
-  — everything is injectable; nothing is hard-coded at call sites.
-- **DB-backed tiers:** populate `salon_tiers` or override
-  `load_tiers(salon_id)` to read from a repository. No other method changes.
+- `PayPlanEngine(guarantee_rate, np_rate, haircut_price, color_price, tiers)`
+  — everything is injectable; nothing is hard-coded at call sites. Build one from
+  the global config with `PayPlanEngine.from_config(config)`.
+- **Global config:** the single `PaymentLogicConfig` row is the source of truth
+  (seeded from `DEFAULT_PPH_TIERS`). Payment logic is global — there are no
+  per-salon tier overrides; `load_tiers()` returns the global table. The highest
+  admin (Owner) edits everything at `/admin/payment-logic`.

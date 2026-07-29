@@ -39,29 +39,23 @@ export interface ActivePaymentLogic {
 // authoritative config. Kept in agreement with `tiers.ts` constants.
 let active: ActivePaymentLogic = {
   tiers: [
-    { payRate: 11, pphRequired: 28 },
+    { payRate: 8, pphRequired: 20 },
+    { payRate: 9, pphRequired: 22.5 },
+    { payRate: 10, pphRequired: 25 },
+    { payRate: 11, pphRequired: 27.5 },
     { payRate: 12, pphRequired: 30 },
-    { payRate: 13, pphRequired: 33 },
+    { payRate: 13, pphRequired: 32.5 },
     { payRate: 14, pphRequired: 35 },
-    { payRate: 15, pphRequired: 38 },
+    { payRate: 15, pphRequired: 37.5 },
     { payRate: 16, pphRequired: 40 },
-    { payRate: 17, pphRequired: 43 },
+    { payRate: 17, pphRequired: 42.5 },
     { payRate: 18, pphRequired: 45 },
-    { payRate: 19, pphRequired: 48 },
+    { payRate: 19, pphRequired: 47.5 },
     { payRate: 20, pphRequired: 50 },
-    { payRate: 21, pphRequired: 53 },
-    { payRate: 22, pphRequired: 55 },
-    { payRate: 23, pphRequired: 58 },
-    { payRate: 24, pphRequired: 60 },
-    { payRate: 25, pphRequired: 63 },
-    { payRate: 26, pphRequired: 65 },
-    { payRate: 27, pphRequired: 68 },
-    { payRate: 28, pphRequired: 70 },
-    { payRate: 29, pphRequired: 73 },
   ],
   npRate: 0.4,
   npPercent: 0.195,
-  guaranteeRate: 12,
+  guaranteeRate: 10,
   commissionRate: 0.4,
   haircutPrice: 23,
   colorPrice: 85,
@@ -175,10 +169,12 @@ export interface PreviewResult {
   remainingProductionForTarget?: number;
 }
 
-/** PPH required to earn `payRate` under a specific tier table + NP rate. */
+/**
+ * PPH required for a Desired Pay Rate under a specific config.
+ * Client rule: `ceil(DPR / NP_RATE)` (round up to the nearest whole dollar).
+ */
 function pphForRateWith(logic: ActivePaymentLogic, payRate: number): number {
-  const exact = logic.tiers.find((t) => t.payRate === payRate);
-  return exact ? exact.pphRequired : payRate / logic.npRate;
+  return logic.npRate > 0 ? Math.ceil(payRate / logic.npRate) : 0;
 }
 
 /** Tiered effective $/hr for an achieved PPH under a specific config. */
