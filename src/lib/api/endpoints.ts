@@ -140,9 +140,13 @@ export const healthApi = {
   }),
 };
 
-/** Map backend roles onto the frontend's 3-role model (sdl == owner/admin). */
-export function toFrontendRole(role: BackendRole): "stylist" | "manager" | "sdl" {
+/**
+ * Map backend roles onto the frontend role model.
+ * admin→admin (top), owner→sdl (SDL/Owner), manager→manager, stylist→stylist.
+ */
+export function toFrontendRole(role: BackendRole): "stylist" | "manager" | "sdl" | "admin" {
   if (role === "manager") return "manager";
   if (role === "stylist") return "stylist";
-  return "sdl";
+  if (role === "admin") return "admin";
+  return "sdl"; // owner
 }

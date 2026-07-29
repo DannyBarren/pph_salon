@@ -15,6 +15,7 @@ export interface CurrentUserDTO {
   role: BackendRole;
   salon_id: number;
   manager_id: number | null;
+  excluded?: boolean;
   is_demo: boolean;
 }
 
@@ -28,6 +29,7 @@ export interface UserDTO {
   email: string | null;
   phone: string | null;
   guarantee_rate: number | null;
+  excluded?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -151,6 +153,7 @@ export interface CreateUserInput {
   title?: string;
   phone?: string;
   guarantee_rate?: number | null;
+  excluded?: boolean;
   password?: string;
 }
 

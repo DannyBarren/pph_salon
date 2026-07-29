@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Activity, DollarSign, ShieldCheck, TrendingUp, Flame, Sliders, CalendarCheck, ChevronRight } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { USAGE, salonById } from "@/lib/mockData";
+import { isAtLeast } from "@/lib/roles";
 import { resolveSelection, sliceDays } from "@/lib/selection";
 import { guaranteeRateFor, summarize } from "@/lib/payEngine";
 import { Card, CardBody, Avatar, Badge, Progress, SectionTitle } from "@/components/ui/primitives";
@@ -69,7 +70,7 @@ export function TeamOverview() {
         <Card key={salonId}>
           <CardBody>
             <SectionTitle hint={`${grp.length} stylists`}>
-              {currentUser.role === "sdl" ? `${salonById(salonId).name} · ${salonById(salonId).city}` : "Your direct reports"}
+              {isAtLeast(currentUser.role, "sdl") ? `${salonById(salonId).name} · ${salonById(salonId).city}` : "Your direct reports"}
             </SectionTitle>
             <div className="space-y-2">
               {grp.map(({ stylist, summary, guarantee, usage }) => {

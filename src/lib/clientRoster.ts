@@ -21,6 +21,8 @@ export interface RosterPerson {
   employeeCode: string;
   name: string;
   role: "manager" | "stylist";
+  /** Excluded from the PPH pay plan (no personal pay/PPH dashboard). */
+  excluded?: boolean;
   guaranteeRate: number;
   scheduledHrs: number;
   actualHrs: number;

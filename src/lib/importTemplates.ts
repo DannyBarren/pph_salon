@@ -25,10 +25,10 @@ export const WEEKLY_TEMPLATE = toCsv(
 );
 
 export const USERS_TEMPLATE = toCsv(
-  ["email", "name", "role", "salon_id", "salon_name", "manager_id", "manager_email", "title", "phone", "guarantee_rate", "password"],
+  ["email", "name", "role", "salon_id", "salon_name", "manager_id", "manager_email", "title", "phone", "guarantee_rate", "excluded", "password"],
   [
-    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17", "Welcome123!"],
-    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", ""],
+    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17", "N", "Welcome123!"],
+    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", ""],
   ],
 );
 
@@ -42,9 +42,9 @@ export const DAILY_TEMPLATE = toCsv(
 );
 
 export const CLIENT_TEMPLATE = toCsv(
-  ["Salon", "Salon Name", "Employee code", "Employee Name", "Position", "Guaranteed Pay-Rate", "Scheduled hours", "Hours worked", "Net service Rev", "Avg Haircut", "Avg Color"],
+  ["Salon", "Salon Name", "Employee code", "Employee Name", "Position", "Excl?", "Guaranteed Pay-Rate", "Scheduled hours", "Hours worked", "Net service Rev", "Avg Haircut", "Avg Color"],
   [
-    ["11016-Burleson,TX-SSF", "Burleson, TX", "VG1116", "Linda Jones", "Manager", "12", "61", "62.92", "_($* 2418.15_)", "23", "85"],
-    ["11016-Burleson,TX-SSF", "Burleson, TX", "VG1296", "Mariah Perez", "Stylist", "9", "16", "15.58", "_($* 359.10_)", "23", "85"],
+    ["11016-Burleson,TX-SSF", "Burleson, TX", "VG1116", "Linda Jones", "Manager", "Y", "12", "61", "62.92", "_($* 2418.15_)", "23", "85"],
+    ["11016-Burleson,TX-SSF", "Burleson, TX", "VG1296", "Mariah Perez", "Stylist", "N", "9", "16", "15.58", "_($* 359.10_)", "23", "85"],
   ],
 );

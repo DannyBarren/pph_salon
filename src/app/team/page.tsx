@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useApp } from "@/store/AppContext";
+import { isAtLeast } from "@/lib/roles";
 import { TimeNavigator } from "@/components/TimeNavigator";
 import { TeamOverview } from "@/components/TeamOverview";
 import { TeamDashboard } from "@/components/team/TeamDashboard";
@@ -39,10 +40,10 @@ export default function TeamPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          {currentUser.role === "sdl" ? "Everyone" : "My Team"}
+          {isAtLeast(currentUser.role, "sdl") ? "Everyone" : "My Team"}
         </h1>
         <p className="text-sm text-[var(--color-ink-faint)]">
-          Performance &amp; adoption {currentUser.role === "sdl" ? "across all salons" : "for your direct reports"}.
+          Performance &amp; adoption {isAtLeast(currentUser.role, "sdl") ? "across all salons" : "for your direct reports"}.
         </p>
       </div>
       <TimeNavigator />

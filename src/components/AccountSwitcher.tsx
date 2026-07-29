@@ -12,7 +12,8 @@ import { cn } from "@/lib/cn";
 const roleMeta: Record<Role, { label: string; tone: "brand" | "success" | "warning"; icon: React.ReactNode; blurb: (u: User) => string }> = {
   stylist: { label: "Stylist", tone: "brand", icon: <Store size={14} />, blurb: (u) => `${salonById(u.salonId).name} · sees only their own data` },
   manager: { label: "Salon Manager", tone: "warning", icon: <Users size={14} />, blurb: (u) => `${salonById(u.salonId).name} · ${stylistsForUser(u).length} reports` },
-  sdl: { label: "SDL · Owner", tone: "success", icon: <ShieldCheck size={14} />, blurb: () => `Full access across every salon` },
+  sdl: { label: "SDL · Owner", tone: "success", icon: <ShieldCheck size={14} />, blurb: () => `Views team data · can change Desired Pay Rate` },
+  admin: { label: "Admin", tone: "success", icon: <ShieldCheck size={14} />, blurb: () => `Full access · imports, config & payment logic` },
 };
 
 /** Production user menu: identity + sign out (no demo persona switching). */
@@ -81,7 +82,8 @@ export function AccountSwitcher() {
     setQuery("");
   };
 
-  const owners = USERS.filter((u) => u.role === "sdl");
+  // Organization-level personas: Admin (top) + SDL/Owner.
+  const owners = USERS.filter((u) => u.role === "sdl" || u.role === "admin");
   const q = query.trim().toLowerCase();
   const matches = (u: User) =>
     !q || u.name.toLowerCase().includes(q) || salonById(u.salonId).name.toLowerCase().includes(q);
@@ -132,7 +134,9 @@ export function AccountSwitcher() {
 
           {/* Every salon: manager(s) first, then stylists */}
           {SALONS.map((salon) => {
-            const members = USERS.filter((u) => u.salonId === salon.id && u.role !== "sdl" && matches(u)).sort(
+            const members = USERS.filter(
+              (u) => u.salonId === salon.id && u.role !== "sdl" && u.role !== "admin" && matches(u),
+            ).sort(
               (a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === "manager" ? -1 : 1),
             );
             if (members.length === 0) return null;
@@ -149,13 +153,15 @@ export function AccountSwitcher() {
           })}
 
           {owners.filter(matches).length === 0 &&
-            SALONS.every((s) => USERS.filter((u) => u.salonId === s.id && u.role !== "sdl" && matches(u)).length === 0) && (
-              <p className="py-6 text-center text-sm text-[var(--color-ink-faint)]">No accounts match “{query}”.</p>
-            )}
+            SALONS.every(
+              (s) =>
+                USERS.filter((u) => u.salonId === s.id && u.role !== "sdl" && u.role !== "admin" && matches(u))
+                  .length === 0,
+            ) && <p className="py-6 text-center text-sm text-[var(--color-ink-faint)]">No accounts match “{query}”.</p>}
         </div>
 
         <p className="mt-4 text-center text-xs text-[var(--color-ink-faint)]">
-          {SALONS.length} salons · {managerCount} managers · {stylistCount} stylists · 1 owner — all viewable without credentials
+          {SALONS.length} salons · {managerCount} managers · {stylistCount} stylists · 1 admin · 1 owner — all viewable without credentials
         </p>
       </Modal>
     </>

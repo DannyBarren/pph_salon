@@ -17,7 +17,7 @@ import { Card, CardBody } from "@/components/ui/primitives";
 export default function PaymentLogicPage() {
   const { currentUser } = useApp();
 
-  if (currentUser.role !== "sdl") {
+  if (currentUser.role !== "admin") {
     return (
       <Card>
         <CardBody className="flex items-center gap-3">
@@ -25,7 +25,7 @@ export default function PaymentLogicPage() {
           <div>
             <h2 className="text-base font-semibold">Payment logic</h2>
             <p className="mt-1 text-sm text-[var(--color-ink-faint)]">
-              Only the highest admin (SDL / Owner) can view or change the global payment logic and calculations.
+              Only the Admin role can view or change the global payment logic and calculations.
             </p>
           </div>
         </CardBody>

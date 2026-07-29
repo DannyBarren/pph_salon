@@ -1,9 +1,9 @@
-// The app's role model. `sdl` is the salon-development-leader / owner persona
-// and carries owner+admin privileges (full access, admin config). The backend
-// uses the fuller stylist | manager | admin | owner set; on the frontend `sdl`
-// maps to owner/admin. See `canSeeMoney` for the privacy split that actually
-// matters to the UI (stylist vs. everyone else).
-export type Role = "stylist" | "manager" | "sdl";
+// The app's role model. Hierarchy (highest → lowest): admin > sdl > manager >
+// stylist. `admin` is the new top level with EXCLUSIVE editing / import /
+// configuration / payment-logic rights. `sdl` (Salon Development Leader / Owner)
+// can view team data and change the Desired Pay Rate, but has no admin rights.
+// Backend roles map: admin→admin, owner→sdl, manager→manager, stylist→stylist.
+export type Role = "stylist" | "manager" | "sdl" | "admin";
 
 /** Per-service production/price values, keyed by service name. */
 export interface ServicePrices {
@@ -38,6 +38,11 @@ export interface User {
   phone?: string;
   /** Per-stylist guaranteed $/hr floor (falls back to salon/global rate). */
   guaranteeRate?: number;
+  /**
+   * Excluded from the PPH pay plan. Excluded users get NO personal pay/PPH
+   * dashboard and land on team/management views only (typically managers/SDL).
+   */
+  excluded?: boolean;
 }
 
 /**
