@@ -22,7 +22,7 @@ import { cn } from "@/lib/cn";
 import { useTeamDashboard, filterAndSortPerformances } from "@/hooks/useTeamDashboard";
 import { useDebounced } from "@/hooks/useDebounced";
 import { TEAM_WEEK } from "@/lib/teamData";
-import { PPH_TIERS } from "@/lib/tiers";
+import { getActiveTiers } from "@/lib/paymentLogic";
 import { performancesToCsv, downloadFile } from "@/lib/exportCsv";
 import { track } from "@/lib/telemetry";
 import { rateTone } from "@/lib/teamMessaging";
@@ -160,8 +160,9 @@ export function TeamDashboard() {
 
   const changeTarget = useCallback((delta: number) => {
     setTargetPayRate((r) => {
-      const min = PPH_TIERS[0].payRate;
-      const max = PPH_TIERS[PPH_TIERS.length - 1].payRate;
+      const tiers = getActiveTiers();
+      const min = tiers[0].payRate;
+      const max = tiers[tiers.length - 1].payRate;
       const next = Math.max(min, Math.min(max, r + delta));
       track("team_target_rate_changed", { target: next });
       return next;

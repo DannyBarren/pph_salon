@@ -21,6 +21,12 @@
  * old flat-commission approximation.
  */
 
+import {
+  getActivePaymentLogic,
+  getActiveTiers,
+  setActivePaymentLogic,
+} from "@/lib/paymentLogic";
+
 /** A single pay tier: the PPH (production per hour) required to earn `payRate`. */
 export interface Tier {
   /** Hourly pay rate ($/hr). */
@@ -68,6 +74,34 @@ export const COLOR_PRICE = 85;
 export const MIN_TIER = PPH_TIERS[0];
 export const MAX_TIER = PPH_TIERS[PPH_TIERS.length - 1];
 
+// Seed the runtime payment-logic store with this canonical (parity-tested)
+// default so the pure helpers below have the correct tier table + rates before
+// AppContext loads the authoritative global config. AppContext overwrites this
+// with the config the highest admin has configured.
+setActivePaymentLogic({
+  tiers: PPH_TIERS.map((t) => ({ payRate: t.payRate, pphRequired: t.pphRequired })),
+  npRate: NP_RATE,
+  npPercent: NP_PERCENT,
+  guaranteeRate: 12,
+  commissionRate: NP_RATE,
+  haircutPrice: HAIRCUT_PRICE,
+  colorPrice: COLOR_PRICE,
+  avgTicketHaircut: HAIRCUT_PRICE,
+  avgTicketColor: COLOR_PRICE,
+  serviceMixHaircut: 0.6,
+  minServicesPerDay: 6,
+});
+
+/** The active (admin-configured) tier table used by every calculation below. */
+function activeTiers(): Tier[] {
+  return getActiveTiers();
+}
+
+/** The active net-production rate. */
+function activeNpRate(): number {
+  return getActivePaymentLogic().npRate;
+}
+
 /** Half-up rounding (banker-free) so `payRate = roundHalfUp(pph * 0.4)`. */
 export function roundHalfUp(n: number): number {
   return Math.floor(n + 0.5);
@@ -78,8 +112,8 @@ export function roundHalfUp(n: number): number {
  * row; otherwise the exact `payRate / NP_RATE` relationship for off-tier rates.
  */
 export function pphForRate(payRate: number): number {
-  const exact = PPH_TIERS.find((t) => t.payRate === payRate);
-  return exact ? exact.pphRequired : payRate / NP_RATE;
+  const exact = activeTiers().find((t) => t.payRate === payRate);
+  return exact ? exact.pphRequired : payRate / activeNpRate();
 }
 
 /**
@@ -96,7 +130,7 @@ export function getRequiredProductionForPayRate(scheduledHours: number, desiredP
  * matching the workbook: guarantee 12 → 817.5, guarantee 13 → 910.
  */
 export function minExpectedProduction(scheduledHours: number, guaranteeRate: number): number {
-  return (guaranteeRate / NP_RATE) * scheduledHours;
+  return (guaranteeRate / activeNpRate()) * scheduledHours;
 }
 
 /**
@@ -117,9 +151,9 @@ export function getEffectiveRateFromPph(
   opts: { interpolate?: boolean; applyGuarantee?: boolean } = {},
 ): number {
   const { interpolate = false, applyGuarantee = true } = opts;
-  const tiers = PPH_TIERS;
+  const tiers = activeTiers();
 
-  if (achievedPph < tiers[0].pphRequired) {
+  if (tiers.length === 0 || achievedPph < tiers[0].pphRequired) {
     return applyGuarantee ? guaranteeRate : 0;
   }
 
@@ -166,7 +200,7 @@ export function getPph(production: number, hours: number): number {
 /** The tier a stylist has fully achieved for a given PPH (or null if below the floor). */
 export function getAchievedTier(achievedPph: number): Tier | null {
   let achieved: Tier | null = null;
-  for (const t of PPH_TIERS) {
+  for (const t of activeTiers()) {
     if (t.pphRequired <= achievedPph) achieved = t;
     else break;
   }
@@ -178,12 +212,12 @@ export function getAchievedTier(achievedPph: number): Tier | null {
  * above) the top of the table.
  */
 export function getNextTier(currentPayRate: number): Tier | null {
-  return PPH_TIERS.find((t) => t.payRate > currentPayRate) ?? null;
+  return activeTiers().find((t) => t.payRate > currentPayRate) ?? null;
 }
 
 /** The tier row for an exact pay rate, if it exists. */
 export function getTierByRate(payRate: number): Tier | null {
-  return PPH_TIERS.find((t) => t.payRate === payRate) ?? null;
+  return activeTiers().find((t) => t.payRate === payRate) ?? null;
 }
 
 export interface OverShort {
@@ -252,14 +286,15 @@ export function productionToServices(production: number, haircutShare = 0.5): {
   allColors: number;
   blended: ServiceMix;
 } {
+  const { haircutPrice, colorPrice } = getActivePaymentLogic();
   const hcProd = production * haircutShare;
   const coProd = production * (1 - haircutShare);
   return {
-    allHaircuts: Math.ceil(production / HAIRCUT_PRICE),
-    allColors: Math.ceil(production / COLOR_PRICE),
+    allHaircuts: Math.ceil(production / haircutPrice),
+    allColors: Math.ceil(production / colorPrice),
     blended: {
-      haircuts: Math.ceil(hcProd / HAIRCUT_PRICE),
-      colors: Math.ceil(coProd / COLOR_PRICE),
+      haircuts: Math.ceil(hcProd / haircutPrice),
+      colors: Math.ceil(coProd / colorPrice),
     },
   };
 }

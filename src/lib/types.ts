@@ -86,9 +86,35 @@ export interface UsageStat {
   goalsHit: number;
 }
 
-/** Admin-configurable parameters driving the whole pay engine. */
+/** A single row of the global payment tier table (pay_rate ↔ pph_required). */
+export interface PayTierRow {
+  /** Hourly pay rate ($/hr). */
+  payRate: number;
+  /** Production-per-hour required to earn this rate. */
+  pphRequired: number;
+}
+
+/**
+ * Admin-configurable parameters driving the whole pay engine.
+ *
+ * This is the organisation-wide payment logic — the single source of truth for
+ * every calculation shown to any user. It is GLOBAL ONLY: `salonGuarantee` /
+ * `salonServicePrices` are retained for backwards-compatible persistence but are
+ * no longer consulted by the calculation engine (see `payEngine.guaranteeRateFor`
+ * and `privacy.servicePricesFor`). Only the highest admin (Owner) may change it.
+ */
 export interface PayConfig {
-  /** Global base hourly guarantee (used when a salon has no override). */
+  /** The payment tier table (pay_rate ↔ pph_required), ascending by payRate. */
+  tiers: PayTierRow[];
+  /** Net-production share (0-1) — drives off-tier PPH and the guarantee floor. */
+  npRate: number;
+  /** Net-profit percentage surfaced on reports (informational). */
+  npPercent: number;
+  /** Net production ($) per haircut — canonical service price. */
+  haircutPrice: number;
+  /** Net production ($) per color — canonical service price. */
+  colorPrice: number;
+  /** Global base hourly guarantee (the single org-wide floor). */
   guaranteeRate: number;
   /**
    * Net-production share (0-1). Effective $/hr is driven by the tiered PPH ladder
