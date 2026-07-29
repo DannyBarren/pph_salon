@@ -6,6 +6,7 @@ import { Megaphone, Sparkles, Target, Pin, TrendingUp } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { Card, CardBody, Button, Badge } from "@/components/ui/primitives";
 import { visiblePostsFor } from "@/lib/messaging";
+import { ENABLE_PLANNER } from "@/lib/featureFlags";
 
 /**
  * Promotions hub: surfaces pinned salon announcements as live promotions and
@@ -32,25 +33,27 @@ export default function PromotionsPage() {
         </p>
       </div>
 
-      {/* Flash goal CTA */}
-      <Card className="overflow-hidden border-none bg-gradient-to-br from-[var(--color-brand)] to-[var(--color-brand-ink)] text-white">
-        <CardBody className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/20">
-              <Target size={22} />
-            </span>
-            <div>
-              <h2 className="text-lg font-bold">Set a flash goal</h2>
-              <p className="text-sm text-white/85">Turn a promotion into extra production this week.</p>
+      {/* Flash goal CTA — hidden while the Planner is soft-disabled (featureFlags.ts). */}
+      {ENABLE_PLANNER && (
+        <Card className="overflow-hidden border-none bg-gradient-to-br from-[var(--color-brand)] to-[var(--color-brand-ink)] text-white">
+          <CardBody className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/20">
+                <Target size={22} />
+              </span>
+              <div>
+                <h2 className="text-lg font-bold">Set a flash goal</h2>
+                <p className="text-sm text-white/85">Turn a promotion into extra production this week.</p>
+              </div>
             </div>
-          </div>
-          <Link href="/planner">
-            <Button variant="soft" className="bg-white text-[var(--color-brand-ink)] hover:bg-white">
-              <Sparkles size={16} /> Open planner
-            </Button>
-          </Link>
-        </CardBody>
-      </Card>
+            <Link href="/planner">
+              <Button variant="soft" className="bg-white text-[var(--color-brand-ink)] hover:bg-white">
+                <Sparkles size={16} /> Open planner
+              </Button>
+            </Link>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Promo list */}
       {promos.length === 0 ? (

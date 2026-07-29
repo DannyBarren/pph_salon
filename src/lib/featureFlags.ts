@@ -14,6 +14,24 @@ export const FEATURE_TEAM_DASHBOARD =
 export const TEAM_DASHBOARD_REFRESH_MS = 5 * 60 * 1000;
 
 /**
+ * Temporarily-disabled features (soft-disable).
+ *
+ * These features are hidden from the running app but ALL of their code (pages,
+ * components, services, models, API routes, tests) intentionally remains in the
+ * repo for future use. Each flag gates: the nav link, the route/page, and any
+ * remaining UI reference.
+ *
+ * To RE-ENABLE a feature later, either flip its constant here to `true` (a
+ * one-line change) or set the matching `NEXT_PUBLIC_*` env var to `"true"`.
+ * Defaults are OFF.
+ */
+export const ENABLE_PLANNER = process.env.NEXT_PUBLIC_ENABLE_PLANNER === "true";
+export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === "true";
+export const ENABLE_GOALS = process.env.NEXT_PUBLIC_ENABLE_GOALS === "true";
+export const ENABLE_GOALS_NOTIFICATIONS =
+  process.env.NEXT_PUBLIC_ENABLE_GOALS_NOTIFICATIONS === "true";
+
+/**
  * Demo mode. Defaults to **on** so the offline demo (mock data, localStorage,
  * instant account switcher, no login) works with zero configuration. Set
  * `NEXT_PUBLIC_DEMO_MODE=false` in production to enforce real JWT auth, hide the

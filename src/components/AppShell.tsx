@@ -9,7 +9,13 @@ import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { cn } from "@/lib/cn";
 import { visiblePostsFor } from "@/lib/messaging";
 import { ROLE_LABEL } from "@/lib/roles";
-import { FEATURE_TEAM_DASHBOARD } from "@/lib/featureFlags";
+import {
+  ENABLE_CALENDAR,
+  ENABLE_GOALS,
+  ENABLE_GOALS_NOTIFICATIONS,
+  ENABLE_PLANNER,
+  FEATURE_TEAM_DASHBOARD,
+} from "@/lib/featureFlags";
 import type { Role } from "@/lib/types";
 
 interface NavItem {
@@ -17,6 +23,8 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   roles: Role[];
+  /** When false, the item is soft-disabled and hidden from the nav. */
+  enabled?: boolean;
 }
 
 // With the Team Dashboard flag on, managers/SDL use it as their home and the
@@ -27,9 +35,9 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
   ? [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist"] },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
-      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ALL },
-      { href: "/calendar", label: "Calendar", icon: <CalendarDays size={20} />, roles: ALL },
-      { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ALL, enabled: ENABLE_PLANNER },
+      { href: "/calendar", label: "Calendar", icon: <CalendarDays size={20} />, roles: ALL, enabled: ENABLE_CALENDAR },
+      { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"], enabled: ENABLE_GOALS },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
       { href: "/admin/payment-logic", label: "Pay Logic", icon: <Calculator size={20} />, roles: ["sdl"] },
@@ -37,9 +45,9 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
     ]
   : [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ALL },
-      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ALL },
-      { href: "/calendar", label: "Calendar", icon: <CalendarDays size={20} />, roles: ALL },
-      { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"] },
+      { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ALL, enabled: ENABLE_PLANNER },
+      { href: "/calendar", label: "Calendar", icon: <CalendarDays size={20} />, roles: ALL, enabled: ENABLE_CALENDAR },
+      { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"], enabled: ENABLE_GOALS },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
       { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
@@ -50,7 +58,7 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, ready, boardPosts, boardLastSeen, notifications } = useApp();
   const pathname = usePathname();
-  const items = NAV.filter((n) => n.roles.includes(currentUser.role));
+  const items = NAV.filter((n) => n.roles.includes(currentUser.role) && n.enabled !== false);
 
   // `/admin` is matched exactly so its `/admin/payment-logic` child doesn't also
   // light up the Admin tab; other routes match by prefix.
@@ -124,18 +132,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <Link
-              href="/notifications"
-              aria-label={goalUnread > 0 ? `Notifications, ${goalUnread} unread` : "Notifications"}
-              className="relative grid h-9 w-9 place-items-center rounded-full border border-[var(--color-border)] text-[var(--color-ink-soft)] transition hover:bg-[var(--color-surface-2)]"
-            >
-              <Bell size={18} />
-              {goalUnread > 0 && (
-                <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-[var(--color-brand)] px-1 text-[10px] font-bold text-white">
-                  {goalUnread}
-                </span>
-              )}
-            </Link>
+            {ENABLE_GOALS_NOTIFICATIONS && (
+              <Link
+                href="/notifications"
+                aria-label={goalUnread > 0 ? `Notifications, ${goalUnread} unread` : "Notifications"}
+                className="relative grid h-9 w-9 place-items-center rounded-full border border-[var(--color-border)] text-[var(--color-ink-soft)] transition hover:bg-[var(--color-surface-2)]"
+              >
+                <Bell size={18} />
+                {goalUnread > 0 && (
+                  <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-[var(--color-brand)] px-1 text-[10px] font-bold text-white">
+                    {goalUnread}
+                  </span>
+                )}
+              </Link>
+            )}
             <AccountSwitcher />
           </div>
         </div>
