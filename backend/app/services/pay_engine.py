@@ -219,15 +219,38 @@ class PayPlanEngine:
         haircut_price: float = DEFAULT_HAIRCUT_PRICE,
         color_price: float = DEFAULT_COLOR_PRICE,
         tiers: list[tuple[float, float]] | None = None,
-        salon_tiers: dict[int, list[tuple[float, float]]] | None = None,
     ) -> None:
         self.guarantee_rate = guarantee_rate
         self.np_rate = np_rate
         self.haircut_price = haircut_price
         self.color_price = color_price
-        # Registry for future per-salon (DB-backed) tier overrides.
-        self._salon_tiers = salon_tiers or {}
         self._set_tiers(tiers if tiers is not None else DEFAULT_PPH_TIERS)
+
+    @classmethod
+    def from_config(cls, config) -> PayPlanEngine:
+        """Build an engine from a global :class:`PaymentLogicConfig`.
+
+        This is the wiring that makes the DB-backed global config the single
+        source of truth: every server-side calculation should construct its
+        engine via this factory so a change made by the highest admin flows
+        through instantly and organisation-wide.
+
+        ``config`` may be the SQLModel row or any object exposing the same
+        attributes (``tiers`` as a list of ``{"pay_rate", "pph_required"}``
+        dicts, ``np_rate``, ``guarantee_rate``, ``haircut_price``,
+        ``color_price``).
+        """
+        tiers = [
+            (float(t["pay_rate"]), float(t["pph_required"]))
+            for t in (config.tiers or [])
+        ] or DEFAULT_PPH_TIERS
+        return cls(
+            guarantee_rate=float(config.guarantee_rate),
+            np_rate=float(config.np_rate),
+            haircut_price=float(config.haircut_price),
+            color_price=float(config.color_price),
+            tiers=tiers,
+        )
 
     # -- tier management ---------------------------------------------------
 
@@ -235,16 +258,14 @@ class PayPlanEngine:
         self.tiers = [Tier(float(r), float(p)) for r, p in sorted(tiers)]
         self._pph_by_rate = {t.pay_rate: t.pph_required for t in self.tiers}
 
-    def load_tiers(self, salon_id: int) -> list[Tier]:
-        """Load (and activate) the pay tiers for ``salon_id``.
+    def load_tiers(self, salon_id: int | None = None) -> list[Tier]:
+        """Return the active (global) pay tiers.
 
-        Currently returns the hardcoded default table for every salon. A future
-        agent can back this with the database by populating ``salon_tiers`` (or
-        overriding this method to query a repository) — the rest of the engine
-        needs no changes.
+        Payment logic is organisation-wide: there are intentionally **no**
+        per-salon tier overrides. The ``salon_id`` argument is accepted for
+        backwards compatibility but ignored — every salon uses the one global
+        tier table configured by the highest admin.
         """
-        tiers = self._salon_tiers.get(salon_id, DEFAULT_PPH_TIERS)
-        self._set_tiers(tiers)
         return self.tiers
 
     def pph_for_rate(self, pay_rate: float) -> float:
