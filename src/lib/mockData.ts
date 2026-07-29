@@ -80,6 +80,7 @@ function toUser(p: RosterPerson): User {
     initials: initialsOf(p.name),
     hue: p.hue,
     guaranteeRate: p.guaranteeRate,
+    excluded: p.excluded ?? false,
   };
 }
 
@@ -95,14 +96,29 @@ export const OWNER: User = {
   title: "Owner · Salon Development Leader",
   initials: "SD",
   hue: 28,
+  // SDL/Owner is a management persona — not on the PPH pay plan.
+  excluded: true,
+};
+
+/** The top Admin persona — full editing/import/config + payment-logic rights. */
+export const ADMIN: User = {
+  id: "admin",
+  name: "Admin (Demo)",
+  role: "admin",
+  salonId: SALONS[0]?.id ?? "s1",
+  title: "Administrator",
+  initials: "AD",
+  hue: 265,
+  excluded: true,
 };
 
 export const ALL_STYLISTS = STYLISTS;
-export const USERS: User[] = [...STYLISTS, ...MANAGERS, OWNER];
+export const USERS: User[] = [...STYLISTS, ...MANAGERS, OWNER, ADMIN];
 export const userById = (id: string) => USERS.find((u) => u.id === id);
 
 /** Personas featured at the top of the demo account switcher (all are browsable). */
 export const DEMO_ACCOUNT_IDS = [
+  ADMIN.id,
   OWNER.id,
   MANAGERS[0]?.id,
   STYLISTS[0]?.id,
@@ -266,11 +282,11 @@ export const BOARD_SEED_ACKS: MessageAcknowledgment[] = SEED_SALON_STYLISTS.slic
 export function stylistsForUser(user: User): User[] {
   if (user.role === "stylist") return STYLISTS.filter((s) => s.id === user.id);
   if (user.role === "manager") return STYLISTS.filter((s) => s.managerId === user.id);
-  return STYLISTS; // sdl sees all
+  return STYLISTS; // sdl / admin see all
 }
 
 export function visibleSalons(user: User): Salon[] {
-  if (user.role === "sdl") return SALONS;
+  if (user.role === "sdl" || user.role === "admin") return SALONS;
   const ids = new Set(stylistsForUser(user).map((s) => s.salonId));
   if (user.role === "manager") ids.add(user.salonId);
   return SALONS.filter((s) => ids.has(s.id));

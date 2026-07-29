@@ -44,4 +44,6 @@ class CurrentUser(BaseModel):
     role: UserRole
     salon_id: int
     manager_id: int | None = None
+    # Not on the PPH pay plan (no personal pay/PPH dashboard; team views only).
+    excluded: bool = False
     is_demo: bool = False

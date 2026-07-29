@@ -30,18 +30,18 @@ interface NavItem {
 // With the Team Dashboard flag on, managers/SDL use it as their home and the
 // personal Dashboard is stylist-only. With the flag off we keep the original
 // nav. The Board (announcements) tab is available to everyone in both layouts.
-const ALL: Role[] = ["stylist", "manager", "sdl"];
+const ALL: Role[] = ["stylist", "manager", "sdl", "admin"];
 const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
   ? [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ["stylist"] },
-      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
+      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl", "admin"] },
       { href: "/planner", label: "Planner", icon: <Sliders size={20} />, roles: ALL, enabled: ENABLE_PLANNER },
       { href: "/calendar", label: "Calendar", icon: <CalendarDays size={20} />, roles: ALL, enabled: ENABLE_CALENDAR },
       { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"], enabled: ENABLE_GOALS },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
-      { href: "/admin/payment-logic", label: "Pay Logic", icon: <Calculator size={20} />, roles: ["sdl"] },
-      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
+      { href: "/admin/payment-logic", label: "Pay Logic", icon: <Calculator size={20} />, roles: ["admin"] },
+      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["admin"] },
     ]
   : [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={20} />, roles: ALL },
@@ -50,15 +50,21 @@ const NAV: NavItem[] = FEATURE_TEAM_DASHBOARD
       { href: "/team-goals", label: "Goals", icon: <Flag size={20} />, roles: ["manager", "sdl"], enabled: ENABLE_GOALS },
       { href: "/board", label: "Board", icon: <Megaphone size={20} />, roles: ALL },
       { href: "/promotions", label: "Promotions", icon: <Tag size={20} />, roles: ALL },
-      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl"] },
-      { href: "/admin/payment-logic", label: "Pay Logic", icon: <Calculator size={20} />, roles: ["sdl"] },
-      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["sdl"] },
+      { href: "/team", label: "Team", icon: <Users size={20} />, roles: ["manager", "sdl", "admin"] },
+      { href: "/admin/payment-logic", label: "Pay Logic", icon: <Calculator size={20} />, roles: ["admin"] },
+      { href: "/admin", label: "Admin", icon: <Settings size={20} />, roles: ["admin"] },
     ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, ready, boardPosts, boardLastSeen, notifications } = useApp();
   const pathname = usePathname();
-  const items = NAV.filter((n) => n.roles.includes(currentUser.role) && n.enabled !== false);
+  // Excluded users (not on the PPH plan) never see the personal Dashboard tab.
+  const items = NAV.filter(
+    (n) =>
+      n.roles.includes(currentUser.role) &&
+      n.enabled !== false &&
+      !(n.href === "/" && currentUser.excluded),
+  );
 
   // `/admin` is matched exactly so its `/admin/payment-logic` child doesn't also
   // light up the Admin tab; other routes match by prefix.

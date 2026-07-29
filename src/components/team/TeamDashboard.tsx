@@ -16,6 +16,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { useApp } from "@/store/AppContext";
+import { isAtLeast } from "@/lib/roles";
 import { Button, Segmented, Card, CardBody } from "@/components/ui/primitives";
 import { money, num, pct, rate } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -56,9 +57,11 @@ const RATE_TEXT: Record<"success" | "warning" | "danger", string> = {
 export function TeamDashboard() {
   const { currentUser } = useApp();
 
+  // SDL/Owner and Admin see every salon; managers see only their own.
+  const seesAllSalons = isAtLeast(currentUser.role, "sdl");
   const salonIds = useMemo(
-    () => (currentUser.role === "sdl" ? [] : [currentUser.salonId]),
-    [currentUser.role, currentUser.salonId],
+    () => (seesAllSalons ? [] : [currentUser.salonId]),
+    [seesAllSalons, currentUser.salonId],
   );
 
   // ── Controls ───────────────────────────────────────────────────────────
@@ -185,7 +188,7 @@ export function TeamDashboard() {
           <h1 className="text-2xl font-bold tracking-tight text-[var(--color-brand)]">Team Dashboard</h1>
           <p className="text-sm text-[var(--color-ink-faint)]">
             Week of {TEAM_WEEK.label} ·{" "}
-            {currentUser.role === "sdl" ? "All salons" : "Your team"} · {performances.length} stylists
+            {seesAllSalons ? "All salons" : "Your team"} · {performances.length} stylists
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

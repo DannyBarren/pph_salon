@@ -64,6 +64,7 @@ const users: UserDTO[] = USERS.map((u, i) => ({
   email: u.email ?? null,
   phone: u.phone ?? null,
   guarantee_rate: u.guaranteeRate ?? null,
+  excluded: u.excluded ?? false,
   created_at: now(),
   updated_at: now(),
 }));
@@ -224,6 +225,7 @@ export const demoBackend = {
       email: input.email ?? null,
       phone: input.phone ?? null,
       guarantee_rate: input.guarantee_rate ?? null,
+      excluded: input.excluded ?? false,
       created_at: now(),
       updated_at: now(),
     };

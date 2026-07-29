@@ -159,6 +159,7 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
   const [role, setRole] = useState<BackendRole>("stylist");
   const [salonId, setSalonId] = useState<number | "">("");
   const [managerId, setManagerId] = useState<number | "">("");
+  const [excluded, setExcluded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<string | null>(null);
@@ -202,6 +203,7 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
         role,
         salon_id: Number(salonId),
         manager_id: managerId === "" ? undefined : Number(managerId),
+        excluded,
         password: chosenPassword || undefined,
       });
       setCreated(
@@ -212,6 +214,7 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
       setName("");
       setEmail("");
       setPassword("");
+      setExcluded(false);
       void loadUsers();
     } catch (err) {
       setError(errMessage(err));
@@ -302,6 +305,10 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
                   </option>
                 ))}
               </Select>
+              <label className="flex items-center gap-2 text-sm text-[var(--color-ink-soft)]">
+                <input type="checkbox" checked={excluded} onChange={(e) => setExcluded(e.target.checked)} />
+                Excluded from the PPH pay plan (no personal PPH dashboard — team views only)
+              </label>
               {error && <Notice kind="error">{error}</Notice>}
               {created && <Notice kind="success">{created}</Notice>}
               <Button type="submit" disabled={busy}>

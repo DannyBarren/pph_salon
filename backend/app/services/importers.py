@@ -68,6 +68,7 @@ _CLIENT_EXPORT_MAP = {
     "net_service_rev": ["net service rev", "net service revenue", "net rev", "service revenue"],
     "avg_haircut": ["avg haircut", "average haircut", "haircut price"],
     "avg_color": ["avg color", "average color", "color price"],
+    "excluded": ["excl?", "excluded", "exclude", "exclusion", "excl"],
 }
 
 SOURCE_MAPS: dict[str, dict[str, list[str]]] = {
@@ -105,6 +106,17 @@ def parse_money(value: Any) -> float | None:
         return float(cleaned)
     except ValueError:
         return None
+
+
+def parse_bool(value: Any) -> bool:
+    """Parse a truthy flag from messy CSV input (Y/N, yes/no, true/false, 1/0)."""
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in {"y", "yes", "true", "t", "1", "x", "excluded"}
 
 
 def _looks_like_client_export(raw_rows: list[dict[str, Any]]) -> bool:
@@ -263,6 +275,9 @@ def bulk_create_users(
         except (TypeError, ValueError):
             guarantee = None
 
+        has_excluded = str(raw.get("excluded", "")).strip() != ""
+        excluded = parse_bool(raw.get("excluded"))
+
         existing = session.exec(select(User).where(User.email == email)).first()
         if existing is not None:
             existing.name = name
@@ -276,6 +291,8 @@ def bulk_create_users(
                 existing.phone = str(raw["phone"]).strip()
             if guarantee is not None:
                 existing.guarantee_rate = guarantee
+            if has_excluded:
+                existing.excluded = excluded
             session.add(existing)
             result.updated += 1
             continue
@@ -291,6 +308,7 @@ def bulk_create_users(
             title=(str(raw["title"]).strip() if raw.get("title") else None),
             phone=(str(raw["phone"]).strip() if raw.get("phone") else None),
             guarantee_rate=guarantee,
+            excluded=excluded,
             hashed_password=security.hash_password(password),
             is_active=True,
         )
@@ -378,6 +396,7 @@ def _resolve_or_create_user(
     creating them if missing. Employee codes are unique only per salon."""
     role = _map_role(row.get("position"))
     guarantee = _num(row.get("guarantee_rate"))
+    excluded = parse_bool(row.get("excluded"))
 
     user: User | None = None
     if employee_code:
@@ -398,6 +417,7 @@ def _resolve_or_create_user(
             salon_id=salon.id,
             employee_code=employee_code,
             guarantee_rate=guarantee,
+            excluded=excluded,
             is_active=True,
         )
         session.add(user)
@@ -412,6 +432,7 @@ def _resolve_or_create_user(
         user.employee_code = employee_code
     if guarantee is not None:
         user.guarantee_rate = guarantee
+    user.excluded = excluded
     session.add(user)
     return user, False
 

@@ -15,9 +15,9 @@ export function canPost(role: Role): boolean {
   return canPostAnnouncements(role);
 }
 
-/** Org-wide roles see the full organization (all posts). */
+/** Org-wide roles see the full organization (all posts): SDL/Owner and Admin. */
 export function isOrgWide(role: Role): boolean {
-  return role === "sdl";
+  return role === "sdl" || role === "admin";
 }
 
 export function isExpired(post: MessageBoardPost, nowIso: string): boolean {
@@ -105,7 +105,7 @@ export interface AudienceOptions {
 
 /** Audience selector configuration, smart per role. */
 export function audienceOptionsFor(role: Role): AudienceOptions {
-  if (role === "sdl") return { canChoose: true, kinds: ["all", "salons"] };
+  if (role === "sdl" || role === "admin") return { canChoose: true, kinds: ["all", "salons"] };
   // Managers are auto-limited to their salon; no selector.
   return { canChoose: false, kinds: ["salons"] };
 }

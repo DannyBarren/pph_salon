@@ -99,28 +99,29 @@ def require_role(roles: Sequence[str]):
 
 
 def require_super_admin(user: User = Depends(get_current_user)) -> User:
-    """Only ``admin`` / ``owner`` (the super-admin personas) may pass.
+    """Only the top **Admin** role may pass.
 
-    Used to gate destructive / org-wide operations: creating salons, bulk user
-    import, pay-plan configuration, and audit-log access.
+    Gates all editing / import / configuration / roster & user management. Under
+    the client's hierarchy (Admin > SDL/Owner > Manager > Stylist), these
+    capabilities are EXCLUSIVE to Admin — SDL/Owner (``owner``) intentionally no
+    longer passes. The demo principal is an ``admin``, so demo mode is unaffected.
     """
-    if user.role not in (UserRole.admin, UserRole.owner):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Super-admin privileges required")
+    if user.role != UserRole.admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin privileges required")
     return user
 
 
 def require_highest_admin(user: User = Depends(get_current_user)) -> User:
-    """Only the **highest admin** (Owner) may pass.
+    """Only the top **Admin** role may pass.
 
-    Gates the organisation-wide payment-logic controls, which govern every
-    calculation shown to every user across every location. ``owner`` is the top
-    role; ``admin`` is treated as the equivalent super-admin persona (the demo
-    principal is an ``admin``), so both pass. Managers and stylists never do.
+    Gates the organisation-wide payment-logic controls (the "Danger Zone"), which
+    govern every calculation shown to every user across every location. Only
+    Admin — the highest role — can reach these; SDL/Owner and below cannot.
     """
-    if user.role not in (UserRole.owner, UserRole.admin):
+    if user.role != UserRole.admin:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "Only the highest admin (Owner) can manage global payment logic",
+            "Only the Admin role can manage global payment logic",
         )
     return user
 

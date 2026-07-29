@@ -117,5 +117,6 @@ def me(
         role=user.role,
         salon_id=user.salon_id,
         manager_id=user.manager_id,
+        excluded=bool(getattr(user, "excluded", False)),
         is_demo=settings.demo_mode,
     )

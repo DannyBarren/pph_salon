@@ -16,6 +16,8 @@ class UserBase(BaseModel):
     email: str | None = None
     phone: str | None = None
     guarantee_rate: float | None = None
+    # Not on the PPH pay plan (no personal pay/PPH dashboard; team views only).
+    excluded: bool = False
 
 
 class UserCreate(UserBase):
@@ -37,6 +39,7 @@ class BulkUserRow(BaseModel):
     title: str | None = None
     phone: str | None = None
     guarantee_rate: float | None = None
+    excluded: bool = False
     password: str | None = None
 
 
@@ -61,6 +64,7 @@ class UserUpdate(BaseModel):
     email: str | None = None
     phone: str | None = None
     guarantee_rate: float | None = None
+    excluded: bool | None = None
 
 
 class UserRead(UserBase):

@@ -13,7 +13,7 @@ import { DEMO_MODE } from "@/lib/featureFlags";
 export default function AdminPage() {
   const { currentUser } = useApp();
 
-  if (currentUser.role !== "sdl") {
+  if (currentUser.role !== "admin") {
     return (
       <Card>
         <CardBody className="flex items-center gap-3">
@@ -21,7 +21,7 @@ export default function AdminPage() {
           <div>
             <h2 className="text-base font-semibold">Admin configuration</h2>
             <p className="mt-1 text-sm text-[var(--color-ink-faint)]">
-              Only the SDL / Owner (super-admin) can manage salons, users, and pay
+              Only the Admin role can manage salons, users, imports, and pay
               configuration.
             </p>
           </div>

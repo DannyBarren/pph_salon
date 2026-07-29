@@ -136,9 +136,10 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // Default persona: the owner/SDL POC, so the demo lands on the full
-  // cross-salon team view with every account browsable (no login).
-  const [currentUserId, setCurrentUserIdState] = useState("owner");
+  // Default persona: the top Admin, so the demo showcases the full admin
+  // capabilities (payment-logic, imports, user management). Every account is
+  // still browsable via the account switcher (no login).
+  const [currentUserId, setCurrentUserIdState] = useState("admin");
   const [viewedStylistIdRaw, setViewedStylistId] = useState<string | null>(null);
   const [config, setConfig] = useState<PayConfig>(DEFAULT_CONFIG);
   const [overrides, setOverrides] = useState<Record<string, DayRecord[]>>({});

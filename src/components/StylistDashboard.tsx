@@ -7,6 +7,7 @@ import { userById, salonById } from "@/lib/mockData";
 import { sliceDays } from "@/lib/selection";
 import { CURRENT_WEEK, TODAY, daysOfWeek, weeksInPeriod } from "@/lib/time";
 import type { DayRecord } from "@/lib/types";
+import { canChangeDpr } from "@/lib/roles";
 import { computeWeek, dprOptions, defaultDpr } from "@/lib/uatDashboard";
 import { Card, CardBody, Select, SectionTitle } from "@/components/ui/primitives";
 import { DailyBreakdown } from "@/components/DailyBreakdown";
@@ -34,14 +35,32 @@ function hrs(n: number): string {
 }
 
 export function StylistDashboard({ stylistId }: { stylistId: string }) {
-  const { config, getDays } = useApp();
+  const { config, getDays, currentUser } = useApp();
   const stylist = userById(stylistId)!;
   const salon = salonById(stylist.salonId);
   const guarantee = stylist.guaranteeRate ?? config.guaranteeRate;
+  // Who may change the Desired Pay Rate: Admin & SDL/Owner (for anyone), plus a
+  // stylist on their OWN dashboard (personal what-if). Managers viewing a report
+  // see it read-only.
+  const dprEditable = currentUser.id === stylistId || canChangeDpr(currentUser.role);
 
   const options = dprOptions();
   const [dpr, setDpr] = useState<number>(() => defaultDpr(guarantee));
   const [weekIdx, setWeekIdx] = useState<number>(DEFAULT_WEEK_IDX);
+
+  // Excluded employees are not on the PPH pay plan — no personal dashboard.
+  if (stylist.excluded) {
+    return (
+      <Card>
+        <CardBody>
+          <h2 className="text-base font-semibold">Not on the PPH pay plan</h2>
+          <p className="mt-1 text-sm text-[var(--color-ink-faint)]">
+            {stylist.name} is excluded from the PPH pay plan, so there is no personal PPH dashboard.
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   const selWeek = PERIOD[weekIdx] ?? CURRENT_WEEK;
   const period = { start: PERIOD[0].start, end: PERIOD[PERIOD.length - 1].end };
@@ -97,13 +116,22 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
             <label htmlFor="dpr-select" className="text-sm font-semibold">
               Desired Pay Rate (DPR)
             </label>
-            <Select id="dpr-select" value={String(dpr)} onChange={(e) => setDpr(Number(e.target.value))}>
-              {options.map((o) => (
-                <option key={o} value={o}>
-                  {dollars(o)}/hr
-                </option>
-              ))}
-            </Select>
+            {dprEditable ? (
+              <Select id="dpr-select" value={String(dpr)} onChange={(e) => setDpr(Number(e.target.value))}>
+                {options.map((o) => (
+                  <option key={o} value={o}>
+                    {dollars(o)}/hr
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <span
+                className="rounded-full bg-[var(--color-surface-2)] px-3 py-1.5 text-sm font-semibold tabular-nums"
+                title="Only your SDL/Owner or Admin can change the Desired Pay Rate"
+              >
+                {dollars(dpr)}/hr
+              </span>
+            )}
             <span className="text-sm text-[var(--color-ink-soft)]">
               Current Pay Rate <b className="tabular-nums text-[var(--color-ink)]">{dollars(recap.payRateAtPerf)}/hr</b>
             </span>
