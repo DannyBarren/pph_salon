@@ -8,8 +8,8 @@
  * reliably with no network. Nothing here is persisted beyond the session.
  */
 
-import { SALONS, USERS } from "@/lib/mockData";
-import { PPH_TIERS } from "@/lib/tiers";
+import { DEFAULT_CONFIG, SALONS, USERS } from "@/lib/mockData";
+import { computePreview, getActiveTiers, type ActivePaymentLogic } from "@/lib/paymentLogic";
 import { CLIENT_TEMPLATE, DAILY_TEMPLATE, USERS_TEMPLATE, WEEKLY_TEMPLATE } from "@/lib/importTemplates";
 import type {
   AuditLogDTO,
@@ -19,6 +19,10 @@ import type {
   CreateSalonInput,
   CreateUserInput,
   InviteResponse,
+  PaymentLogicDTO,
+  PaymentLogicPreviewDTO,
+  PaymentLogicPreviewRequestDTO,
+  PaymentLogicUpdateDTO,
   PayTierDTO,
   SalonDTO,
   UserDTO,
@@ -61,12 +65,83 @@ const users: UserDTO[] = USERS.map((u, i) => ({
   email: u.email ?? null,
   phone: u.phone ?? null,
   guarantee_rate: u.guaranteeRate ?? null,
+  excluded: u.excluded ?? false,
   created_at: now(),
   updated_at: now(),
 }));
 
 const payTiers = new Map<number, PayTierDTO[]>();
 const audit: AuditLogDTO[] = [];
+
+// ── Global payment logic (in-memory, session-local, seeded from defaults) ─────
+let paymentLogicStore: PaymentLogicUpdateDTO = {
+  tiers: DEFAULT_CONFIG.tiers.map((t) => ({ pay_rate: t.payRate, pph_required: t.pphRequired })),
+  np_rate: DEFAULT_CONFIG.npRate,
+  np_percent: DEFAULT_CONFIG.npPercent,
+  guarantee_rate: DEFAULT_CONFIG.guaranteeRate,
+  commission_rate: DEFAULT_CONFIG.commissionRate,
+  haircut_price: DEFAULT_CONFIG.haircutPrice,
+  color_price: DEFAULT_CONFIG.colorPrice,
+  avg_ticket_haircut: DEFAULT_CONFIG.avgTicketHaircut,
+  avg_ticket_color: DEFAULT_CONFIG.avgTicketColor,
+  service_mix_haircut: DEFAULT_CONFIG.serviceMixHaircut,
+  min_services_per_day: DEFAULT_CONFIG.minServicesPerDay,
+};
+
+function paymentLogicFormula(store: PaymentLogicUpdateDTO): Record<string, unknown> {
+  const tiers = [...store.tiers].sort((a, b) => a.pay_rate - b.pay_rate);
+  return {
+    summary:
+      "Every stylist's headline $/hr comes from their Production-Per-Hour (PPH). " +
+      "We look up PPH in the tier table to find the pay rate they've earned, then " +
+      "never let it drop below the guarantee floor.",
+    definitions: [
+      { term: "PPH (Production Per Hour)", formula: "PPH = production ÷ hours worked",
+        explanation: "How much service revenue a stylist produces per hour." },
+      { term: "Effective pay rate ($/hr)", formula: "rate = tier_lookup(PPH), floored at the guarantee",
+        explanation: "The highest tier whose required PPH the stylist has fully reached. Never below the guarantee." },
+      { term: "Pay", formula: "pay = effective_rate × hours worked",
+        explanation: "What the stylist earns for the period." },
+      { term: "Required production for a target rate", formula: "required = pph_for(target_rate) × scheduled_hours",
+        explanation: "How much production is needed to hit a target $/hr." },
+      { term: "Off-tier PPH", formula: `pph = pay_rate ÷ NP rate (${store.np_rate})`,
+        explanation: "For a rate that isn't an exact table row, PPH is derived from the net-production (NP) rate." },
+      { term: "Service projection", formula: `haircut = $${store.haircut_price}, color = $${store.color_price} of production each`,
+        explanation: "Production is translated into service counts using these per-service prices." },
+    ],
+    parameters: {
+      np_rate: store.np_rate,
+      np_percent: store.np_percent,
+      guarantee_rate: store.guarantee_rate,
+      commission_rate: store.commission_rate,
+      haircut_price: store.haircut_price,
+      color_price: store.color_price,
+      avg_ticket_haircut: store.avg_ticket_haircut,
+      avg_ticket_color: store.avg_ticket_color,
+      service_mix_haircut: store.service_mix_haircut,
+      min_services_per_day: store.min_services_per_day,
+      tier_count: tiers.length,
+      lowest_tier: tiers[0] ?? null,
+      highest_tier: tiers[tiers.length - 1] ?? null,
+    },
+  };
+}
+
+function updateDtoToActive(dto: PaymentLogicUpdateDTO): ActivePaymentLogic {
+  return {
+    tiers: dto.tiers.map((t) => ({ payRate: t.pay_rate, pphRequired: t.pph_required })),
+    npRate: dto.np_rate,
+    npPercent: dto.np_percent,
+    guaranteeRate: dto.guarantee_rate,
+    commissionRate: dto.commission_rate,
+    haircutPrice: dto.haircut_price,
+    colorPrice: dto.color_price,
+    avgTicketHaircut: dto.avg_ticket_haircut,
+    avgTicketColor: dto.avg_ticket_color,
+    serviceMixHaircut: dto.service_mix_haircut,
+    minServicesPerDay: dto.min_services_per_day,
+  };
+}
 
 function logAudit(action: string, target_type: string, target_id?: string) {
   audit.unshift({
@@ -151,11 +226,34 @@ export const demoBackend = {
       email: input.email ?? null,
       phone: input.phone ?? null,
       guarantee_rate: input.guarantee_rate ?? null,
+      excluded: input.excluded ?? false,
       created_at: now(),
       updated_at: now(),
     };
     users.push(user);
     logAudit("user.create", "user", String(user.id));
+    return { ...user };
+  },
+  async updateUser(id: number, patch: Partial<CreateUserInput>): Promise<UserDTO> {
+    const user = users.find((u) => u.id === id);
+    if (!user) throw new Error(`Unknown user ${id}`);
+    if (patch.name !== undefined) user.name = patch.name;
+    if (patch.role !== undefined) user.role = patch.role;
+    if (patch.salon_id !== undefined) user.salon_id = patch.salon_id;
+    if (patch.manager_id !== undefined) user.manager_id = patch.manager_id ?? null;
+    if (patch.title !== undefined) user.title = patch.title ?? null;
+    if (patch.email !== undefined) user.email = patch.email ?? null;
+    if (patch.phone !== undefined) user.phone = patch.phone ?? null;
+    if (patch.guarantee_rate !== undefined) user.guarantee_rate = patch.guarantee_rate ?? null;
+    if (patch.excluded !== undefined) user.excluded = patch.excluded;
+    user.updated_at = now();
+    logAudit("user.update", "user", String(id));
+    return { ...user };
+  },
+  async deactivateUser(id: number): Promise<UserDTO> {
+    const user = users.find((u) => u.id === id);
+    if (!user) throw new Error(`Unknown user ${id}`);
+    logAudit("user.deactivate", "user", String(id));
     return { ...user };
   },
 
@@ -164,7 +262,7 @@ export const demoBackend = {
     if (!payTiers.has(salonId)) {
       payTiers.set(
         salonId,
-        PPH_TIERS.map((t, i) => ({ id: i + 1, salon_id: salonId, desired_rate: t.payRate, pph: t.pphRequired })),
+        getActiveTiers().map((t, i) => ({ id: i + 1, salon_id: salonId, desired_rate: t.payRate, pph: t.pphRequired })),
       );
     }
     return (payTiers.get(salonId) ?? []).map((t) => ({ ...t }));
@@ -174,6 +272,53 @@ export const demoBackend = {
     payTiers.set(salonId, saved);
     logAudit("payplan.replace", "pay_tier", String(salonId));
     return saved.map((t) => ({ ...t }));
+  },
+
+  // ── Global payment logic ──────────────────────────────────────────────────
+  async getPaymentLogic(): Promise<PaymentLogicDTO> {
+    return {
+      ...paymentLogicStore,
+      tiers: paymentLogicStore.tiers.map((t) => ({ ...t })),
+      updated_by_email: "demo-owner",
+      updated_at: now(),
+      formula: paymentLogicFormula(paymentLogicStore),
+    };
+  },
+  async updatePaymentLogic(body: PaymentLogicUpdateDTO): Promise<PaymentLogicDTO> {
+    paymentLogicStore = {
+      ...body,
+      tiers: [...body.tiers].sort((a, b) => a.pay_rate - b.pay_rate),
+    };
+    logAudit("payment_logic.update", "payment_logic_config", "1");
+    return {
+      ...paymentLogicStore,
+      tiers: paymentLogicStore.tiers.map((t) => ({ ...t })),
+      updated_by_email: "demo-owner",
+      updated_at: now(),
+      formula: paymentLogicFormula(paymentLogicStore),
+    };
+  },
+  async previewPaymentLogic(body: PaymentLogicPreviewRequestDTO): Promise<PaymentLogicPreviewDTO> {
+    const r = computePreview(updateDtoToActive(body.config), {
+      production: body.production,
+      hours: body.hours,
+      guaranteeRate: body.guarantee_rate ?? undefined,
+      targetRate: body.target_rate ?? undefined,
+      scheduledHours: body.scheduled_hours ?? undefined,
+    });
+    return {
+      pph: r.pph,
+      effective_rate: r.effectiveRate,
+      pay: r.pay,
+      commission_pay: r.commissionPay,
+      guarantee_pay: r.guaranteePay,
+      on_guarantee: r.onGuarantee,
+      guarantee_rate: r.guaranteeRate,
+      min_expected_production: r.minExpectedProduction,
+      target_rate: body.target_rate ?? null,
+      required_production_for_target: r.requiredProductionForTarget ?? null,
+      remaining_production_for_target: r.remainingProductionForTarget ?? null,
+    };
   },
 
   // ── Imports (simulated: parse the file to report believable counts) ────────

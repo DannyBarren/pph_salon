@@ -16,13 +16,14 @@ import {
   Inbox,
 } from "lucide-react";
 import { useApp } from "@/store/AppContext";
+import { isAtLeast } from "@/lib/roles";
 import { Button, Segmented, Card, CardBody } from "@/components/ui/primitives";
 import { money, num, pct, rate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useTeamDashboard, filterAndSortPerformances } from "@/hooks/useTeamDashboard";
 import { useDebounced } from "@/hooks/useDebounced";
 import { TEAM_WEEK } from "@/lib/teamData";
-import { PPH_TIERS } from "@/lib/tiers";
+import { getActiveTiers } from "@/lib/paymentLogic";
 import { performancesToCsv, downloadFile } from "@/lib/exportCsv";
 import { track } from "@/lib/telemetry";
 import { rateTone } from "@/lib/teamMessaging";
@@ -56,9 +57,11 @@ const RATE_TEXT: Record<"success" | "warning" | "danger", string> = {
 export function TeamDashboard() {
   const { currentUser } = useApp();
 
+  // SDL/Owner and Admin see every salon; managers see only their own.
+  const seesAllSalons = isAtLeast(currentUser.role, "sdl");
   const salonIds = useMemo(
-    () => (currentUser.role === "sdl" ? [] : [currentUser.salonId]),
-    [currentUser.role, currentUser.salonId],
+    () => (seesAllSalons ? [] : [currentUser.salonId]),
+    [seesAllSalons, currentUser.salonId],
   );
 
   // ── Controls ───────────────────────────────────────────────────────────
@@ -160,8 +163,9 @@ export function TeamDashboard() {
 
   const changeTarget = useCallback((delta: number) => {
     setTargetPayRate((r) => {
-      const min = PPH_TIERS[0].payRate;
-      const max = PPH_TIERS[PPH_TIERS.length - 1].payRate;
+      const tiers = getActiveTiers();
+      const min = tiers[0].payRate;
+      const max = tiers[tiers.length - 1].payRate;
       const next = Math.max(min, Math.min(max, r + delta));
       track("team_target_rate_changed", { target: next });
       return next;
@@ -184,7 +188,7 @@ export function TeamDashboard() {
           <h1 className="text-2xl font-bold tracking-tight text-[var(--color-brand)]">Team Dashboard</h1>
           <p className="text-sm text-[var(--color-ink-faint)]">
             Week of {TEAM_WEEK.label} ·{" "}
-            {currentUser.role === "sdl" ? "All salons" : "Your team"} · {performances.length} stylists
+            {seesAllSalons ? "All salons" : "Your team"} · {performances.length} stylists
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

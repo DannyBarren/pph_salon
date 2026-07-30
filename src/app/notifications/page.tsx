@@ -5,6 +5,8 @@ import { Bell, BellOff, Check, Flag, Sparkles } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { Card, CardBody, Button, Badge } from "@/components/ui/primitives";
 import type { NotificationType } from "@/lib/types";
+import { FeatureUnavailable } from "@/components/FeatureUnavailable";
+import { ENABLE_GOALS_NOTIFICATIONS } from "@/lib/featureFlags";
 
 const META: Record<NotificationType, { icon: React.ReactNode; tone: "brand" | "success" | "warning" }> = {
   goal_set: { icon: <Flag size={16} />, tone: "brand" },
@@ -23,6 +25,13 @@ function timeAgo(iso: string): string {
 }
 
 export default function NotificationsPage() {
+  // Goals notifications are soft-disabled (see featureFlags.ts).
+  // Set ENABLE_GOALS_NOTIFICATIONS=true to re-enable.
+  if (!ENABLE_GOALS_NOTIFICATIONS) return <FeatureUnavailable title="Notifications" />;
+  return <NotificationsView />;
+}
+
+function NotificationsView() {
   const { currentUser, notifications, markNotificationRead } = useApp();
 
   const mine = useMemo(

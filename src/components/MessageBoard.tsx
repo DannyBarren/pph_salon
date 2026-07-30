@@ -28,7 +28,7 @@ import type { MessageBoardPost, Role, TargetAudience } from "@/lib/types";
 import { Card, CardBody, Button, Badge, Avatar, Modal, Progress } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
 
-const ROLE_LABEL: Record<Role, string> = { stylist: "Stylist", manager: "Manager", sdl: "SDL · Owner" };
+const ROLE_LABEL: Record<Role, string> = { stylist: "Stylist", manager: "Manager", sdl: "SDL · Owner", admin: "Admin" };
 
 /**
  * Message Board / Announcements. One-way posts (no replies). Stylists read +

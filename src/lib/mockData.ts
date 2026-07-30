@@ -1,6 +1,7 @@
 import type { DayRecord, MessageAcknowledgment, MessageBoardPost, PayConfig, Salon, StylistData, UsageStat, User } from "./types";
 import { CLIENT_ROSTER, CLIENT_SALONS, CLIENT_WEEK_START, type RosterPerson } from "./clientRoster";
 import { addDays } from "./time";
+import { COLOR_PRICE, HAIRCUT_PRICE, NP_PERCENT, NP_RATE, PPH_TIERS } from "./tiers";
 
 /*
  * DEMO DATA — sourced from the client's real export (see `clientRoster.ts`).
@@ -66,6 +67,27 @@ for (const p of CLIENT_ROSTER) {
   }
 }
 
+/**
+ * Employees the client marked "Exclude" (not on the PPH pay plan) in the pay-period
+ * spreadsheets (`PPH Data 06-22-2026 TO 07-05-2026.xlsx` /
+ * `… 07-06-2026 TO 07-19-2026.xlsx`), by employee code (latest designation wins).
+ * Excluded users have no personal PPH dashboard — only team visibility if they
+ * manage people. The other roster members are "Include". An Admin can change any
+ * of this from the Admin → Users screen.
+ */
+const EXCLUDED_EMPLOYEE_CODES = new Set<string>([
+  "VG1116", "VG1124", "VG1126", "VG1134", "VG1137", "VG1140", "VG1143", "VG1158",
+  "VG1161", "VG1165", "VG1170", "VG1210", "VG1235", "VG1280", "VG1295", "VG1296",
+  "VG1301", "VG1305", "VG1327", "VG1344", "VG1346", "VG1348", "VG1361", "VG1363",
+  "VG1368", "VG1373", "VG1376", "VG1381", "VG1392", "VG1406", "VG1426", "VG1429",
+  "VG1438", "VG1443", "VG1452", "VG1460", "VG1467", "VG1469", "VG1473", "VG1478",
+  "VG1480", "VG1488", "VG1496", "VG1498",
+]);
+
+function isExcludedCode(employeeCode: string | undefined): boolean {
+  return !!employeeCode && EXCLUDED_EMPLOYEE_CODES.has(employeeCode.toUpperCase());
+}
+
 function toUser(p: RosterPerson): User {
   const salon = salonById(p.salonId);
   const isManager = p.role === "manager";
@@ -79,6 +101,8 @@ function toUser(p: RosterPerson): User {
     initials: initialsOf(p.name),
     hue: p.hue,
     guaranteeRate: p.guaranteeRate,
+    // Include/Exclude designation from the client's pay-period spreadsheets.
+    excluded: p.excluded ?? isExcludedCode(p.employeeCode),
   };
 }
 
@@ -94,14 +118,29 @@ export const OWNER: User = {
   title: "Owner · Salon Development Leader",
   initials: "SD",
   hue: 28,
+  // SDL/Owner is a management persona — not on the PPH pay plan.
+  excluded: true,
+};
+
+/** The top Admin persona — full editing/import/config + payment-logic rights. */
+export const ADMIN: User = {
+  id: "admin",
+  name: "Admin (Demo)",
+  role: "admin",
+  salonId: SALONS[0]?.id ?? "s1",
+  title: "Administrator",
+  initials: "AD",
+  hue: 265,
+  excluded: true,
 };
 
 export const ALL_STYLISTS = STYLISTS;
-export const USERS: User[] = [...STYLISTS, ...MANAGERS, OWNER];
+export const USERS: User[] = [...STYLISTS, ...MANAGERS, OWNER, ADMIN];
 export const userById = (id: string) => USERS.find((u) => u.id === id);
 
 /** Personas featured at the top of the demo account switcher (all are browsable). */
 export const DEMO_ACCOUNT_IDS = [
+  ADMIN.id,
   OWNER.id,
   MANAGERS[0]?.id,
   STYLISTS[0]?.id,
@@ -194,17 +233,25 @@ for (const p of CLIENT_ROSTER) {
 }
 
 export const DEFAULT_CONFIG: PayConfig = {
-  guaranteeRate: 12,
-  // Net-production share (workbook NP rate). Effective $/hr is driven by the
-  // tiered PPH ladder (tiers.ts); this stays aligned for any commission display.
+  // The global payment tier table (seeded from the canonical workbook ladder).
+  tiers: PPH_TIERS.map((t) => ({ payRate: t.payRate, pphRequired: t.pphRequired })),
+  // Net-production share (workbook NP rate) — drives off-tier PPH + guarantee floor.
+  npRate: NP_RATE,
+  npPercent: NP_PERCENT,
+  // Canonical per-service prices — the client's Avg Haircut / Avg Color ($23/$85).
+  haircutPrice: HAIRCUT_PRICE,
+  colorPrice: COLOR_PRICE,
+  // Global default guarantee floor (the client's Holliean example uses $10).
+  guaranteeRate: 10,
+  // Net-production share used for the commission-vs-guarantee split display.
   commissionRate: 0.4,
-  // Net production per service — the client's Avg Haircut / Avg Color ($23/$85),
-  // matching tiers.ts and the daily goal bars so production→service-count
-  // projections are consistent everywhere.
-  avgTicketHaircut: 23,
-  avgTicketColor: 85,
+  // Average ticket used to project production into service counts (mirror prices).
+  avgTicketHaircut: HAIRCUT_PRICE,
+  avgTicketColor: COLOR_PRICE,
   serviceMixHaircut: 0.6,
   minServicesPerDay: 6,
+  // Retained for backwards-compatible persistence only — NOT used by the engine
+  // (payment logic is global; there are no per-salon overrides).
   salonGuarantee,
   salonServicePrices: {},
 };
@@ -257,11 +304,11 @@ export const BOARD_SEED_ACKS: MessageAcknowledgment[] = SEED_SALON_STYLISTS.slic
 export function stylistsForUser(user: User): User[] {
   if (user.role === "stylist") return STYLISTS.filter((s) => s.id === user.id);
   if (user.role === "manager") return STYLISTS.filter((s) => s.managerId === user.id);
-  return STYLISTS; // sdl sees all
+  return STYLISTS; // sdl / admin see all
 }
 
 export function visibleSalons(user: User): Salon[] {
-  if (user.role === "sdl") return SALONS;
+  if (user.role === "sdl" || user.role === "admin") return SALONS;
   const ids = new Set(stylistsForUser(user).map((s) => s.salonId));
   if (user.role === "manager") ids.add(user.salonId);
   return SALONS.filter((s) => ids.has(s.id));

@@ -46,6 +46,11 @@ class User(TimestampMixin, table=True):
     # Per-stylist guaranteed $/hr floor (falls back to the salon/global rate).
     guarantee_rate: Optional[float] = Field(default=None)
 
+    # "Excluded" employees are NOT on the PPH pay plan: they get no personal
+    # pay/PPH dashboard and land on team/management views only. Typically
+    # managers or SDL/Owner users who oversee a team without being paid on PPH.
+    excluded: bool = Field(default=False, nullable=False)
+
     # External payroll/booking identifier (e.g. Zenoti/SSF "Employee code" like
     # ``VG1116``). Not globally unique — the same code can appear in more than one
     # salon — so imports resolve users by ``(salon_id, employee_code)``.

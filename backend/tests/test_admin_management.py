@@ -137,6 +137,80 @@ def test_daily_import_aggregates_week(client, engine):
         assert week.actual_production == pytest.approx(688.0)
 
 
+def test_daily_import_client_app_format(client, engine):
+    """The client's 'Data provided to App' daily format: Act Svc Rev($) is the
+    authoritative day production; EEID resolves by employee code; Excl? syncs the
+    excluded flag; blank/no-activity rows are tolerated."""
+    from sqlmodel import select
+
+    with Session(engine) as s:
+        salon = Salon(name="Burleson, TX", location="11016-Burleson,TX-SSF")
+        s.add(salon)
+        s.commit()
+        s.refresh(salon)
+        u = User(name="Holliean Miller", role=UserRole.stylist, salon_id=salon.id,
+                 employee_code="VG1426")
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        uid = u.id
+
+    # The salon code contains a comma, so it is quoted (as real exports do).
+    csv_text = (
+        "Salon,EEID,EE Name,Excl?,Date,Sched Hrs,Actual Hrs,Act Svc Rev($),Act Cuts Count,Act Colors Count\n"
+        '"11016-Burleson,TX-SSF",VG1426,Holliean Miller,N,2026-07-20,5,4.03,56.7,3,0\n'
+        '"11016-Burleson,TX-SSF",VG1426,Holliean Miller,N,2026-07-21,0,,,,\n'  # no-activity day
+        '"11016-Burleson,TX-SSF",VG1426,Holliean Miller,N,2026-07-22,5,6.13,70,2,0\n'
+        ",,,,,,,,,\n"  # fully blank row — skipped silently
+    )
+    files = {"file": ("daily.csv", io.BytesIO(csv_text.encode()), "text/csv")}
+    r = client.post(f"{PP}/admin/import-daily", files=files)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["inserted"] == 3  # 3 dated rows; blank row skipped, not counted
+
+    from app.models import Week
+    with Session(engine) as s:
+        week = s.exec(select(Week).where(Week.stylist_id == uid)).first()
+        assert week is not None
+        # Production is the sum of Act Svc Rev($) (authoritative), NOT counts×price.
+        assert week.actual_production == pytest.approx(56.7 + 70.0)
+        assert week.actual_haircuts == 5  # 3 + 2
+        assert (week.actual_colors or 0) == 0  # zero total is stored as None
+        assert week.scheduled_total_hrs == pytest.approx(10.0)  # 5 + 0 + 5
+
+
+def test_daily_import_syncs_excluded_flag(client, engine):
+    with Session(engine) as s:
+        salon = Salon(name="Sherman", location="11020-Sherman,TX-SSF")
+        s.add(salon)
+        s.commit()
+        s.refresh(salon)
+        u = User(name="Team Lead", role=UserRole.manager, salon_id=salon.id, employee_code="VG1406")
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        uid = u.id
+
+    csv_text = (
+        "Salon,EEID,EE Name,Excl?,Date,Sched Hrs,Actual Hrs,Act Svc Rev($),Act Cuts Count,Act Colors Count\n"
+        '"11020-Sherman,TX-SSF",VG1406,Team Lead,Y,2026-07-20,8,8,0,0,0\n'
+    )
+    files = {"file": ("daily.csv", io.BytesIO(csv_text.encode()), "text/csv")}
+    assert client.post(f"{PP}/admin/import-daily", files=files).status_code == 200
+
+    with Session(engine) as s:
+        lead = s.get(User, uid)
+        assert lead.excluded is True
+
+
+def test_daily_template_matches_client_columns(client):
+    header = client.get(f"{PP}/admin/import-daily-template").text.splitlines()[0]
+    assert header == (
+        "Salon,EEID,EE Name,Excl?,Date,Sched Hrs,Actual Hrs,Act Svc Rev($),Act Cuts Count,Act Colors Count"
+    )
+
+
 def test_zenoti_source_normalization(client, engine):
     salon_id = _seed_salon(engine)
     with Session(engine) as s:

@@ -21,6 +21,12 @@
  * old flat-commission approximation.
  */
 
+import {
+  getActivePaymentLogic,
+  getActiveTiers,
+  setActivePaymentLogic,
+} from "@/lib/paymentLogic";
+
 /** A single pay tier: the PPH (production per hour) required to earn `payRate`. */
 export interface Tier {
   /** Hourly pay rate ($/hr). */
@@ -30,43 +36,66 @@ export interface Tier {
 }
 
 /**
- * Pay tiers hardcoded from `PPH Based Payplan.xlsx` (columns B & C, identical on
- * both the "Sched View" and "Actual" sheets). The underlying relationship is
- * `payRate = roundHalfUp(pph * NP_RATE)`, but the table is stored explicitly so
- * results match the workbook to the cent.
+ * Pay tiers from the client's `OtherData` sheet (UAT 2.xlsx). Each row maps a
+ * pay rate ($/hr) to the Production-Per-Hour required to earn it, at the exact
+ * relationship `payRate = pphRequired * NP_RATE` (NP_RATE = 0.40). The PPH
+ * thresholds are therefore `payRate / 0.40` and can be fractional (e.g. $9/hr
+ * requires 22.5 PPH). This is the seeded default; the highest admin can edit it.
  */
 export const PPH_TIERS: readonly Tier[] = [
-  { payRate: 11, pphRequired: 28 },
+  { payRate: 8, pphRequired: 20 },
+  { payRate: 9, pphRequired: 22.5 },
+  { payRate: 10, pphRequired: 25 },
+  { payRate: 11, pphRequired: 27.5 },
   { payRate: 12, pphRequired: 30 },
-  { payRate: 13, pphRequired: 33 },
+  { payRate: 13, pphRequired: 32.5 },
   { payRate: 14, pphRequired: 35 },
-  { payRate: 15, pphRequired: 38 },
+  { payRate: 15, pphRequired: 37.5 },
   { payRate: 16, pphRequired: 40 },
-  { payRate: 17, pphRequired: 43 },
+  { payRate: 17, pphRequired: 42.5 },
   { payRate: 18, pphRequired: 45 },
-  { payRate: 19, pphRequired: 48 },
+  { payRate: 19, pphRequired: 47.5 },
   { payRate: 20, pphRequired: 50 },
-  { payRate: 21, pphRequired: 53 },
-  { payRate: 22, pphRequired: 55 },
-  { payRate: 23, pphRequired: 58 },
-  { payRate: 24, pphRequired: 60 },
-  { payRate: 25, pphRequired: 63 },
-  { payRate: 26, pphRequired: 65 },
-  { payRate: 27, pphRequired: 68 },
-  { payRate: 28, pphRequired: 70 },
-  { payRate: 29, pphRequired: 73 },
 ] as const;
 
-/** Net-production share implied by the tiers (cell B6 on both sheets). */
+/** Net-production share (Pay Rate ≈ PPH × 0.40). */
 export const NP_RATE = 0.4;
-/** Net-profit percentage surfaced on the sheet (column O, ≈ 19.5%). */
+/** Net-profit percentage surfaced on reports (informational). */
 export const NP_PERCENT = 0.195;
-/** Per-service production values (cells T6 / AC6). */
+/** Per-service production values (client's Avg Haircut / Avg Color). */
 export const HAIRCUT_PRICE = 23;
 export const COLOR_PRICE = 85;
 
 export const MIN_TIER = PPH_TIERS[0];
 export const MAX_TIER = PPH_TIERS[PPH_TIERS.length - 1];
+
+// Seed the runtime payment-logic store with this canonical (parity-tested)
+// default so the pure helpers below have the correct tier table + rates before
+// AppContext loads the authoritative global config. AppContext overwrites this
+// with the config the highest admin has configured.
+setActivePaymentLogic({
+  tiers: PPH_TIERS.map((t) => ({ payRate: t.payRate, pphRequired: t.pphRequired })),
+  npRate: NP_RATE,
+  npPercent: NP_PERCENT,
+  guaranteeRate: 10,
+  commissionRate: NP_RATE,
+  haircutPrice: HAIRCUT_PRICE,
+  colorPrice: COLOR_PRICE,
+  avgTicketHaircut: HAIRCUT_PRICE,
+  avgTicketColor: COLOR_PRICE,
+  serviceMixHaircut: 0.6,
+  minServicesPerDay: 6,
+});
+
+/** The active (admin-configured) tier table used by every calculation below. */
+function activeTiers(): Tier[] {
+  return getActiveTiers();
+}
+
+/** The active net-production rate. */
+function activeNpRate(): number {
+  return getActivePaymentLogic().npRate;
+}
 
 /** Half-up rounding (banker-free) so `payRate = roundHalfUp(pph * 0.4)`. */
 export function roundHalfUp(n: number): number {
@@ -74,12 +103,16 @@ export function roundHalfUp(n: number): number {
 }
 
 /**
- * PPH required to earn `payRate`. Exact tier value when `payRate` is a table
- * row; otherwise the exact `payRate / NP_RATE` relationship for off-tier rates.
+ * PPH required to earn a Desired Pay Rate (DPR).
+ *
+ * Client rule: `Required PPH = DPR / NP_RATE, rounded UP to the nearest whole
+ * dollar`. e.g. $14 → `ceil(14 / 0.40)` = 35 PPH. Because the target rounds to a
+ * whole dollar it can sit slightly above the (possibly fractional) tier
+ * threshold used by the effective-rate lookup — that is intended.
  */
 export function pphForRate(payRate: number): number {
-  const exact = PPH_TIERS.find((t) => t.payRate === payRate);
-  return exact ? exact.pphRequired : payRate / NP_RATE;
+  const np = activeNpRate();
+  return np > 0 ? Math.ceil(payRate / np) : 0;
 }
 
 /**
@@ -96,7 +129,7 @@ export function getRequiredProductionForPayRate(scheduledHours: number, desiredP
  * matching the workbook: guarantee 12 → 817.5, guarantee 13 → 910.
  */
 export function minExpectedProduction(scheduledHours: number, guaranteeRate: number): number {
-  return (guaranteeRate / NP_RATE) * scheduledHours;
+  return (guaranteeRate / activeNpRate()) * scheduledHours;
 }
 
 /**
@@ -117,9 +150,9 @@ export function getEffectiveRateFromPph(
   opts: { interpolate?: boolean; applyGuarantee?: boolean } = {},
 ): number {
   const { interpolate = false, applyGuarantee = true } = opts;
-  const tiers = PPH_TIERS;
+  const tiers = activeTiers();
 
-  if (achievedPph < tiers[0].pphRequired) {
+  if (tiers.length === 0 || achievedPph < tiers[0].pphRequired) {
     return applyGuarantee ? guaranteeRate : 0;
   }
 
@@ -166,7 +199,7 @@ export function getPph(production: number, hours: number): number {
 /** The tier a stylist has fully achieved for a given PPH (or null if below the floor). */
 export function getAchievedTier(achievedPph: number): Tier | null {
   let achieved: Tier | null = null;
-  for (const t of PPH_TIERS) {
+  for (const t of activeTiers()) {
     if (t.pphRequired <= achievedPph) achieved = t;
     else break;
   }
@@ -178,12 +211,12 @@ export function getAchievedTier(achievedPph: number): Tier | null {
  * above) the top of the table.
  */
 export function getNextTier(currentPayRate: number): Tier | null {
-  return PPH_TIERS.find((t) => t.payRate > currentPayRate) ?? null;
+  return activeTiers().find((t) => t.payRate > currentPayRate) ?? null;
 }
 
 /** The tier row for an exact pay rate, if it exists. */
 export function getTierByRate(payRate: number): Tier | null {
-  return PPH_TIERS.find((t) => t.payRate === payRate) ?? null;
+  return activeTiers().find((t) => t.payRate === payRate) ?? null;
 }
 
 export interface OverShort {
@@ -252,14 +285,15 @@ export function productionToServices(production: number, haircutShare = 0.5): {
   allColors: number;
   blended: ServiceMix;
 } {
+  const { haircutPrice, colorPrice } = getActivePaymentLogic();
   const hcProd = production * haircutShare;
   const coProd = production * (1 - haircutShare);
   return {
-    allHaircuts: Math.ceil(production / HAIRCUT_PRICE),
-    allColors: Math.ceil(production / COLOR_PRICE),
+    allHaircuts: Math.ceil(production / haircutPrice),
+    allColors: Math.ceil(production / colorPrice),
     blended: {
-      haircuts: Math.ceil(hcProd / HAIRCUT_PRICE),
-      colors: Math.ceil(coProd / COLOR_PRICE),
+      haircuts: Math.ceil(hcProd / haircutPrice),
+      colors: Math.ceil(coProd / colorPrice),
     },
   };
 }

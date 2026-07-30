@@ -30,6 +30,13 @@ import { canPostAnnouncements } from "@/lib/roles";
 import { useAuth } from "@/store/AuthContext";
 import { authUserToFrontend } from "@/lib/authUser";
 import { DEMO_MODE } from "@/lib/featureFlags";
+import {
+  payConfigToActive,
+  paymentLogicDTOToPayConfig,
+  payConfigToUpdateDTO,
+  setActivePaymentLogic,
+} from "@/lib/paymentLogic";
+import { paymentLogicApi } from "@/lib/api/endpoints";
 
 // Bumped to v2 when the demo dataset switched to the client's real roster, so
 // any stale persisted state referencing the old sample ids is discarded.
@@ -81,6 +88,11 @@ interface AppState {
   setSalonGuarantee: (salonId: string, value: number) => void;
   setSalonServicePrice: (salonId: string, service: string, value: number) => void;
   resetConfig: () => void;
+  /**
+   * Persist the global payment logic for the ENTIRE population (backend PUT in
+   * production; session/localStorage in demo). Applies org-wide immediately.
+   */
+  savePaymentLogic: (next: PayConfig) => Promise<void>;
 
   timeView: TimeView;
   setTimeView: (v: TimeView) => void;
@@ -124,9 +136,10 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // Default persona: the owner/SDL POC, so the demo lands on the full
-  // cross-salon team view with every account browsable (no login).
-  const [currentUserId, setCurrentUserIdState] = useState("owner");
+  // Default persona: the top Admin, so the demo showcases the full admin
+  // capabilities (payment-logic, imports, user management). Every account is
+  // still browsable via the account switcher (no login).
+  const [currentUserId, setCurrentUserIdState] = useState("admin");
   const [viewedStylistIdRaw, setViewedStylistId] = useState<string | null>(null);
   const [config, setConfig] = useState<PayConfig>(DEFAULT_CONFIG);
   const [overrides, setOverrides] = useState<Record<string, DayRecord[]>>({});
@@ -143,6 +156,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   const auth = useAuth();
+
+  // Keep the runtime payment-logic store (read by the pure calculation helpers
+  // in tiers.ts / payEngine.ts / planner.ts) in sync with the authoritative
+  // config. Done during render so children compute with the current global
+  // logic on the same render the config changes.
+  useMemo(() => {
+    setActivePaymentLogic(payConfigToActive(config));
+  }, [config]);
 
   // Load persisted state after mount (avoids SSR hydration mismatch). Setting
   // state from persisted storage on mount is the intended pattern here.
@@ -258,6 +279,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetConfig = useCallback(() => setConfig(DEFAULT_CONFIG), []);
+
+  // Load the authoritative global payment logic from the backend in production
+  // (demo mode uses the persisted/default config above). This makes the global
+  // config the single source of truth for the frontend calculation engine too.
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const dto = await paymentLogicApi.get();
+        if (!cancelled) setConfig((c) => paymentLogicDTOToPayConfig(dto, c));
+      } catch {
+        /* leave defaults if the config isn't reachable (e.g. non-admin) */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const savePaymentLogic = useCallback(async (next: PayConfig) => {
+    if (!DEMO_MODE) {
+      const dto = await paymentLogicApi.update(payConfigToUpdateDTO(next));
+      setConfig((c) => paymentLogicDTOToPayConfig(dto, next ?? c));
+      return;
+    }
+    // Demo: apply globally in-session (persisted to localStorage) + audit trail.
+    await paymentLogicApi.update(payConfigToUpdateDTO(next));
+    setConfig(next);
+  }, []);
 
   const getDays = useCallback(
     (stylistId: string): DayRecord[] => {
@@ -482,6 +533,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSalonGuarantee,
     setSalonServicePrice,
     resetConfig,
+    savePaymentLogic,
     timeView,
     setTimeView,
     selectedWeekId,

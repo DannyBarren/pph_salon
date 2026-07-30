@@ -1,9 +1,9 @@
-// The app's role model. `sdl` is the salon-development-leader / owner persona
-// and carries owner+admin privileges (full access, admin config). The backend
-// uses the fuller stylist | manager | admin | owner set; on the frontend `sdl`
-// maps to owner/admin. See `canSeeMoney` for the privacy split that actually
-// matters to the UI (stylist vs. everyone else).
-export type Role = "stylist" | "manager" | "sdl";
+// The app's role model. Hierarchy (highest → lowest): admin > sdl > manager >
+// stylist. `admin` is the new top level with EXCLUSIVE editing / import /
+// configuration / payment-logic rights. `sdl` (Salon Development Leader / Owner)
+// can view team data and change the Desired Pay Rate, but has no admin rights.
+// Backend roles map: admin→admin, owner→sdl, manager→manager, stylist→stylist.
+export type Role = "stylist" | "manager" | "sdl" | "admin";
 
 /** Per-service production/price values, keyed by service name. */
 export interface ServicePrices {
@@ -38,6 +38,11 @@ export interface User {
   phone?: string;
   /** Per-stylist guaranteed $/hr floor (falls back to salon/global rate). */
   guaranteeRate?: number;
+  /**
+   * Excluded from the PPH pay plan. Excluded users get NO personal pay/PPH
+   * dashboard and land on team/management views only (typically managers/SDL).
+   */
+  excluded?: boolean;
 }
 
 /**
@@ -86,9 +91,35 @@ export interface UsageStat {
   goalsHit: number;
 }
 
-/** Admin-configurable parameters driving the whole pay engine. */
+/** A single row of the global payment tier table (pay_rate ↔ pph_required). */
+export interface PayTierRow {
+  /** Hourly pay rate ($/hr). */
+  payRate: number;
+  /** Production-per-hour required to earn this rate. */
+  pphRequired: number;
+}
+
+/**
+ * Admin-configurable parameters driving the whole pay engine.
+ *
+ * This is the organisation-wide payment logic — the single source of truth for
+ * every calculation shown to any user. It is GLOBAL ONLY: `salonGuarantee` /
+ * `salonServicePrices` are retained for backwards-compatible persistence but are
+ * no longer consulted by the calculation engine (see `payEngine.guaranteeRateFor`
+ * and `privacy.servicePricesFor`). Only the highest admin (Owner) may change it.
+ */
 export interface PayConfig {
-  /** Global base hourly guarantee (used when a salon has no override). */
+  /** The payment tier table (pay_rate ↔ pph_required), ascending by payRate. */
+  tiers: PayTierRow[];
+  /** Net-production share (0-1) — drives off-tier PPH and the guarantee floor. */
+  npRate: number;
+  /** Net-profit percentage surfaced on reports (informational). */
+  npPercent: number;
+  /** Net production ($) per haircut — canonical service price. */
+  haircutPrice: number;
+  /** Net production ($) per color — canonical service price. */
+  colorPrice: number;
+  /** Global base hourly guarantee (the single org-wide floor). */
   guaranteeRate: number;
   /**
    * Net-production share (0-1). Effective $/hr is driven by the tiered PPH ladder

@@ -100,12 +100,13 @@ def require_role(roles: Sequence[str]):
 
 # Role seniority ladder. Higher rank = more authority. A user may only ever
 # provision / manage accounts *strictly below* their own rank, which yields the
-# delegated chain owner → admin → manager → stylist.
+# delegated chain admin → owner/SDL → manager → stylist. Per the client's
+# hierarchy, **Admin is the top role**.
 ROLE_RANK: dict[UserRole, int] = {
     UserRole.stylist: 0,
     UserRole.manager: 1,
-    UserRole.admin: 2,
-    UserRole.owner: 3,
+    UserRole.owner: 2,
+    UserRole.admin: 3,
 }
 
 
@@ -119,13 +120,31 @@ def is_super_admin(user: User) -> bool:
 
 
 def require_super_admin(user: User = Depends(get_current_user)) -> User:
-    """Only ``admin`` / ``owner`` (the super-admin personas) may pass.
+    """Only the top **Admin** role may pass.
 
-    Used to gate destructive / org-wide operations: creating salons, bulk data
-    import, pay-plan configuration, and audit-log access.
+    Gates all editing / import / configuration / roster management, salon
+    creation, and audit-log access. Under the client's hierarchy
+    (Admin > SDL/Owner > Manager > Stylist), these capabilities are EXCLUSIVE to
+    Admin — SDL/Owner (``owner``) intentionally no longer passes. The demo
+    principal is an ``admin``, so demo mode is unaffected.
     """
-    if not is_super_admin(user):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Super-admin privileges required")
+    if user.role != UserRole.admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin privileges required")
+    return user
+
+
+def require_highest_admin(user: User = Depends(get_current_user)) -> User:
+    """Only the top **Admin** role may pass.
+
+    Gates the organisation-wide payment-logic controls (the "Danger Zone"), which
+    govern every calculation shown to every user across every location. Only
+    Admin — the highest role — can reach these; SDL/Owner and below cannot.
+    """
+    if user.role != UserRole.admin:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the Admin role can manage global payment logic",
+        )
     return user
 
 

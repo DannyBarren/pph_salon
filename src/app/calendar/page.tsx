@@ -8,8 +8,16 @@ import { StylistSwitcher } from "@/components/StylistSwitcher";
 import { WEEKS, CURRENT_WEEK } from "@/lib/time";
 import { daysOfWeek, WEEKDAY_LABELS, fmtShort, isFuture, isToday } from "@/lib/time";
 import { money } from "@/lib/format";
+import { FeatureUnavailable } from "@/components/FeatureUnavailable";
+import { ENABLE_CALENDAR } from "@/lib/featureFlags";
 
 export default function CalendarPage() {
+  // Soft-disabled (see featureFlags.ts). Set ENABLE_CALENDAR=true to re-enable.
+  if (!ENABLE_CALENDAR) return <FeatureUnavailable title="Calendar" />;
+  return <CalendarView />;
+}
+
+function CalendarView() {
   const { currentUser, viewedStylistId, getDays } = useApp();
   const [weekIdx, setWeekIdx] = useState(WEEKS.findIndex((w) => w.id === CURRENT_WEEK.id));
   const week = WEEKS[weekIdx];

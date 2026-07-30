@@ -4,8 +4,16 @@ import React from "react";
 import { useApp } from "@/store/AppContext";
 import { TeamGoals } from "@/components/TeamGoals";
 import { Card, CardBody } from "@/components/ui/primitives";
+import { FeatureUnavailable } from "@/components/FeatureUnavailable";
+import { ENABLE_GOALS } from "@/lib/featureFlags";
 
 export default function TeamGoalsPage() {
+  // Soft-disabled (see featureFlags.ts). Set ENABLE_GOALS=true to re-enable.
+  if (!ENABLE_GOALS) return <FeatureUnavailable title="Goals" />;
+  return <TeamGoalsView />;
+}
+
+function TeamGoalsView() {
   const { currentUser } = useApp();
 
   // Route guard: stylists manage their own goal on the Planner, not here.

@@ -164,23 +164,22 @@ def tiered_rate(pph: float, tiers: list[tuple[float, float]]) -> float:
 #  Tiered, Excel-accurate engine
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Pay tiers hardcoded from ``PPH Based Payplan.xlsx`` (columns B & C, identical
-# on both the "Sched View" and "Actual" sheets). Each entry maps a pay rate
-# ($/hr) to the Production-Per-Hour (PPH) required to earn it. The underlying
-# relationship is ``pay_rate = round_half_up(pph * 0.4)`` — i.e. a 40% net
-# production share — but the table is stored explicitly so it matches the sheet
-# to the cent and can later be replaced by per-salon, DB-backed tiers.
+# Pay tiers from the client's ``OtherData`` sheet (UAT 2.xlsx). Each entry maps a
+# pay rate ($/hr) to the Production-Per-Hour (PPH) required to earn it. The exact
+# relationship is ``pay_rate = pph * NP_RATE`` with ``NP_RATE = 0.40`` — i.e. a
+# 40% net-production share — so the PPH thresholds are ``pay_rate / 0.40`` and
+# can be fractional (e.g. $9/hr requires 22.5 PPH). These are the seeded defaults
+# for the single global payment-logic config; the highest admin can edit them.
 #
 #   (pay_rate, pph_required)
-DEFAULT_PPH_TIERS: list[tuple[int, int]] = [
-    (11, 28), (12, 30), (13, 33), (14, 35), (15, 38), (16, 40), (17, 43),
-    (18, 45), (19, 48), (20, 50), (21, 53), (22, 55), (23, 58), (24, 60),
-    (25, 63), (26, 65), (27, 68), (28, 70), (29, 73),
+DEFAULT_PPH_TIERS: list[tuple[float, float]] = [
+    (8, 20), (9, 22.5), (10, 25), (11, 27.5), (12, 30), (13, 32.5),
+    (14, 35), (15, 37.5), (16, 40), (17, 42.5), (18, 45), (19, 47.5), (20, 50),
 ]
 
-# The net-production share implied by the tiers (cell ``B6`` on both sheets).
+# The net-production share implied by the tiers (Pay Rate ≈ PPH × 0.40).
 DEFAULT_NP_RATE = 0.4
-# Per-service production values (cells ``T6`` / ``AC6``).
+# Per-service production values (client's Avg Haircut / Avg Color).
 DEFAULT_HAIRCUT_PRICE = 23.0
 DEFAULT_COLOR_PRICE = 85.0
 
@@ -201,8 +200,8 @@ class PayPlanEngine:
     Parameters
     ----------
     guarantee_rate:
-        The stylist's guaranteed hourly pay ($/hr). The two worked examples in
-        the workbook use ``12`` ("Sched View") and ``13`` ("Actual").
+        The stylist's guaranteed hourly pay ($/hr). The client's Holliean
+        example uses ``10``.
     np_rate:
         Net-production share used to derive the min-expected floor (``0.4``).
     haircut_price / color_price:
@@ -213,21 +212,44 @@ class PayPlanEngine:
 
     def __init__(
         self,
-        guarantee_rate: float = 12.0,
+        guarantee_rate: float = 10.0,
         *,
         np_rate: float = DEFAULT_NP_RATE,
         haircut_price: float = DEFAULT_HAIRCUT_PRICE,
         color_price: float = DEFAULT_COLOR_PRICE,
         tiers: list[tuple[float, float]] | None = None,
-        salon_tiers: dict[int, list[tuple[float, float]]] | None = None,
     ) -> None:
         self.guarantee_rate = guarantee_rate
         self.np_rate = np_rate
         self.haircut_price = haircut_price
         self.color_price = color_price
-        # Registry for future per-salon (DB-backed) tier overrides.
-        self._salon_tiers = salon_tiers or {}
         self._set_tiers(tiers if tiers is not None else DEFAULT_PPH_TIERS)
+
+    @classmethod
+    def from_config(cls, config) -> PayPlanEngine:
+        """Build an engine from a global :class:`PaymentLogicConfig`.
+
+        This is the wiring that makes the DB-backed global config the single
+        source of truth: every server-side calculation should construct its
+        engine via this factory so a change made by the highest admin flows
+        through instantly and organisation-wide.
+
+        ``config`` may be the SQLModel row or any object exposing the same
+        attributes (``tiers`` as a list of ``{"pay_rate", "pph_required"}``
+        dicts, ``np_rate``, ``guarantee_rate``, ``haircut_price``,
+        ``color_price``).
+        """
+        tiers = [
+            (float(t["pay_rate"]), float(t["pph_required"]))
+            for t in (config.tiers or [])
+        ] or DEFAULT_PPH_TIERS
+        return cls(
+            guarantee_rate=float(config.guarantee_rate),
+            np_rate=float(config.np_rate),
+            haircut_price=float(config.haircut_price),
+            color_price=float(config.color_price),
+            tiers=tiers,
+        )
 
     # -- tier management ---------------------------------------------------
 
@@ -235,28 +257,28 @@ class PayPlanEngine:
         self.tiers = [Tier(float(r), float(p)) for r, p in sorted(tiers)]
         self._pph_by_rate = {t.pay_rate: t.pph_required for t in self.tiers}
 
-    def load_tiers(self, salon_id: int) -> list[Tier]:
-        """Load (and activate) the pay tiers for ``salon_id``.
+    def load_tiers(self, salon_id: int | None = None) -> list[Tier]:
+        """Return the active (global) pay tiers.
 
-        Currently returns the hardcoded default table for every salon. A future
-        agent can back this with the database by populating ``salon_tiers`` (or
-        overriding this method to query a repository) — the rest of the engine
-        needs no changes.
+        Payment logic is organisation-wide: there are intentionally **no**
+        per-salon tier overrides. The ``salon_id`` argument is accepted for
+        backwards compatibility but ignored — every salon uses the one global
+        tier table configured by the highest admin.
         """
-        tiers = self._salon_tiers.get(salon_id, DEFAULT_PPH_TIERS)
-        self._set_tiers(tiers)
         return self.tiers
 
     def pph_for_rate(self, pay_rate: float) -> float:
-        """PPH required to earn ``pay_rate``.
+        """PPH required to earn a Desired Pay Rate (DPR).
 
-        Exact tier value when ``pay_rate`` is one of the table rows (matching the
-        sheet, including its half-up rounding); otherwise the exact ``pay_rate /
-        np_rate`` relationship for off-tier rates.
+        Per the client's rule: ``Required PPH = DPR / NP_RATE, rounded UP to the
+        nearest whole dollar``. For example DPR ``$14`` → ``ceil(14 / 0.40)`` =
+        ``35`` PPH. Because the target is rounded to a whole dollar, this can be
+        slightly above the (possibly fractional) tier threshold used by
+        :meth:`get_effective_rate` — that is intended.
         """
-        if pay_rate in self._pph_by_rate:
-            return self._pph_by_rate[pay_rate]
-        return pay_rate / self.np_rate
+        if self.np_rate <= 0:
+            return 0.0
+        return float(math.ceil(pay_rate / self.np_rate))
 
     # -- required production ----------------------------------------------
 
@@ -280,10 +302,10 @@ class PayPlanEngine:
         return result
 
     def min_expected_production(self, scheduled_hours: float) -> float:
-        """The guarantee floor of production ("Min Exptd Svcs", cell N3).
+        """The guarantee floor of production ("Min Exptd Svcs").
 
-        Uses the *exact* ``guarantee_rate / np_rate`` (not the rounded tier PPH),
-        matching the workbook: 12 → 817.5, 13 → 910.
+        Uses the *exact* ``guarantee_rate / np_rate`` (not the rounded required
+        PPH). Example: guarantee ``$10`` over ``21`` hours → ``525``.
         """
         return self.guarantee_rate / self.np_rate * scheduled_hours
 

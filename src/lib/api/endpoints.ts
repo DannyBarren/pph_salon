@@ -13,6 +13,10 @@ import type {
   CurrentUserDTO,
   InvitePreview,
   InviteResponse,
+  PaymentLogicDTO,
+  PaymentLogicPreviewDTO,
+  PaymentLogicPreviewRequestDTO,
+  PaymentLogicUpdateDTO,
   PayTierDTO,
   SalonDTO,
   TokenResponse,
@@ -95,6 +99,20 @@ export const salonApi = {
     DEMO_MODE ? demoBackend.replacePayTiers(id, tiers) : api.put<PayTierDTO[]>(`/salons/${id}/pay-tiers`, tiers),
 };
 
+// ── Global payment logic (highest-admin only) ────────────────────────────────
+export const paymentLogicApi = {
+  get: () =>
+    DEMO_MODE ? demoBackend.getPaymentLogic() : api.get<PaymentLogicDTO>("/payment-logic"),
+  update: (body: PaymentLogicUpdateDTO) =>
+    DEMO_MODE
+      ? demoBackend.updatePaymentLogic(body)
+      : api.put<PaymentLogicDTO>("/payment-logic", body),
+  preview: (body: PaymentLogicPreviewRequestDTO) =>
+    DEMO_MODE
+      ? demoBackend.previewPaymentLogic(body)
+      : api.post<PaymentLogicPreviewDTO>("/payment-logic/preview", body),
+};
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const userApi = {
   list: (params?: { salon_id?: number; role?: BackendRole }) => {
@@ -109,8 +127,9 @@ export const userApi = {
   create: (input: CreateUserInput) =>
     DEMO_MODE ? demoBackend.createUser(input) : api.post<UserDTO>("/users", input),
   update: (id: number, patch: Partial<CreateUserInput>) =>
-    api.patch<UserDTO>(`/users/${id}`, patch),
-  deactivate: (id: number) => api.post<UserDTO>(`/users/${id}/deactivate`),
+    DEMO_MODE ? demoBackend.updateUser(id, patch) : api.patch<UserDTO>(`/users/${id}`, patch),
+  deactivate: (id: number) =>
+    DEMO_MODE ? demoBackend.deactivateUser(id) : api.post<UserDTO>(`/users/${id}/deactivate`),
   resetPassword: (id: number, emailCredentials = false) =>
     DEMO_MODE
       ? demoBackend.resetPassword(id)
@@ -165,9 +184,13 @@ export const healthApi = {
   }),
 };
 
-/** Map backend roles onto the frontend's 3-role model (sdl == owner/admin). */
-export function toFrontendRole(role: BackendRole): "stylist" | "manager" | "sdl" {
+/**
+ * Map backend roles onto the frontend role model.
+ * admin→admin (top), owner→sdl (SDL/Owner), manager→manager, stylist→stylist.
+ */
+export function toFrontendRole(role: BackendRole): "stylist" | "manager" | "sdl" | "admin" {
   if (role === "manager") return "manager";
   if (role === "stylist") return "stylist";
-  return "sdl";
+  if (role === "admin") return "admin";
+  return "sdl"; // owner
 }

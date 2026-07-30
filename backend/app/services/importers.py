@@ -68,6 +68,7 @@ _CLIENT_EXPORT_MAP = {
     "net_service_rev": ["net service rev", "net service revenue", "net rev", "service revenue"],
     "avg_haircut": ["avg haircut", "average haircut", "haircut price"],
     "avg_color": ["avg color", "average color", "color price"],
+    "excluded": ["excl?", "excluded", "exclude", "exclusion", "excl"],
 }
 
 SOURCE_MAPS: dict[str, dict[str, list[str]]] = {
@@ -76,6 +77,56 @@ SOURCE_MAPS: dict[str, dict[str, list[str]]] = {
     "client_export": _CLIENT_EXPORT_MAP,
     "ssff": _CLIENT_EXPORT_MAP,
 }
+
+# The client's daily "Data provided to App" format. Canonical keys → the client's
+# headers (plus the legacy canonical names for backwards compatibility). Note
+# ``service_rev`` (Act Svc Rev($)) is the AUTHORITATIVE daily service revenue and
+# is kept distinct from the legacy additive ``actual_other_value``.
+_APP_DAILY_MAP = {
+    "salon_name": ["salon name", "salon"],
+    "user_id": ["eeid", "ee id", "employee id", "employee code", "emp id", "user_id", "user id"],
+    "name": ["ee name", "employee name", "name"],
+    "excluded": ["excl?", "excluded", "excl", "exclude"],
+    "date": ["date"],
+    "scheduled_hrs": ["sched hrs", "sched. hrs", "scheduled hrs", "scheduled hours", "sched hours", "scheduled_hrs"],
+    "actual_hrs": ["actual hrs", "actual hours", "hours worked", "worked hours", "actual_hrs"],
+    "service_rev": [
+        "act svc rev($)", "act svc rev ($)", "act svc rev", "actual service revenue",
+        "actual svc rev", "service revenue", "svc rev", "service_rev",
+    ],
+    "actual_haircuts": ["act cuts count", "act cuts", "actual cuts", "cuts", "haircuts", "actual_haircuts"],
+    "actual_colors": ["act colors count", "act colors", "actual colors", "colors", "actual_colors"],
+    "actual_other_value": ["actual_other_value", "other value", "other revenue"],
+}
+
+
+def normalize_daily_rows(
+    raw_rows: list[dict[str, Any]], source: str = "native"
+) -> list[dict[str, Any]]:
+    """Map the daily import file onto our canonical daily columns.
+
+    The default (``native``) is the client's "Data provided to App" layout —
+    ``Salon | EEID | EE Name | Excl? | Date | Sched Hrs | Actual Hrs |
+    Act Svc Rev($) | Act Cuts Count | Act Colors Count``. Recognised headers (and
+    sensible aliases) are mapped to canonical keys; originals are preserved so
+    nothing is silently dropped. ``zenoti``/``paycor`` delegate to the weekly
+    vendor maps.
+    """
+    source = (source or "native").strip().lower()
+    if source in ("zenoti", "paycor"):
+        return normalize_weekly_rows(raw_rows, source)
+
+    out: list[dict[str, Any]] = []
+    for raw in raw_rows:
+        lowered = {str(k).strip().lower(): v for k, v in raw.items()}
+        mapped: dict[str, Any] = dict(raw)  # keep originals as a fallback
+        for canonical, candidates in _APP_DAILY_MAP.items():
+            for cand in candidates:
+                if cand in lowered and lowered[cand] not in (None, ""):
+                    mapped[canonical] = lowered[cand]
+                    break
+        out.append(mapped)
+    return out
 
 # Aliases that all mean "the real client export" for the source selector.
 CLIENT_EXPORT_SOURCES = {"client_export", "ssff", "ssf", "client"}
@@ -105,6 +156,17 @@ def parse_money(value: Any) -> float | None:
         return float(cleaned)
     except ValueError:
         return None
+
+
+def parse_bool(value: Any) -> bool:
+    """Parse a truthy flag from messy CSV input (Y/N, yes/no, true/false, 1/0)."""
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in {"y", "yes", "true", "t", "1", "x", "excluded"}
 
 
 def _looks_like_client_export(raw_rows: list[dict[str, Any]]) -> bool:
@@ -289,6 +351,9 @@ def bulk_create_users(
         except (TypeError, ValueError):
             guarantee = None
 
+        has_excluded = str(raw.get("excluded", "")).strip() != ""
+        excluded = parse_bool(raw.get("excluded"))
+
         existing = session.exec(select(User).where(User.email == email)).first()
         if existing is not None:
             # A non-super creator may only touch subordinates in their own salon.
@@ -311,6 +376,8 @@ def bulk_create_users(
                 existing.phone = str(raw["phone"]).strip()
             if guarantee is not None:
                 existing.guarantee_rate = guarantee
+            if has_excluded:
+                existing.excluded = excluded
             session.add(existing)
             result.updated += 1
             continue
@@ -326,6 +393,7 @@ def bulk_create_users(
             title=(str(raw["title"]).strip() if raw.get("title") else None),
             phone=(str(raw["phone"]).strip() if raw.get("phone") else None),
             guarantee_rate=guarantee,
+            excluded=excluded,
             hashed_password=security.hash_password(password),
             is_active=True,
         )
@@ -413,6 +481,7 @@ def _resolve_or_create_user(
     creating them if missing. Employee codes are unique only per salon."""
     role = _map_role(row.get("position"))
     guarantee = _num(row.get("guarantee_rate"))
+    excluded = parse_bool(row.get("excluded"))
 
     user: User | None = None
     if employee_code:
@@ -433,6 +502,7 @@ def _resolve_or_create_user(
             salon_id=salon.id,
             employee_code=employee_code,
             guarantee_rate=guarantee,
+            excluded=excluded,
             is_active=True,
         )
         session.add(user)
@@ -447,6 +517,7 @@ def _resolve_or_create_user(
         user.employee_code = employee_code
     if guarantee is not None:
         user.guarantee_rate = guarantee
+    user.excluded = excluded
     session.add(user)
     return user, False
 

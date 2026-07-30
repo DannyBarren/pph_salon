@@ -1,13 +1,18 @@
 import type { DayRecord, PayConfig } from "./types";
 import {
-  NP_RATE,
   getCurrentEffectivePayRate,
   getEffectiveRateFromPph,
   getRequiredProductionForPayRate,
 } from "./tiers";
 
-export function guaranteeRateFor(salonId: string, config: PayConfig): number {
-  return config.salonGuarantee[salonId] ?? config.guaranteeRate;
+/**
+ * The organisation-wide guarantee floor. Payment logic is GLOBAL ONLY, so this
+ * always returns the single global guarantee — per-salon overrides are no longer
+ * consulted. (A per-employee guarantee is still honoured by callers that pass an
+ * explicit rate; that is the individual's compensation floor, not payment logic.)
+ */
+export function guaranteeRateFor(_salonId: string, config: PayConfig): number {
+  return config.guaranteeRate;
 }
 
 export interface PeriodSummary {
@@ -85,7 +90,7 @@ export function summarize(
   const onGuarantee = workedHours > 0 && tierRateNoFloor < guarantee;
   const pay = effectiveRate * workedHours;
   // Informational splits (not the rate driver): net-production commission vs floor.
-  const commissionPay = productionToDate * NP_RATE;
+  const commissionPay = productionToDate * config.commissionRate;
   const guaranteePay = workedHours * guarantee;
 
   return {

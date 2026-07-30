@@ -118,6 +118,7 @@ def create_user(
         email=body.email,
         phone=body.phone,
         guarantee_rate=body.guarantee_rate,
+        excluded=body.excluded,
         hashed_password=security.hash_password(password),
         is_active=True,
     )

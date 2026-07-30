@@ -31,5 +31,6 @@ export function authUserToFrontend(dto: CurrentUserDTO): User {
     email: dto.email ?? undefined,
     initials: initialsOf(dto.name),
     hue: HUES[dto.id % HUES.length],
+    excluded: dto.excluded ?? false,
   };
 }

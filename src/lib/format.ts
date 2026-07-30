@@ -15,3 +15,19 @@ export const hrs = (n: number) => `${Math.round(safe(n) * 10) / 10}h`;
 export const num = (n: number) => Math.round(safe(n)).toLocaleString("en-US");
 
 export const pct = (n: number) => `${Math.round(safe(n) * 100)}%`;
+
+/**
+ * Accounting-style money: negatives are wrapped in parentheses (e.g. `($67.60)`)
+ * exactly like the client's UAT spreadsheet. `decimals` defaults to 2.
+ */
+export const moneyAcct = (n: number, decimals = 2) => {
+  const v = safe(n);
+  const abs = money(Math.abs(v), decimals);
+  return v < 0 ? `(${abs})` : abs;
+};
+
+/** US short date `MM/DD/YY` (matches the UAT spreadsheet's pay-period format). */
+export const usDate = (iso: string) => {
+  const [y, m, d] = iso.split("-");
+  return `${m}/${d}/${y.slice(2)}`;
+};
