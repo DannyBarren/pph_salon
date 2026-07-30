@@ -93,8 +93,9 @@ export const userApi = {
   create: (input: CreateUserInput) =>
     DEMO_MODE ? demoBackend.createUser(input) : api.post<UserDTO>("/users", input),
   update: (id: number, patch: Partial<CreateUserInput>) =>
-    api.patch<UserDTO>(`/users/${id}`, patch),
-  deactivate: (id: number) => api.post<UserDTO>(`/users/${id}/deactivate`),
+    DEMO_MODE ? demoBackend.updateUser(id, patch) : api.patch<UserDTO>(`/users/${id}`, patch),
+  deactivate: (id: number) =>
+    DEMO_MODE ? demoBackend.deactivateUser(id) : api.post<UserDTO>(`/users/${id}/deactivate`),
 };
 
 // ── Admin imports + audit ─────────────────────────────────────────────────────

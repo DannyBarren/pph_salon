@@ -67,6 +67,27 @@ for (const p of CLIENT_ROSTER) {
   }
 }
 
+/**
+ * Employees the client marked "Exclude" (not on the PPH pay plan) in the pay-period
+ * spreadsheets (`PPH Data 06-22-2026 TO 07-05-2026.xlsx` /
+ * `… 07-06-2026 TO 07-19-2026.xlsx`), by employee code (latest designation wins).
+ * Excluded users have no personal PPH dashboard — only team visibility if they
+ * manage people. The other roster members are "Include". An Admin can change any
+ * of this from the Admin → Users screen.
+ */
+const EXCLUDED_EMPLOYEE_CODES = new Set<string>([
+  "VG1116", "VG1124", "VG1126", "VG1134", "VG1137", "VG1140", "VG1143", "VG1158",
+  "VG1161", "VG1165", "VG1170", "VG1210", "VG1235", "VG1280", "VG1295", "VG1296",
+  "VG1301", "VG1305", "VG1327", "VG1344", "VG1346", "VG1348", "VG1361", "VG1363",
+  "VG1368", "VG1373", "VG1376", "VG1381", "VG1392", "VG1406", "VG1426", "VG1429",
+  "VG1438", "VG1443", "VG1452", "VG1460", "VG1467", "VG1469", "VG1473", "VG1478",
+  "VG1480", "VG1488", "VG1496", "VG1498",
+]);
+
+function isExcludedCode(employeeCode: string | undefined): boolean {
+  return !!employeeCode && EXCLUDED_EMPLOYEE_CODES.has(employeeCode.toUpperCase());
+}
+
 function toUser(p: RosterPerson): User {
   const salon = salonById(p.salonId);
   const isManager = p.role === "manager";
@@ -80,7 +101,8 @@ function toUser(p: RosterPerson): User {
     initials: initialsOf(p.name),
     hue: p.hue,
     guaranteeRate: p.guaranteeRate,
-    excluded: p.excluded ?? false,
+    // Include/Exclude designation from the client's pay-period spreadsheets.
+    excluded: p.excluded ?? isExcludedCode(p.employeeCode),
   };
 }
 

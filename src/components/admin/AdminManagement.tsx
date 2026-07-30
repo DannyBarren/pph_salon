@@ -19,7 +19,7 @@ import {
   Loader2,
   Info,
 } from "lucide-react";
-import { Card, CardBody, Button, Badge, Select } from "@/components/ui/primitives";
+import { Card, CardBody, Button, Badge, Select, Modal } from "@/components/ui/primitives";
 import { adminApi, salonApi, userApi } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import { DEMO_MODE } from "@/lib/featureFlags";
@@ -168,6 +168,7 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [editing, setEditing] = useState<UserDTO | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -386,6 +387,8 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
                     <th>Email</th>
                     <th>Role</th>
                     <th>Salon</th>
+                    <th>On PPH plan</th>
+                    <th className="text-right">Edit</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -397,6 +400,18 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
                         <Badge tone={u.role === "stylist" ? "brand" : u.role === "manager" ? "warning" : "success"}>{u.role}</Badge>
                       </td>
                       <td>#{u.salon_id}</td>
+                      <td>
+                        {u.excluded ? (
+                          <Badge tone="warning">Excluded</Badge>
+                        ) : (
+                          <span className="text-[var(--color-ink-faint)]">On plan</span>
+                        )}
+                      </td>
+                      <td className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => setEditing(u)}>
+                          Edit
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -405,7 +420,172 @@ function UserManager({ salons }: { salons: SalonDTO[] }) {
           )}
         </CardBody>
       </Card>
+
+      {editing && (
+        <UserEditModal
+          user={editing}
+          salons={salons}
+          managers={managers}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void loadUsers();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Edit an existing user (admin: every field) ──────────────────────────────────
+function UserEditModal({
+  user,
+  salons,
+  managers,
+  onClose,
+  onSaved,
+}: {
+  user: UserDTO;
+  salons: SalonDTO[];
+  managers: UserDTO[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email ?? "");
+  const [role, setRole] = useState<BackendRole>(user.role);
+  const [salonId, setSalonId] = useState<number>(user.salon_id);
+  const [managerId, setManagerId] = useState<number | "">(user.manager_id ?? "");
+  const [title, setTitle] = useState(user.title ?? "");
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [guarantee, setGuarantee] = useState(user.guarantee_rate != null ? String(user.guarantee_rate) : "");
+  const [excluded, setExcluded] = useState(!!user.excluded);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      await userApi.update(user.id, {
+        name: name.trim(),
+        email: email.trim() || undefined,
+        role,
+        salon_id: salonId,
+        manager_id: managerId === "" ? null : Number(managerId),
+        title: title.trim() || undefined,
+        phone: phone.trim() || undefined,
+        guarantee_rate: guarantee.trim() === "" ? null : Number(guarantee),
+        excluded,
+      });
+      setOk("Saved.");
+      onSaved();
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deactivate = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await userApi.deactivate(user.id);
+      onSaved();
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Edit ${user.name}`} size="lg">
+      <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Full name</span>
+            <input className={input} value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Email</span>
+            <input className={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Role / level</span>
+            <Select value={role} onChange={(e) => setRole(e.target.value as BackendRole)}>
+              <option value="stylist">Stylist</option>
+              <option value="manager">Manager</option>
+              <option value="owner">SDL / Owner</option>
+              <option value="admin">Admin</option>
+            </Select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Salon</span>
+            <Select value={salonId} onChange={(e) => setSalonId(Number(e.target.value))}>
+              {salons.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Reports to (manager)</span>
+            <Select value={managerId} onChange={(e) => setManagerId(e.target.value === "" ? "" : Number(e.target.value))}>
+              <option value="">— none —</option>
+              {managers
+                .filter((m) => m.id !== user.id)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+            </Select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Guarantee $/hr</span>
+            <input className={input} type="number" step="0.25" value={guarantee} onChange={(e) => setGuarantee(e.target.value)} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Title</span>
+            <input className={input} value={title} onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Phone</span>
+            <input className={input} value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </label>
+        </div>
+
+        <label className="flex items-start gap-2 rounded-lg bg-[var(--color-surface-2)] p-3 text-sm">
+          <input type="checkbox" className="mt-0.5" checked={excluded} onChange={(e) => setExcluded(e.target.checked)} />
+          <span>
+            <b>Excluded from the PPH pay plan.</b> No personal PPH dashboard; team visibility only (if they manage
+            people). Uncheck to put them on the plan with a personal dashboard.
+          </span>
+        </label>
+
+        {error && <Notice kind="error">{error}</Notice>}
+        {ok && <Notice kind="success">{ok}</Notice>}
+
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <Button variant="ghost" size="sm" onClick={deactivate} disabled={busy}>
+            Deactivate user
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={busy}>
+              {busy ? <Loader2 size={16} className="animate-spin" /> : null} Save changes
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
