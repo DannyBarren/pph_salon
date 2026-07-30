@@ -23,13 +23,13 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import PlainTextResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.api.deps import require_super_admin
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.db.session import get_session
-from app.models import User
+from app.models import Salon, User
 from app.schemas.audit import AuditLogRead
 from app.schemas.user import BulkUserResult
 from app.schemas.weekly import ClientImportResult, WeeklyImportResult, WeeklyImportRow
@@ -37,7 +37,9 @@ from app.services.audit import list_audit, record_audit
 from app.services.importers import (
     bulk_create_users,
     import_client_export,
+    normalize_daily_rows,
     normalize_weekly_rows,
+    parse_bool,
 )
 from app.services.weekly_repo import (
     get_salon_by_name,
@@ -85,16 +87,18 @@ _USERS_TEMPLATE_SAMPLE = [
     ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", ""],
 ]
 
+# The client's daily "Data provided to App" format (exact column order).
 DAILY_TEMPLATE_COLUMNS = [
-    "user_id", "date", "scheduled_hrs", "actual_hrs", "actual_haircuts",
-    "actual_colors", "actual_other_value",
+    "Salon", "EEID", "EE Name", "Excl?", "Date", "Sched Hrs", "Actual Hrs",
+    "Act Svc Rev($)", "Act Cuts Count", "Act Colors Count",
 ]
 
 _DAILY_TEMPLATE_SAMPLE = [
-    # Any date works — back-fill historical days (e.g. June 8) or the current week.
-    ["18939", "2026-06-08", "8", "7.5", "5", "2", "10"],
-    ["18939", "2026-06-30", "8", "7.5", "5", "2", "10"],
-    ["18939", "2026-07-01", "8", "8", "6", "3", "0"],
+    # Any date works — back-fill historical days or the current week. Days with no
+    # activity can be left blank (only Date/Sched Hrs populated) or omitted.
+    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-20", "5", "4.03", "56.7", "3", "0"],
+    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-21", "0", "", "", "", ""],
+    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-22", "5", "6.13", "70", "2", "0"],
 ]
 
 # The real client / Salon Success (SSF) export layout. One file provisions
@@ -169,6 +173,47 @@ def _to_date(value: str | date | datetime | None) -> date | None:
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value).strip()[:10])
+
+
+def _resolve_daily_user(
+    session: Session, eeid: object, name: object, salon_name: object
+) -> User | None:
+    """Resolve the employee for a daily row.
+
+    EEID may be our numeric user id OR the client's employee code (e.g. VG1426).
+    Falls back to matching by name, scoped to the salon when one is given.
+    """
+    salon = None
+    if salon_name:
+        # The client's "Salon" is usually the salon code (stored in location),
+        # but also try the display name.
+        code = str(salon_name).strip()
+        salon = session.exec(select(Salon).where(Salon.location == code)).first()
+        if salon is None:
+            salon = get_salon_by_name(session, code)
+
+    raw = str(eeid).strip() if eeid is not None else ""
+    # 1) Numeric primary key.
+    if raw.isdigit():
+        user = session.get(User, int(raw))
+        if user is not None:
+            return user
+    # 2) Employee code (optionally within the resolved salon).
+    if raw:
+        stmt = select(User).where(User.employee_code == raw)
+        if salon is not None:
+            stmt = stmt.where(User.salon_id == salon.id)
+        user = session.exec(stmt).first()
+        if user is not None:
+            return user
+    # 3) Name within the salon.
+    if name and salon is not None:
+        user = session.exec(
+            select(User).where(User.salon_id == salon.id, User.name == str(name).strip())
+        ).first()
+        if user is not None:
+            return user
+    return None
 
 
 def _parse_rows(filename: str, content: bytes) -> list[dict[str, object]]:
@@ -286,32 +331,48 @@ async def import_daily(
     session: Session = Depends(get_session),
     admin: User = Depends(require_super_admin),
 ) -> WeeklyImportResult:
-    """Bulk-import daily performance rows; parent weeks are aggregated."""
-    raw_rows = normalize_weekly_rows(await _read_and_parse(file), source)
+    """Bulk-import daily performance rows in the client's "Data provided to App"
+    format (Salon | EEID | EE Name | Excl? | Date | Sched Hrs | Actual Hrs |
+    Act Svc Rev($) | Act Cuts Count | Act Colors Count). Parent weeks are
+    aggregated. Idempotent and tolerant of blank/no-activity rows.
+    """
+    raw_rows = normalize_daily_rows(await _read_and_parse(file), source)
     result = WeeklyImportResult()
 
     for i, raw in enumerate(raw_rows, start=2):
         try:
-            user_id = _to_int(raw.get("user_id"))
+            eeid = raw.get("user_id")
             day = _to_date(raw.get("date") or raw.get("week_start"))
-            if user_id is None or day is None:
-                raise ValueError("user_id and date are required")
+            # Silently skip genuinely blank rows (no employee and no date).
+            if (eeid in (None, "")) and day is None:
+                continue
+            if eeid in (None, "") or day is None:
+                raise ValueError("EEID and Date are required")
         except Exception as exc:  # noqa: BLE001
             result.skipped += 1
             result.errors.append(f"Row {i}: {exc}")
             continue
 
-        if session.get(User, user_id) is None:
+        user = _resolve_daily_user(session, eeid, raw.get("name"), raw.get("salon_name"))
+        if user is None:
             result.skipped += 1
-            result.errors.append(f"Row {i}: unknown user_id {user_id}")
+            result.errors.append(f"Row {i}: unknown employee '{eeid}'")
             continue
 
+        # Keep the roster's Excluded flag in sync when the column is supplied.
+        if str(raw.get("excluded", "")).strip() != "":
+            excluded = parse_bool(raw.get("excluded"))
+            if user.excluded != excluded:
+                user.excluded = excluded
+                session.add(user)
+
         _, created = upsert_daily_performance(
-            session, user_id, day,
+            session, user.id, day,
             scheduled_hrs=_to_float(raw.get("scheduled_hrs")) or 0.0,
             actual_hrs=_to_float(raw.get("actual_hrs")),
             haircuts=_to_int(raw.get("actual_haircuts")),
             colors=_to_int(raw.get("actual_colors")),
+            service_rev=_to_float(raw.get("service_rev")),
             other_value=_to_float(raw.get("actual_other_value")),
             commit=False,
         )

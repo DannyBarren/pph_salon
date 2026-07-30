@@ -78,6 +78,56 @@ SOURCE_MAPS: dict[str, dict[str, list[str]]] = {
     "ssff": _CLIENT_EXPORT_MAP,
 }
 
+# The client's daily "Data provided to App" format. Canonical keys → the client's
+# headers (plus the legacy canonical names for backwards compatibility). Note
+# ``service_rev`` (Act Svc Rev($)) is the AUTHORITATIVE daily service revenue and
+# is kept distinct from the legacy additive ``actual_other_value``.
+_APP_DAILY_MAP = {
+    "salon_name": ["salon name", "salon"],
+    "user_id": ["eeid", "ee id", "employee id", "employee code", "emp id", "user_id", "user id"],
+    "name": ["ee name", "employee name", "name"],
+    "excluded": ["excl?", "excluded", "excl", "exclude"],
+    "date": ["date"],
+    "scheduled_hrs": ["sched hrs", "sched. hrs", "scheduled hrs", "scheduled hours", "sched hours", "scheduled_hrs"],
+    "actual_hrs": ["actual hrs", "actual hours", "hours worked", "worked hours", "actual_hrs"],
+    "service_rev": [
+        "act svc rev($)", "act svc rev ($)", "act svc rev", "actual service revenue",
+        "actual svc rev", "service revenue", "svc rev", "service_rev",
+    ],
+    "actual_haircuts": ["act cuts count", "act cuts", "actual cuts", "cuts", "haircuts", "actual_haircuts"],
+    "actual_colors": ["act colors count", "act colors", "actual colors", "colors", "actual_colors"],
+    "actual_other_value": ["actual_other_value", "other value", "other revenue"],
+}
+
+
+def normalize_daily_rows(
+    raw_rows: list[dict[str, Any]], source: str = "native"
+) -> list[dict[str, Any]]:
+    """Map the daily import file onto our canonical daily columns.
+
+    The default (``native``) is the client's "Data provided to App" layout —
+    ``Salon | EEID | EE Name | Excl? | Date | Sched Hrs | Actual Hrs |
+    Act Svc Rev($) | Act Cuts Count | Act Colors Count``. Recognised headers (and
+    sensible aliases) are mapped to canonical keys; originals are preserved so
+    nothing is silently dropped. ``zenoti``/``paycor`` delegate to the weekly
+    vendor maps.
+    """
+    source = (source or "native").strip().lower()
+    if source in ("zenoti", "paycor"):
+        return normalize_weekly_rows(raw_rows, source)
+
+    out: list[dict[str, Any]] = []
+    for raw in raw_rows:
+        lowered = {str(k).strip().lower(): v for k, v in raw.items()}
+        mapped: dict[str, Any] = dict(raw)  # keep originals as a fallback
+        for canonical, candidates in _APP_DAILY_MAP.items():
+            for cand in candidates:
+                if cand in lowered and lowered[cand] not in (None, ""):
+                    mapped[canonical] = lowered[cand]
+                    break
+        out.append(mapped)
+    return out
+
 # Aliases that all mean "the real client export" for the source selector.
 CLIENT_EXPORT_SOURCES = {"client_export", "ssff", "ssf", "client"}
 

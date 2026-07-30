@@ -136,6 +136,7 @@ def upsert_daily_performance(
     haircuts: int | None = None,
     colors: int | None = None,
     other_value: float | None = None,
+    service_rev: float | None = None,
     commit: bool = True,
 ) -> tuple[DailyPerformance, bool]:
     """Insert/update one :class:`DailyPerformance` row and keep its parent Week
@@ -144,6 +145,13 @@ def upsert_daily_performance(
     Ensures a parent ``Week`` exists (keyed by the Monday of ``day``), writes the
     daily row, then recomputes the week totals from *all* its daily rows so the
     weekly view and the daily breakdown never drift apart.
+
+    Production source (mapping only — the pay engine is unchanged):
+    * ``service_rev`` — the client's authoritative "Act Svc Rev($)" for the day;
+      when provided it *is* the day's production (cuts/colors are stored as
+      counts only).
+    * otherwise it falls back to the derived model
+      ``haircuts × price + colors × price + other_value``.
     """
     user = session.get(User, user_id)
     salon = session.get(Salon, user.salon_id) if user else None
@@ -162,7 +170,10 @@ def upsert_daily_performance(
         session.flush()
 
     day_production = None
-    if any(v is not None for v in (haircuts, colors, other_value)):
+    if service_rev is not None:
+        # Authoritative service revenue provided directly (client daily format).
+        day_production = float(service_rev)
+    elif any(v is not None for v in (haircuts, colors, other_value)):
         day_production = (haircuts or 0) * haircut_price + (colors or 0) * color_price + (
             other_value or 0.0)
 
