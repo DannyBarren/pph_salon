@@ -233,6 +233,28 @@ export const demoBackend = {
     logAudit("user.create", "user", String(user.id));
     return { ...user };
   },
+  async updateUser(id: number, patch: Partial<CreateUserInput>): Promise<UserDTO> {
+    const user = users.find((u) => u.id === id);
+    if (!user) throw new Error(`Unknown user ${id}`);
+    if (patch.name !== undefined) user.name = patch.name;
+    if (patch.role !== undefined) user.role = patch.role;
+    if (patch.salon_id !== undefined) user.salon_id = patch.salon_id;
+    if (patch.manager_id !== undefined) user.manager_id = patch.manager_id ?? null;
+    if (patch.title !== undefined) user.title = patch.title ?? null;
+    if (patch.email !== undefined) user.email = patch.email ?? null;
+    if (patch.phone !== undefined) user.phone = patch.phone ?? null;
+    if (patch.guarantee_rate !== undefined) user.guarantee_rate = patch.guarantee_rate ?? null;
+    if (patch.excluded !== undefined) user.excluded = patch.excluded;
+    user.updated_at = now();
+    logAudit("user.update", "user", String(id));
+    return { ...user };
+  },
+  async deactivateUser(id: number): Promise<UserDTO> {
+    const user = users.find((u) => u.id === id);
+    if (!user) throw new Error(`Unknown user ${id}`);
+    logAudit("user.deactivate", "user", String(id));
+    return { ...user };
+  },
 
   // ── Pay tiers ─────────────────────────────────────────────────────────────
   async listPayTiers(salonId: number): Promise<PayTierDTO[]> {
