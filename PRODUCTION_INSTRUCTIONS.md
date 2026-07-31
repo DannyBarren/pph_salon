@@ -73,22 +73,41 @@ postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME
 
 > If your host doesn't run the container entrypoint (e.g. a buildpack), run migrations manually once in the service console: `alembic upgrade head`.
 
-### 3.3 Create the first owner (critical, one-time)
-This is the **only** account you create by hand — it sits at the top of the provisioning hierarchy (see §5.1). Choose **one** of the two secure methods:
+### 3.3 Create the admin + seed the real roster (recommended, one-time)
+This deployment ships a **preset admin** and a one-command seeder that also loads
+the real salons/employees. After the DB is migrated (the entrypoint does this on
+boot; run `alembic upgrade head` manually if your host skips the entrypoint), run
+the seeder from the backend service console (or locally against the prod
+`DATABASE_URL`):
 
-**Option A — Web setup page (no console access needed).**
-1. Set `BOOTSTRAP_TOKEN` to a one-time secret on the backend (see `backend/.env.production.example`).
-2. Visit `https://your-app.vercel.app/setup`, enter that token + the owner's name/email/password + salon name, and submit. This only works **while the users table is empty** (the endpoint returns 409 afterward), so it can't be reused as a backdoor.
-3. **Unset/rotate `BOOTSTRAP_TOKEN`** after the owner exists.
-
-**Option B — CLI (server console or local against the prod `DATABASE_URL`).**
 ```bash
-python -m scripts.create_superadmin \
-  --email owner@yoursalon.com \
-  --name "Jordan Avery" \
-  --salon "Aria Studio"
+cd backend
+python -m scripts.seed_production \
+  --csv "../PPH Data 06-26-2026.xlsx.csv"
 ```
-It prints a temporary password (omit `--password` to auto-generate) and is idempotent.
+
+It creates the preset admin and imports every real salon + employee. Defaults:
+
+| Field | Value |
+|---|---|
+| Admin **username** (login identifier, stored in the `email` field) | `admin` |
+| Admin **password** | `venitaadmin` |
+| Admin **role** | `owner` (full org-wide powers) |
+
+The admin is **active immediately** and can sign in right away at `/login` using
+`admin` / `venitaadmin`. **Change this password after the first login**
+(Account → Change password). Every imported employee is created **pending setup**
+(profile only, no password) and **cannot log in** until an admin/manager activates
+them (§5). The seeder is **idempotent** — safe to re-run. Override any default via
+`--admin-username`, `--admin-password`, `--admin-name`, `--admin-role`, `--csv`.
+
+**Alternative first-owner methods** (if you'd rather not use the preset admin):
+
+- **Web setup page:** set `BOOTSTRAP_TOKEN` on the backend, visit
+  `https://your-app.vercel.app/setup`, enter the token + owner name/email/password
+  + salon name. Works **only while the users table is empty** (409 afterward), so
+  it can't be reused as a backdoor. **Unset/rotate `BOOTSTRAP_TOKEN`** afterward.
+- **CLI:** `python -m scripts.create_superadmin --email owner@yoursalon.com --name "Jordan Avery" --salon "Aria Studio"` (prints a temp password; idempotent).
 
 Everyone else is provisioned **down the hierarchy** — never by hand (§5).
 
@@ -143,6 +162,24 @@ Each manager signs in and opens **Staff** (the `/staff` page in their nav):
 
 Distribute each new user their email + temporary password. On first login they should change it.
 
+### 5.4 Activating pending accounts (setup links) + daily passcode
+Seeded/imported staff start **pending setup** (no password). Rather than handing
+out temporary passwords, activate them with a secure, expiring **setup link**:
+
+- **Admin → Users** (or **Manager → Staff**): each row shows a status badge
+  (**Pending setup** / **Active** / **Deactivated**). Click **Activate** on a
+  pending user to email a one-time `/accept-invite` link; you're prompted for an
+  email if the profile has none (it becomes their login username). The user sets
+  their own password via the link and is signed straight in. If email isn't
+  configured, the link is shown once to copy. Delegated rules apply (managers →
+  their own stylists only). Every activation is audit-logged.
+- **Daily passcode:** after their first login (or right after accepting the setup
+  link), a user may set a **4–6 digit numeric passcode** (Account → Quick-access
+  passcode) for faster same-device sign-in. The device remembers who they are and
+  asks for the passcode **once per device-local calendar day**; full password
+  login is still used on new devices and after repeated wrong attempts. The
+  passcode is stored only as a hash server-side — never plaintext, never logged.
+
 ---
 
 ## 6. Data import formats
@@ -167,6 +204,8 @@ Download the exact templates from the Admin **Data Import** / **Users** tabs (th
 - [x] Rate limiting on (`/auth/login` tight, imports throttled).
 - [x] Security headers + CSP applied by both the frontend (`next.config.mjs`) and backend middleware.
 - [x] Passwords hashed with argon2; password policy enforced; login is rate-limited.
+- [x] Fast-access passcodes hashed with argon2 (never plaintext/logged); verify endpoint rate-limited + locks out after repeated failures.
+- [ ] Preset admin password (`venitaadmin`) changed after first login.
 - [x] Self-registration disabled — accounts are provisioned down the owner→admin→manager→stylist hierarchy only.
 - [x] Delegated provisioning enforced server-side (managers limited to stylists in their own salon).
 - [ ] `BOOTSTRAP_TOKEN` unset/rotated once the first owner exists (see §3.3).
@@ -226,8 +265,8 @@ cd backend && pip install -r requirements.txt && pytest
 
 ## 11. What changed for production (summary)
 
-- **Frontend:** real API client with JWT + auto-refresh; login/register pages; route protection (`proxy.ts` + `AuthGate`); admin management UI (salons, users single/bulk CSV, pay plans, imports, audit); Calendar / Promotions / Notifications screens; PWA (manifest, service worker, offline banner, installable); `DEMO_MODE` flag conditionalizing all mocks/localStorage; Sentry placeholder; security headers.
-- **Backend:** rate limiting, security headers/CSP, strict CORS + trusted hosts, request logging, prod-safe config enforcement; salon/user CRUD; bulk CSV user provisioning; per-salon pay-tier config; weekly + daily import pipeline with Zenoti/PayCor adapters; row-level salon scoping; audit log; readiness probe; SendGrid/Twilio stubs; gunicorn + non-root Docker + auto-migrations.
+- **Frontend:** real API client with JWT + auto-refresh; login (email **or** username) / accept-invite / setup pages; route protection (`proxy.ts` + `AuthGate`); daily **passcode gate** (numeric keypad) + Account passcode management; admin management UI (salons, users single/bulk CSV with **status badges** + **Activate / Send setup link**, pay plans, imports, audit); Calendar / Promotions / Notifications screens; PWA (manifest, service worker, offline banner, installable); `DEMO_MODE` flag conditionalizing all mocks/localStorage; Sentry placeholder; security headers.
+- **Backend:** rate limiting, security headers/CSP, strict CORS + trusted hosts, request logging, prod-safe config enforcement; JWT auth with username-or-email login; secure invite / accept-invite setup-token flow; **fast-access numeric passcode** (set/change/clear/verify, hashed, rate-limited + lockout); `seed_production` (preset admin + real roster, pending-setup employees); salon/user CRUD; bulk CSV user provisioning; per-salon pay-tier config; weekly + daily import pipeline with Zenoti/PayCor adapters; row-level salon scoping; audit log; readiness probe; SendGrid/Twilio stubs; gunicorn + non-root Docker + auto-migrations.
 - **Pay math:** frontend `tiers.ts`, backend `pay_engine.py`, and the mirror tests are kept byte-for-byte in sync with `docs/spec/PPH Based Payplan.xlsx` and guarded by `scripts/test-pay-parity.mjs`.
 
 ---

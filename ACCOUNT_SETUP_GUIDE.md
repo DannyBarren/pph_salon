@@ -380,6 +380,12 @@ All under the backend `/api/v1` prefix; all require a Bearer JWT except where no
 | Refresh token | `POST /auth/refresh` (no auth) | any session |
 | Who am I | `GET /auth/me` | any signed-in user |
 | Change own password | `POST /auth/change-password` | any real user |
+| Set / change passcode | `POST /auth/passcode` (needs current password) | any real user |
+| Disable passcode | `DELETE /auth/passcode` | any real user |
+| Verify passcode (daily unlock) | `POST /auth/passcode/verify` (rate-limited) | remembered device |
+| Preview a setup link | `GET /auth/invite/{token}` (no auth) | invitee |
+| Accept invite (set password) | `POST /auth/accept-invite` (no auth) | invitee |
+| Send setup link / activate | `POST /users/{id}/invite` | manager+ (delegated) |
 | Create salon | `POST /salons` | owner/admin |
 | Configure pay tiers | `PUT /salons/{id}/pay-tiers` | owner/admin |
 | Create user | `POST /users` | manager+ (delegated rules apply) |
@@ -404,28 +410,38 @@ The organization admin signs in with a **username** (not an email):
 
 | Field | Value |
 | --- | --- |
-| Username | `Venita_Admin` |
-| Password | `Salon_Admin` |
+| Username | `admin` |
+| Password | `venitaadmin` |
 
-The admin can change this password anytime from **Account → Change password**
-(or `/account`). Everyone else signs in with their **email address**.
+The admin is created as an **owner** (full org-wide powers) and can change this
+password anytime from **Account → Change password** (or `/account`). **Change it
+promptly after the first login** — these are preset defaults. Everyone else signs
+in with their **email address**.
 
 ### Seeding the admin + the real salons/employees (one-time, per deploy)
 
 After the database is migrated (`alembic upgrade head`), seed the admin and the
-real roster (all real salons + employees from the client export) with:
+real roster (all real salons + employees from the client export). The defaults
+already create `admin` / `venitaadmin`:
 
 ```bash
 cd backend
 python -m scripts.seed_production \
-    --admin-username Venita_Admin \
-    --admin-password 'Salon_Admin' \
+    --csv "../PPH Data 06-26-2026.xlsx.csv"
+
+# …which is equivalent to spelling out the defaults:
+python -m scripts.seed_production \
+    --admin-username admin \
+    --admin-password 'venitaadmin' \
+    --admin-name Venita \
     --csv "../PPH Data 06-26-2026.xlsx.csv"
 ```
 
-This is **idempotent** (safe to re-run). Every salon and employee is created in a
-**pending-setup** state — they exist in the system but **cannot log in yet**
-because they have no password. No plaintext passwords are stored for staff.
+This is **idempotent** (safe to re-run). The admin account is **active
+immediately** and can log in right away. Every salon and employee is created in a
+**pending-setup** state — they exist in the system (name, role, salon, employee
+code) but **cannot log in yet** because they have no password. No plaintext
+passwords are stored for staff.
 
 ### Unlocking accounts ("send setup link")
 
@@ -450,6 +466,40 @@ Links are one-time and expire (default 72h). Re-send anytime; you can also still
 
 > Configure `APP_BASE_URL` (backend) to your site's public URL so the links point
 > to the right place, and set `SENDGRID_API_KEY` to actually deliver the emails.
+
+### Account statuses in the Users list
+
+The **Admin → Users** (and manager **Staff**) list shows a status badge per row:
+
+| Badge | Meaning | Action |
+| --- | --- | --- |
+| **Pending setup** | Profile exists (seeded/created) but has no password — can't log in. | **Activate** → emails a one-time setup link (you'll be prompted for an email if missing). |
+| **Active** | Has a password and can sign in. | **Send setup link** / **Reset password** to help them recover access. |
+| **Deactivated** | Login disabled; history preserved. | **Reactivate** re-issues a setup link. |
+
+You can also **Create a new user** (single form or CSV bulk import) and then
+Activate them the same way. Every unlock / invite / password reset / create /
+deactivate is written to the **Audit Log**.
+
+### Fast daily passcode (4–6 digits)
+
+For quick day-to-day access on a phone, each person can set a **4–6 digit numeric
+passcode** after their first full login (or right after accepting their setup
+link — an optional prompt appears):
+
+- Set/change/disable it under **Account → Quick-access passcode** (setting it
+  requires the current password).
+- The passcode is stored only as a secure hash on the server — never in plaintext
+  and never logged.
+- The device **remembers who you are** (via the refresh token), and the app asks
+  for the passcode **once per calendar day** (the device's **local** day boundary)
+  before opening the app. Full email/username + password is still used on new
+  devices.
+- After several wrong passcode attempts the passcode is cleared and the app falls
+  back to a full password login.
+
+This is a **convenience gate** on top of the real JWT auth, not a replacement for
+the password. It works as a PWA / mobile-browser install.
 
 ---
 
