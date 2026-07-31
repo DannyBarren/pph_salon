@@ -53,11 +53,16 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 _IMPORT_LIMIT = get_settings().rate_limit_import
 
 # The canonical weekly import column order (also used for the template).
+#
+# ``employee_id`` is the routing key — it accepts the client Employee code
+# (e.g. ``VG1426``) OR our internal numeric user id, and data is routed to that
+# user REGARDLESS of the ``salon_name`` value (salon_name is informational and
+# only used as a tie-breaker when the same employee code exists in >1 salon).
+# One file can carry MANY employees across MANY weeks / pay periods at once.
 TEMPLATE_COLUMNS = [
-    "user_id",
+    "employee_id",
     "salon_name",
     "week_start",
-    "guarantee_rate",
     "scheduled_hrs",
     "actual_hrs",
     "actual_haircuts",
@@ -67,11 +72,14 @@ TEMPLATE_COLUMNS = [
 ]
 
 _TEMPLATE_SAMPLE = [
-    # Historical / back-dated pay periods import exactly like the current one —
-    # just set an earlier week_start (e.g. June 8 or June 15).
-    ["18939", "Aria Studio", "2026-06-08", "12", "27.25", "26.5", "18", "9", "40", "Back-filled period"],
-    ["18939", "Aria Studio", "2026-06-29", "12", "27.25", "26.5", "18", "9", "40", "Great color week"],
-    ["11027", "Aria Studio", "2026-06-29", "13", "28", "0", "0", "0", "0", "Full-week call-off (sick)"],
+    # Bulk import for the WHOLE organization at once: many employees, and many
+    # weeks / pay periods (each pay period is two weekly rows). Employees are
+    # matched by employee_id; salon_name just labels the row.
+    ["VG1426", "Burleson, TX", "2026-06-22", "27.25", "26.5", "18", "9", "40", "Period 1 · week 1"],
+    ["VG1426", "Burleson, TX", "2026-06-29", "30", "29", "20", "10", "0", "Period 1 · week 2"],
+    ["VG1296", "Burleson, TX", "2026-06-22", "16", "15.58", "8", "4", "0", ""],
+    ["VG1296", "Burleson, TX", "2026-07-06", "18", "17", "9", "5", "0", "Next pay period"],
+    ["18939", "Aria Studio", "2026-06-22", "28", "0", "0", "0", "0", "Numeric user id also works"],
 ]
 
 USERS_TEMPLATE_COLUMNS = [
@@ -175,13 +183,30 @@ def _to_date(value: str | date | datetime | None) -> date | None:
     return date.fromisoformat(str(value).strip()[:10])
 
 
-def _resolve_daily_user(
+def _get_ci(raw: dict[str, object], *keys: str) -> object:
+    """Case-insensitive lookup across several candidate header names.
+
+    Returns the first non-empty value, so a bulk row can use any accepted
+    spelling of a column (``employee_id`` / ``Employee code`` / ``EEID`` / …).
+    """
+    lowered = {str(k).strip().lower(): v for k, v in raw.items()}
+    for key in keys:
+        value = lowered.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _resolve_import_user(
     session: Session, eeid: object, name: object, salon_name: object
 ) -> User | None:
-    """Resolve the employee for a daily row.
+    """Resolve the employee for an import row by their employee id.
 
-    EEID may be our numeric user id OR the client's employee code (e.g. VG1426).
-    Falls back to matching by name, scoped to the salon when one is given.
+    ``eeid`` may be our numeric user id OR the client's employee code
+    (e.g. ``VG1426``). Routing is by that id: the salon is only used as a
+    tie-breaker when the same employee code appears in more than one salon, and
+    resolution falls back to a global (any-salon) match, so a wrong/blank salon
+    never misroutes the data. Also falls back to matching by name within a salon.
     """
     salon = None
     if salon_name:
@@ -198,15 +223,20 @@ def _resolve_daily_user(
         user = session.get(User, int(raw))
         if user is not None:
             return user
-    # 2) Employee code (optionally within the resolved salon).
+    # 2) Employee code. Prefer the given salon as a tie-breaker (same code can
+    #    appear in >1 salon), but ALWAYS fall back to a global match so a wrong
+    #    or blank salon_name can never misroute the data — the employee id wins.
     if raw:
-        stmt = select(User).where(User.employee_code == raw)
         if salon is not None:
-            stmt = stmt.where(User.salon_id == salon.id)
-        user = session.exec(stmt).first()
+            scoped = session.exec(
+                select(User).where(User.employee_code == raw, User.salon_id == salon.id)
+            ).first()
+            if scoped is not None:
+                return scoped
+        user = session.exec(select(User).where(User.employee_code == raw)).first()
         if user is not None:
             return user
-    # 3) Name within the salon.
+    # 3) Name within the salon (last resort).
     if name and salon is not None:
         user = session.exec(
             select(User).where(User.salon_id == salon.id, User.name == str(name).strip())
@@ -266,49 +296,61 @@ async def import_weekly(
     result = WeeklyImportResult()
 
     for i, raw in enumerate(raw_rows, start=2):  # row 1 is the header
+        # Routing key: employee id (client Employee code OR numeric user id).
+        ident = _get_ci(
+            raw, "employee_id", "employee id", "employee code", "emp code",
+            "eeid", "ee id", "emp id", "user_id", "user id", "provider id",
+        )
+        week_start = _to_date(_get_ci(raw, "week_start", "week start", "period start", "date"))
+        salon_name = _get_ci(raw, "salon_name", "salon name", "salon", "location", "center")
+
+        # Silently skip genuinely blank rows (no employee and no week).
+        if (ident in (None, "")) and week_start is None:
+            continue
+        if ident in (None, ""):
+            result.skipped += 1
+            result.errors.append(f"Row {i}: employee_id is required")
+            continue
+        if week_start is None:
+            result.skipped += 1
+            result.errors.append(f"Row {i}: week_start is required")
+            continue
+
+        # Route strictly by employee id — a wrong/blank salon never misroutes.
+        user = _resolve_import_user(
+            session, ident, _get_ci(raw, "name", "employee name", "ee name"), salon_name
+        )
+        if user is None:
+            result.skipped += 1
+            result.errors.append(f"Row {i}: unknown employee '{ident}'")
+            continue
+
         try:
-            if raw.get("user_id") in (None, ""):
-                continue
             row = WeeklyImportRow(
-                user_id=_to_int(raw.get("user_id")),
-                salon_name=(str(raw["salon_name"]).strip() if raw.get("salon_name") else None),
-                week_start=_to_date(raw.get("week_start")),
-                week_end=_to_date(raw.get("week_end")),
-                guarantee_rate=_to_float(raw.get("guarantee_rate")),
-                scheduled_hrs=_to_float(raw.get("scheduled_hrs")) or 0.0,
-                actual_hrs=_to_float(raw.get("actual_hrs")),
-                actual_haircuts=_to_int(raw.get("actual_haircuts")),
-                actual_colors=_to_int(raw.get("actual_colors")),
-                actual_other_value=_to_float(raw.get("actual_other_value")),
-                notes=(str(raw["notes"]).strip() if raw.get("notes") else None),
+                user_id=user.id,
+                employee_id=str(ident).strip(),
+                salon_name=(str(salon_name).strip() if salon_name else None),
+                week_start=week_start,
+                week_end=_to_date(_get_ci(raw, "week_end", "week end")),
+                guarantee_rate=_to_float(_get_ci(raw, "guarantee_rate", "guaranteed pay-rate", "guarantee rate")),
+                scheduled_hrs=_to_float(_get_ci(raw, "scheduled_hrs", "scheduled hrs", "sched hrs", "scheduled hours")) or 0.0,
+                actual_hrs=_to_float(_get_ci(raw, "actual_hrs", "actual hrs", "actual hours", "hours worked")),
+                actual_haircuts=_to_int(_get_ci(raw, "actual_haircuts", "haircuts", "cuts")),
+                actual_colors=_to_int(_get_ci(raw, "actual_colors", "colors")),
+                actual_other_value=_to_float(_get_ci(raw, "actual_other_value", "net service rev", "other value")),
+                notes=(str(_get_ci(raw, "notes", "comment") or "").strip() or None),
             )
         except Exception as exc:  # noqa: BLE001
             result.skipped += 1
             result.errors.append(f"Row {i}: {exc}")
             continue
 
-        user = session.get(User, row.user_id)
-        if user is None:
-            result.skipped += 1
-            result.errors.append(f"Row {i}: unknown user_id {row.user_id}")
-            continue
-
-        # Cross-check the salon name against the user's salon when supplied.
-        if row.salon_name:
-            salon = get_salon_by_name(session, row.salon_name)
-            if salon is not None and salon.id != user.salon_id:
-                result.skipped += 1
-                result.errors.append(
-                    f"Row {i}: user {row.user_id} is not in salon '{row.salon_name}'"
-                )
-                continue
-
         if row.guarantee_rate is not None and user.guarantee_rate != row.guarantee_rate:
             user.guarantee_rate = row.guarantee_rate
             session.add(user)
 
         _, created = upsert_weekly_data_by_user_and_week(
-            session, row.user_id, row.week_start, row, commit=False
+            session, user.id, week_start, row, commit=False
         )
         if created:
             result.inserted += 1
@@ -353,7 +395,7 @@ async def import_daily(
             result.errors.append(f"Row {i}: {exc}")
             continue
 
-        user = _resolve_daily_user(session, eeid, raw.get("name"), raw.get("salon_name"))
+        user = _resolve_import_user(session, eeid, raw.get("name"), raw.get("salon_name"))
         if user is None:
             result.skipped += 1
             result.errors.append(f"Row {i}: unknown employee '{eeid}'")

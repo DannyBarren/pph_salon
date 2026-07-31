@@ -146,11 +146,88 @@ def test_import_weekly_endpoint(engine):
         app.dependency_overrides.pop(get_current_user, None)
 
 
+def test_import_weekly_bulk_by_employee_code_across_salons_and_periods(engine):
+    """One file → many employees × many weeks, routed by employee_id (code),
+    and the data lands on the right user even when the salon_name is wrong."""
+    with Session(engine) as s:
+        aria = Salon(id=1, name="Aria Studio", service_prices={"haircut": 23, "color": 85})
+        lumiere = Salon(id=2, name="Lumiere", service_prices={"haircut": 23, "color": 85})
+        s.add(aria)
+        s.add(lumiere)
+        s.commit()
+        # Two stylists in DIFFERENT salons, identified by employee code.
+        s.add(User(id=501, name="Reb", role=UserRole.stylist, salon_id=1, employee_code="VG1426"))
+        s.add(User(id=502, name="Mia", role=UserRole.stylist, salon_id=2, employee_code="VG1296"))
+        s.commit()
+
+    def _override_session():
+        with Session(engine) as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _override_session
+    try:
+        client = TestClient(app)
+        csv_body = (
+            "employee_id,salon_name,week_start,scheduled_hrs,actual_hrs,actual_haircuts,actual_colors,actual_other_value,notes\n"
+            # VG1426 across two weeks (one pay period).
+            "VG1426,Aria Studio,2026-06-22,27.25,26,10,5,0,wk1\n"
+            "VG1426,Aria Studio,2026-06-29,30,29,12,6,0,wk2\n"
+            # VG1296 with the WRONG salon on purpose — must still route by code.
+            "VG1296,Aria Studio,2026-06-22,16,15,8,4,0,wrong salon on row\n"
+        )
+        resp = client.post(
+            "/api/v1/admin/import-weekly",
+            files={"file": ("weekly.csv", csv_body, "text/csv")},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["inserted"] == 3
+        assert resp.json()["skipped"] == 0
+
+        with Session(engine) as s:
+            reb_weeks = s.query(Week).filter(Week.stylist_id == 501).all()
+            assert {w.week_start.isoformat() for w in reb_weeks} == {"2026-06-22", "2026-06-29"}
+            # Mia (salon 2) got her row even though salon_name said "Aria Studio".
+            mia = s.query(Week).filter(Week.stylist_id == 502).one()
+            assert mia.week_start.isoformat() == "2026-06-22"
+            assert mia.actual_production == 8 * 23 + 4 * 85
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+
+def test_import_weekly_unknown_employee_id_is_skipped(engine):
+    with Session(engine) as s:
+        s.add(Salon(id=1, name="Aria Studio", service_prices={"haircut": 23, "color": 85}))
+        s.commit()
+
+    def _override_session():
+        with Session(engine) as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _override_session
+    try:
+        client = TestClient(app)
+        csv_body = (
+            "employee_id,salon_name,week_start,scheduled_hrs,actual_hrs,actual_haircuts,actual_colors,actual_other_value,notes\n"
+            "VG9999,Aria Studio,2026-06-22,20,20,5,5,0,no such employee\n"
+        )
+        resp = client.post(
+            "/api/v1/admin/import-weekly",
+            files={"file": ("weekly.csv", csv_body, "text/csv")},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["inserted"] == 0
+        assert resp.json()["skipped"] == 1
+        assert "unknown employee" in resp.json()["errors"][0]
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_import_template_download():
     client = TestClient(app)
     resp = client.get("/api/v1/admin/import-template")
     assert resp.status_code == 200
-    assert "user_id,salon_name,week_start" in resp.text
+    # Bulk pay-period template is keyed by employee_id (+ salon_name label).
+    assert "employee_id,salon_name,week_start" in resp.text
 
 
 def test_weekly_import_row_schema_defaults():
