@@ -155,6 +155,42 @@ export interface ClientImportResult {
   credentials: Record<string, string>;
 }
 
+// ── Historical performance (pay-period / week selectors) ─────────────────────
+export interface StoredWeekDTO {
+  week_start: string;
+  week_end: string | null;
+  has_actuals: boolean;
+}
+
+export interface PayPeriodSummaryDTO {
+  period_start: string;
+  period_end: string;
+  weeks: StoredWeekDTO[];
+}
+
+export interface PerformanceDayDTO {
+  date: string;
+  scheduled_hrs: number;
+  actual_hrs: number | null;
+  actual_production: number | null;
+  haircuts: number | null;
+  colors: number | null;
+}
+
+export interface WeekPerformanceDTO {
+  stylist_id: number;
+  week_start: string;
+  week_end: string | null;
+  scheduled_total_hrs: number;
+  actual_total_hrs: number | null;
+  actual_production: number | null;
+  actual_haircuts: number | null;
+  actual_colors: number | null;
+  actual_other_value: number | null;
+  notes: string | null;
+  daily: PerformanceDayDTO[];
+}
+
 export interface AuditLogDTO {
   id: number;
   actor_id: number | null;
