@@ -25,9 +25,15 @@ class WeeklyDataInput(BaseModel):
 
 
 class WeeklyImportRow(WeeklyDataInput):
-    """A single row of the bulk import file (adds routing/identity columns)."""
+    """A single row of the bulk import file (adds routing/identity columns).
+
+    ``employee_id`` (the client Employee code or our numeric user id) is the
+    routing key; ``salon_name`` is informational. ``user_id`` is the resolved
+    internal id used for the upsert.
+    """
 
     user_id: int
+    employee_id: str | None = None
     week_start: date
     salon_name: str | None = None
     guarantee_rate: float | None = Field(default=None, ge=0)

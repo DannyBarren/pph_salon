@@ -15,12 +15,18 @@ function toCsv(columns: string[], rows: string[][]): string {
   return [columns, ...rows].map((r) => r.map(escape).join(",")).join("\r\n");
 }
 
+// Bulk pay-period template: many EMPLOYEES across many WEEKS / pay periods in
+// one file. `employee_id` (client Employee code OR numeric user id) is the
+// routing key — data goes to that employee regardless of `salon_name` (which
+// just labels the row). One pay period = two weekly rows per employee.
 export const WEEKLY_TEMPLATE = toCsv(
-  ["user_id", "salon_name", "week_start", "guarantee_rate", "scheduled_hrs", "actual_hrs", "actual_haircuts", "actual_colors", "actual_other_value", "notes"],
+  ["employee_id", "salon_name", "week_start", "scheduled_hrs", "actual_hrs", "actual_haircuts", "actual_colors", "actual_other_value", "notes"],
   [
-    ["18939", "Aria Studio", "2026-06-08", "12", "27.25", "26.5", "18", "9", "40", "Back-filled period"],
-    ["18939", "Aria Studio", "2026-06-29", "12", "27.25", "26.5", "18", "9", "40", "Great color week"],
-    ["11027", "Aria Studio", "2026-06-29", "13", "28", "0", "0", "0", "0", "Full-week call-off (sick)"],
+    ["VG1426", "Burleson, TX", "2026-06-22", "27.25", "26.5", "18", "9", "40", "Period 1 · week 1"],
+    ["VG1426", "Burleson, TX", "2026-06-29", "30", "29", "20", "10", "0", "Period 1 · week 2"],
+    ["VG1296", "Burleson, TX", "2026-06-22", "16", "15.58", "8", "4", "0", ""],
+    ["VG1296", "Burleson, TX", "2026-07-06", "18", "17", "9", "5", "0", "Next pay period"],
+    ["18939", "Aria Studio", "2026-06-22", "28", "0", "0", "0", "0", "Numeric user id also works"],
   ],
 );
 
