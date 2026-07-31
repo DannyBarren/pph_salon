@@ -749,9 +749,14 @@ function ImportPanel() {
       <CardBody>
         <h3 className="mb-1 text-sm font-semibold">Import performance data</h3>
         <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
-          Upload Zenoti/PayCor exports or the native template. Weekly imports upsert by (user, week); daily imports also aggregate the parent week.
-          Any <b>week_start</b>/<b>date</b> is accepted, so you can back-fill historical or past-dated pay periods (e.g. June 8–21) alongside the current one.
-          The <b>Client / SSF export</b> auto-provisions salons + employees (with per-employee guarantee rates) and records each person&apos;s Net service Rev for the chosen week.
+          <b>Bulk pay-period import:</b> one file can carry <b>every employee across one or many pay periods</b> at
+          once. The <b>Weekly data</b> template uses an <b>employee_id</b> column (the client Employee code like
+          <code> VG1426</code>, or a numeric user id) plus a <b>salon_name</b> label — data is routed to the right
+          person by employee_id <b>regardless of whether the salon matches</b>. Add one row per employee per week
+          (two weekly rows = one pay period). Daily imports also aggregate the parent week.
+          Any <b>week_start</b>/<b>date</b> is accepted, so you can back-fill historical or past-dated pay periods
+          alongside the current one. The <b>Client / SSF export</b> auto-provisions salons + employees and records
+          each person&apos;s Net service Rev for the chosen week.
         </p>
         <form onSubmit={submit} className="space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
