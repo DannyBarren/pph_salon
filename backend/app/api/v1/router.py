@@ -12,6 +12,7 @@ from app.api.v1 import (
     messages,
     payment_logic,
     payplan,
+    performance,
     salons,
     users,
 )
@@ -23,6 +24,7 @@ api_router.include_router(users.router)
 api_router.include_router(salons.router)
 api_router.include_router(payplan.router)
 api_router.include_router(payment_logic.router)
+api_router.include_router(performance.router)
 api_router.include_router(admin.router)
 api_router.include_router(messages.router)
 api_router.include_router(goals.router)

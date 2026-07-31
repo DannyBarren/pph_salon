@@ -1,6 +1,6 @@
 import type { DayRecord, MessageAcknowledgment, MessageBoardPost, PayConfig, Salon, StylistData, UsageStat, User } from "./types";
 import { CLIENT_ROSTER, CLIENT_SALONS, CLIENT_WEEK_START, type RosterPerson } from "./clientRoster";
-import { addDays } from "./time";
+import { addDays, WEEKS } from "./time";
 import { COLOR_PRICE, HAIRCUT_PRICE, NP_PERCENT, NP_RATE, PPH_TIERS } from "./tiers";
 
 /*
@@ -153,22 +153,45 @@ export const DEMO_ACCOUNT_IDS = [
 // weekly figures. Sunday is off. Weekly sums always equal the export values.
 const WORKING_DAYS = 6; // Mon–Sat
 
-function genDaysForPerson(p: RosterPerson): DayRecord[] {
-  const schedule = spread(p.scheduledHrs, WORKING_DAYS);
-  const worked = spread(p.actualHrs, WORKING_DAYS);
-  const production = spread(p.netServiceRev, WORKING_DAYS);
+/**
+ * Deterministic per-(person, week) multiplier so historical pay periods show
+ * plausible, stable variation instead of identical numbers. The current client
+ * week is always factor 1.0 so it ties out EXACTLY to the export (and to the
+ * pay-parity regression tests). Range ~0.68–1.18.
+ */
+function weekFactor(personId: string, weekStart: string): number {
+  if (weekStart === CLIENT_WEEK_START) return 1;
+  let h = 2166136261 ^ (personId.length + weekStart.length);
+  const s = `${personId}|${weekStart}`;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // Map the 32-bit hash into [0.68, 1.18].
+  const unit = ((h >>> 0) % 1000) / 1000; // 0..1
+  return round2(0.68 + unit * 0.5);
+}
+
+/** Build one week's worth of day records for a person, scaled by `factor`. */
+function genWeekDays(p: RosterPerson, weekStart: string, factor: number): DayRecord[] {
+  const scheduled = p.scheduledHrs * factor;
+  const actual = p.actualHrs * factor;
+  const rev = p.netServiceRev * factor;
+  const schedule = spread(scheduled, WORKING_DAYS);
+  const worked = spread(actual, WORKING_DAYS);
+  const production = spread(rev, WORKING_DAYS);
   const haircutPrice = p.avgHaircut || 23;
   const colorPrice = p.avgColor || 85;
   // Split revenue into a plausible service mix (55% of $ from haircuts) purely
   // for the count displays; production ($) is authoritative and ties out exactly.
-  const weeklyHaircuts = Math.max(0, Math.round((p.netServiceRev * 0.55) / haircutPrice));
-  const weeklyColors = Math.max(0, Math.round((p.netServiceRev * 0.45) / colorPrice));
+  const weeklyHaircuts = Math.max(0, Math.round((rev * 0.55) / haircutPrice));
+  const weeklyColors = Math.max(0, Math.round((rev * 0.45) / colorPrice));
   const haircuts = spreadInt(weeklyHaircuts, WORKING_DAYS);
   const colors = spreadInt(weeklyColors, WORKING_DAYS);
 
   const days: DayRecord[] = [];
   for (let i = 0; i < 7; i++) {
-    const date = addDays(CLIENT_WEEK_START, i);
+    const date = addDays(weekStart, i);
     if (i >= WORKING_DAYS) {
       days.push({ date, scheduledHours: 0, workedHours: 0, haircuts: 0, colors: 0, production: 0 });
       continue;
@@ -179,8 +202,23 @@ function genDaysForPerson(p: RosterPerson): DayRecord[] {
       workedHours: round2(worked[i]),
       haircuts: haircuts[i],
       colors: colors[i],
-      production: production[i], // exact float; weekly sum === netServiceRev
+      production: production[i], // exact float; weekly sum === weekly total
     });
+  }
+  return days;
+}
+
+/**
+ * Generate day records across EVERY week in the time model (not just the current
+ * one) so historical pay periods can be selected and viewed. This is the demo's
+ * persistent "data over time": the current week matches the client export
+ * exactly, and prior/upcoming weeks carry deterministic variation. In the live
+ * app the equivalent history lives in Postgres (see /api/v1/performance/*).
+ */
+function genDaysForPerson(p: RosterPerson): DayRecord[] {
+  const days: DayRecord[] = [];
+  for (const w of WEEKS) {
+    days.push(...genWeekDays(p, w.start, weekFactor(p.id, w.start)));
   }
   return days;
 }

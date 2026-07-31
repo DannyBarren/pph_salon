@@ -111,6 +111,13 @@ This is your home screen. It shows:
 **Change the time range:** use the **Current + Prior / Pay Period / Single Week**
 buttons at the top to switch which weeks you're looking at.
 
+**View past pay periods:** in your dashboard header there are two dropdowns — a
+**Pay Period** picker (most recent first) and a **Week** picker for the weeks in
+that period. Choose an earlier pay period, then the week you want, and the whole
+dashboard updates to show that week's numbers. Because data is saved as it comes
+in, your history stays available — you can always go back and review a previous
+period, week by week.
+
 ### 5.2 Planner (plan and set your goal)
 
 The **Planner** is where you plan your week and lock in a goal.
