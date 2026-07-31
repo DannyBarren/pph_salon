@@ -17,10 +17,12 @@ import type {
   PaymentLogicPreviewDTO,
   PaymentLogicPreviewRequestDTO,
   PaymentLogicUpdateDTO,
+  PayPeriodSummaryDTO,
   PayTierDTO,
   SalonDTO,
   TokenResponse,
   UserDTO,
+  WeekPerformanceDTO,
   WeeklyImportResult,
 } from "@/lib/api/types";
 
@@ -155,6 +157,22 @@ export const userApi = {
   /** Unlock an account + email a "set your password" link (email optional to set it). */
   invite: (id: number, email?: string) =>
     DEMO_MODE ? demoBackend.invite(id, email) : api.post<InviteResponse>(`/users/${id}/invite`, email ? { email } : {}),
+};
+
+// ── Historical performance (pay-period / week selectors) ──────────────────────
+export const performanceApi = {
+  /** Pay periods with stored data for a stylist, newest first. */
+  payPeriods: (stylistId?: number) => {
+    const q = stylistId != null ? `?stylist_id=${stylistId}` : "";
+    return api.get<PayPeriodSummaryDTO[]>(`/performance/pay-periods${q}`);
+  },
+  /** A stylist's stored week: aggregate + daily breakdown (empty if none). */
+  week: (weekStart: string, stylistId?: number) => {
+    const q = stylistId != null ? `&stylist_id=${stylistId}` : "";
+    return api.get<WeekPerformanceDTO>(
+      `/performance/week?week_start=${encodeURIComponent(weekStart)}${q}`,
+    );
+  },
 };
 
 // ── Admin imports + audit ─────────────────────────────────────────────────────
