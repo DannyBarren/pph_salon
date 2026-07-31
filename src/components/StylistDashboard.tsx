@@ -1,24 +1,54 @@
 "use client";
 
-import React, { useState } from "react";
-import { Gauge, TrendingUp, Scale, RefreshCw } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Gauge, TrendingUp, Scale, RefreshCw, CalendarRange } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { userById, salonById } from "@/lib/mockData";
-import { sliceDays } from "@/lib/selection";
-import { CURRENT_WEEK, TODAY, daysOfWeek, weeksInPeriod } from "@/lib/time";
+import { sliceDays, payPeriods } from "@/lib/selection";
+import { CURRENT_WEEK, TODAY, daysOfWeek, weeksInPeriod, fmtRange } from "@/lib/time";
 import type { DayRecord } from "@/lib/types";
 import { canChangeDpr } from "@/lib/roles";
 import { computeWeek, dprOptions, defaultDpr } from "@/lib/uatDashboard";
 import { Card, CardBody, Select, SectionTitle } from "@/components/ui/primitives";
 import { DailyBreakdown } from "@/components/DailyBreakdown";
 import { money, moneyAcct, usDate } from "@/lib/format";
+import { DEMO_MODE } from "@/lib/featureFlags";
+import { performanceApi } from "@/lib/api/endpoints";
 
-// The single pay period the stylist can see (current one). Oldest week first.
-const PERIOD = weeksInPeriod(CURRENT_WEEK.periodIndex);
-const DEFAULT_WEEK_IDX = (() => {
-  const i = PERIOD.findIndex((w) => TODAY >= w.start && TODAY <= w.end);
-  return i >= 0 ? i : PERIOD.length - 1;
-})();
+/** One selectable week inside a pay period. */
+interface WeekOpt {
+  start: string;
+  end: string;
+  label: string;
+}
+/** A selectable pay period (a run of weeks). */
+interface PeriodOpt {
+  label: string;
+  weeks: WeekOpt[];
+}
+
+/** Backend numeric stylist id from a frontend id ("u42" → 42), or null. */
+function backendStylistId(frontendId: string): number | null {
+  const m = /^u(\d+)$/.exec(frontendId);
+  return m ? Number(m[1]) : null;
+}
+
+/** Demo pay periods from the deterministic time model (newest period first). */
+function demoPeriods(): PeriodOpt[] {
+  return payPeriods().map((p) => {
+    const ws = weeksInPeriod(p.index);
+    return {
+      label: p.label,
+      weeks: ws.map((w, i) => ({ start: w.start, end: w.end, label: `Week ${i + 1} · ${fmtRange(w.start, w.end)}` })),
+    };
+  });
+}
+
+/** Pick a sensible default week within a period: the one containing TODAY, else the last. */
+function defaultWeekIdx(weeks: WeekOpt[]): number {
+  const i = weeks.findIndex((w) => TODAY >= w.start && TODAY <= w.end);
+  return i >= 0 ? i : Math.max(0, weeks.length - 1);
+}
 
 /** Smart dollars: whole numbers show no cents ("$14"), fractional show 2 ("$13.75"). */
 function dollars(n: number): string {
@@ -46,7 +76,112 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
 
   const options = dprOptions();
   const [dpr, setDpr] = useState<number>(() => defaultDpr(guarantee));
-  const [weekIdx, setWeekIdx] = useState<number>(DEFAULT_WEEK_IDX);
+
+  // ── Historical pay-period + week selection ──────────────────────────────
+  // Periods come from the deterministic time model in demo, or from the stored
+  // history (Postgres via /performance) in the live app. Selecting a past period
+  // then a week shows that week's data.
+  const [periods, setPeriods] = useState<PeriodOpt[]>(() => (DEMO_MODE ? demoPeriods() : []));
+  const [periodIdx, setPeriodIdx] = useState(0);
+  const [weekIdx, setWeekIdx] = useState<number>(() =>
+    DEMO_MODE ? defaultWeekIdx(demoPeriods()[0]?.weeks ?? []) : 0,
+  );
+  // Live-fetched days for the selected week (production only).
+  const [liveDays, setLiveDays] = useState<DayRecord[] | null>(null);
+
+  // Load the stored pay periods in the live app.
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const bid = backendStylistId(stylistId) ?? undefined;
+        const dtos = await performanceApi.payPeriods(bid);
+        if (cancelled) return;
+        const mapped: PeriodOpt[] = dtos.map((p) => ({
+          label: fmtRange(p.period_start, p.period_end),
+          weeks: p.weeks.map((w, i) => ({
+            start: w.week_start,
+            end: w.week_end ?? w.week_start,
+            label: `Week ${i + 1} · ${fmtRange(w.week_start, w.week_end ?? w.week_start)}`,
+          })),
+        }));
+        // Fall back to the time-model periods so the selector always renders.
+        const next = mapped.length > 0 ? mapped : demoPeriods();
+        setPeriods(next);
+        setPeriodIdx(0);
+        setWeekIdx(defaultWeekIdx(next[0]?.weeks ?? []));
+      } catch {
+        const fallback = demoPeriods();
+        setPeriods(fallback);
+        setPeriodIdx(0);
+        setWeekIdx(defaultWeekIdx(fallback[0]?.weeks ?? []));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stylistId]);
+
+  const period = periods[periodIdx] ?? periods[0];
+  const selWeek = period?.weeks[weekIdx] ?? period?.weeks[period.weeks.length - 1];
+  const selStart = selWeek?.start;
+  const selEnd = selWeek?.end;
+
+  // Live app: fetch the selected week's stored data and map it to day records.
+  useEffect(() => {
+    if (DEMO_MODE || !selStart || !selEnd) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLiveDays(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const bid = backendStylistId(stylistId) ?? undefined;
+        const wk = await performanceApi.week(selStart, bid);
+        if (cancelled) return;
+        const byDate = new Map(
+          wk.daily.map((d) => [
+            d.date,
+            {
+              date: d.date,
+              scheduledHours: d.scheduled_hrs ?? 0,
+              workedHours: d.actual_hrs ?? 0,
+              haircuts: d.haircuts ?? 0,
+              colors: d.colors ?? 0,
+              production: d.actual_production ?? 0,
+            } as DayRecord,
+          ]),
+        );
+        setLiveDays(
+          daysOfWeek({ id: selStart, start: selStart, end: selEnd, label: "", periodIndex: 0 }).map(
+            (date) => byDate.get(date) ?? { date, scheduledHours: 0, workedHours: 0, haircuts: 0, colors: 0, production: 0 },
+          ),
+        );
+      } catch {
+        if (!cancelled) setLiveDays(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stylistId, selStart, selEnd]);
+
+  const activeWeek = selWeek ?? { start: CURRENT_WEEK.start, end: CURRENT_WEEK.end };
+  const activeStart = activeWeek.start;
+  const activeEnd = activeWeek.end;
+
+  // Build the full 7-day week (blank days included, like the spreadsheet).
+  const weekDays: DayRecord[] = useMemo(() => {
+    if (!DEMO_MODE && liveDays) return liveDays;
+    const byDate = new Map(sliceDays(getDays(stylistId), activeStart, activeEnd).map((d) => [d.date, d]));
+    return daysOfWeek({ id: activeStart, start: activeStart, end: activeEnd, label: "", periodIndex: 0 }).map(
+      (date) => byDate.get(date) ?? { date, scheduledHours: 0, workedHours: 0, haircuts: 0, colors: 0, production: 0 },
+    );
+  }, [liveDays, getDays, stylistId, activeStart, activeEnd]);
+
+  const { metrics, recap, gap, daily } = computeWeek(weekDays, dpr, guarantee);
 
   // Excluded employees are not on the PPH pay plan — no personal dashboard.
   if (stylist.excluded) {
@@ -62,17 +197,6 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
     );
   }
 
-  const selWeek = PERIOD[weekIdx] ?? CURRENT_WEEK;
-  const period = { start: PERIOD[0].start, end: PERIOD[PERIOD.length - 1].end };
-
-  // Build the full 7-day week (blank days included, like the spreadsheet).
-  const byDate = new Map(sliceDays(getDays(stylistId), selWeek.start, selWeek.end).map((d) => [d.date, d]));
-  const weekDays: DayRecord[] = daysOfWeek(selWeek).map(
-    (date) => byDate.get(date) ?? { date, scheduledHours: 0, workedHours: 0, haircuts: 0, colors: 0, production: 0 },
-  );
-
-  const { metrics, recap, gap, daily } = computeWeek(weekDays, dpr, guarantee);
-
   return (
     <div className="space-y-4">
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -87,26 +211,43 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
               </p>
             </div>
             <div className="shrink-0 sm:text-right">
-              <div className="text-[11px] font-medium tracking-wide text-white/70 uppercase">Pay Period</div>
-              <div className="text-sm font-semibold tabular-nums">
-                {usDate(period.start)} to {usDate(period.end)}
+              <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-white/70 uppercase sm:justify-end">
+                <CalendarRange size={12} /> Pay Period
               </div>
-              <div className="mt-2 inline-flex rounded-full bg-white/15 p-0.5 text-[12px] font-semibold">
-                {PERIOD.map((w, i) => (
-                  <button
-                    key={w.id}
-                    type="button"
-                    onClick={() => setWeekIdx(i)}
-                    className={`rounded-full px-3 py-1 transition ${
-                      i === weekIdx ? "bg-white text-[var(--color-brand-ink)]" : "text-white/80 hover:text-white"
-                    }`}
-                  >
-                    Week {i + 1}
-                  </button>
-                ))}
+              {/* Historical pay-period + week pickers (select a past period to view it). */}
+              <div className="mt-1.5 flex flex-col items-stretch gap-1.5 sm:items-end">
+                <select
+                  aria-label="Select pay period"
+                  value={periodIdx}
+                  onChange={(e) => {
+                    const idx = Number(e.target.value);
+                    setPeriodIdx(idx);
+                    setWeekIdx(defaultWeekIdx(periods[idx]?.weeks ?? []));
+                  }}
+                  className="w-full min-w-[11rem] rounded-lg border border-white/30 bg-white/95 px-2.5 py-1.5 text-sm font-semibold text-[var(--color-ink)] outline-none sm:w-auto"
+                >
+                  {periods.map((p, i) => (
+                    <option key={`${p.label}-${i}`} value={i}>
+                      {p.label}
+                      {i === 0 ? " · Latest" : ""}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Select week in pay period"
+                  value={weekIdx}
+                  onChange={(e) => setWeekIdx(Number(e.target.value))}
+                  className="w-full min-w-[11rem] rounded-lg border border-white/30 bg-white/95 px-2.5 py-1.5 text-sm font-semibold text-[var(--color-ink)] outline-none sm:w-auto"
+                >
+                  {(period?.weeks ?? []).map((w, i) => (
+                    <option key={w.start} value={i}>
+                      {w.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="mt-2 flex items-center gap-1 text-[11px] text-white/60 sm:justify-end">
-                <RefreshCw size={11} /> Last data refresh {usDate(TODAY)}
+                <RefreshCw size={11} /> Showing {usDate(activeWeek.start)} – {usDate(activeWeek.end)}
               </div>
             </div>
           </div>
