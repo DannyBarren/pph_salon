@@ -99,7 +99,7 @@ export default function AccountPage() {
  * day on this device instead of a full password login.
  */
 function PasscodeSettings() {
-  const { user, refreshMe } = useAuth();
+  const { user, refreshMe, satisfyPasscode } = useAuth();
   const hasPasscode = !!user?.has_passcode;
   const [passcode, setPasscode] = useState("");
   const [confirmPasscode, setConfirmPasscode] = useState("");
@@ -138,6 +138,9 @@ function PasscodeSettings() {
       setConfirmPasscode("");
       setPassword("");
       await refreshMe();
+      // The user is actively here having just re-authenticated — don't bounce
+      // them to the daily passcode gate for the code they just set.
+      satisfyPasscode();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Could not set passcode");
     } finally {

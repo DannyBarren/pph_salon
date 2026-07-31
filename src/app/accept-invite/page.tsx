@@ -10,7 +10,7 @@ import type { InvitePreview } from "@/lib/api/types";
 function AcceptInviteInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const { demoMode, refreshMe } = useAuth();
+  const { demoMode, refreshMe, satisfyPasscode } = useAuth();
   const token = params.get("token") ?? "";
 
   const [preview, setPreview] = useState<InvitePreview | null>(null);
@@ -85,7 +85,10 @@ function AcceptInviteInner() {
     try {
       // The password we just set is the current password for re-auth.
       await authApi.setPasscode(passcode, password);
-      await finish();
+      await refreshMe();
+      // Just set it while signed in — go straight to the app, not the gate.
+      satisfyPasscode();
+      router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save passcode. You can set it later in Account.");
       setSubmitting(false);
