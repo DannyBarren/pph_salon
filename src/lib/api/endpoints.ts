@@ -44,6 +44,22 @@ export const authApi = {
       new_password: newPassword,
     });
   },
+  /** Set or change the fast-access numeric passcode (requires current password). */
+  setPasscode(passcode: string, currentPassword: string): Promise<{ has_passcode: boolean }> {
+    return api.post<{ has_passcode: boolean }>("/auth/passcode", {
+      passcode,
+      current_password: currentPassword,
+    });
+  },
+  /** Disable the fast-access passcode. */
+  clearPasscode(): Promise<{ has_passcode: boolean }> {
+    return api.del<{ has_passcode: boolean }>("/auth/passcode");
+  },
+  /** Verify the passcode for a remembered device; refreshes the token pair. */
+  async verifyPasscode(passcode: string): Promise<void> {
+    const tokens = await api.post<TokenResponse>("/auth/passcode/verify", { passcode });
+    tokenStore.set(tokens.access_token, tokens.refresh_token);
+  },
   logout(): void {
     tokenStore.clear();
   },

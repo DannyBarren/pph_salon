@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { KeyRound, Loader2, CheckCircle2 } from "lucide-react";
+import { KeyRound, Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { useAuth } from "@/store/AuthContext";
 import { authApi } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import { Card, CardBody, Button } from "@/components/ui/primitives";
 
-/** Self-service account settings: change your own password. */
+/** Self-service account settings: change your own password + fast passcode. */
 export default function AccountPage() {
   const { currentUser } = useApp();
   const { demoMode } = useAuth();
@@ -87,6 +87,142 @@ export default function AccountPage() {
           )}
         </CardBody>
       </Card>
+
+      {!demoMode && <PasscodeSettings />}
     </div>
+  );
+}
+
+/**
+ * Manage the fast-access numeric passcode (4–6 digits). Setting it requires the
+ * current password (re-auth). Once set, the app asks for the passcode once per
+ * day on this device instead of a full password login.
+ */
+function PasscodeSettings() {
+  const { user, refreshMe } = useAuth();
+  const hasPasscode = !!user?.has_passcode;
+  const [passcode, setPasscode] = useState("");
+  const [confirmPasscode, setConfirmPasscode] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  const field =
+    "w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-brand)]";
+
+  const numericProps = {
+    inputMode: "numeric" as const,
+    pattern: "[0-9]*",
+    maxLength: 6,
+    autoComplete: "off",
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setDone(null);
+    if (!/^\d{4,6}$/.test(passcode)) {
+      setError("Passcode must be 4–6 digits.");
+      return;
+    }
+    if (passcode !== confirmPasscode) {
+      setError("Passcodes don't match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await authApi.setPasscode(passcode, password);
+      setDone(hasPasscode ? "Passcode updated." : "Passcode set. You'll use it for daily quick access on this device.");
+      setPasscode("");
+      setConfirmPasscode("");
+      setPassword("");
+      await refreshMe();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Could not set passcode");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disable = async () => {
+    setError(null);
+    setDone(null);
+    setBusy(true);
+    try {
+      await authApi.clearPasscode();
+      setDone("Passcode disabled. You'll sign in with your password.");
+      await refreshMe();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Could not disable passcode");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardBody>
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          <ShieldCheck size={16} /> Quick-access passcode
+        </h2>
+        <p className="mb-3 text-sm text-[var(--color-ink-faint)]">
+          {hasPasscode
+            ? "A passcode is set. This device asks for it once per day for faster sign-in."
+            : "Set a 4–6 digit passcode for faster daily sign-in on this device. You'll still use your password on new devices and after too many wrong tries."}
+        </p>
+
+        <form onSubmit={save} className="space-y-3">
+          <input
+            className={field}
+            type="password"
+            {...numericProps}
+            placeholder={hasPasscode ? "New passcode (4–6 digits)" : "Passcode (4–6 digits)"}
+            required
+            value={passcode}
+            onChange={(e) => setPasscode(e.target.value.replace(/\D/g, ""))}
+          />
+          <input
+            className={field}
+            type="password"
+            {...numericProps}
+            placeholder="Confirm passcode"
+            required
+            value={confirmPasscode}
+            onChange={(e) => setConfirmPasscode(e.target.value.replace(/\D/g, ""))}
+          />
+          <input
+            className={field}
+            type="password"
+            autoComplete="current-password"
+            placeholder="Your current password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && (
+            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
+          {done && (
+            <p className="flex items-center gap-2 rounded-lg bg-[var(--color-success-soft)] px-3 py-2 text-sm text-[var(--color-success)]">
+              <CheckCircle2 size={16} /> {done}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="submit" disabled={busy}>
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}{" "}
+              {hasPasscode ? "Update passcode" : "Set passcode"}
+            </Button>
+            {hasPasscode && (
+              <Button type="button" variant="ghost" disabled={busy} onClick={disable}>
+                Disable passcode
+              </Button>
+            )}
+          </div>
+        </form>
+      </CardBody>
+    </Card>
   );
 }
