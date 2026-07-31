@@ -62,15 +62,22 @@ def test_owner_sdl_blocked_from_admin_capabilities(client, engine):
     assert client.get(f"{PP}/payment-logic", headers=_as(owner)).status_code == 403
     # Creating a salon — admin only.
     assert client.post(f"{PP}/salons", json={"name": "X"}, headers=_as(owner)).status_code == 403
-    # Creating a user — admin only.
+    # Audit log — admin only.
+    assert client.get(f"{PP}/admin/audit", headers=_as(owner)).status_code == 403
+
+
+def test_owner_sdl_can_provision_subordinate_accounts(client, engine):
+    """SDL/Owner is a super-admin for delegated provisioning: they may create,
+    invite, and manage subordinate accounts (below their rank) in any salon,
+    even though the org-wide Danger Zone (payment logic / salon creation /
+    audit) stays exclusive to the top Admin role."""
+    owner = _make_user(engine, UserRole.owner)
     r = client.post(
         f"{PP}/users",
         json={"name": "New", "role": "stylist", "salon_id": 1},
         headers=_as(owner),
     )
-    assert r.status_code == 403
-    # Audit log — admin only.
-    assert client.get(f"{PP}/admin/audit", headers=_as(owner)).status_code == 403
+    assert r.status_code == 201, r.text
 
 
 def test_manager_and_stylist_blocked_from_admin_capabilities(client, engine):

@@ -16,8 +16,13 @@ export interface CurrentUserDTO {
   salon_id: number;
   manager_id: number | null;
   excluded?: boolean;
+  /** Whether the user has configured a fast-access numeric passcode. */
+  has_passcode?: boolean;
   is_demo: boolean;
 }
+
+/** Account lifecycle badge exposed by the backend. */
+export type UserStatus = "pending_setup" | "active" | "deactivated";
 
 export interface UserDTO {
   id: number;
@@ -30,6 +35,10 @@ export interface UserDTO {
   phone: string | null;
   guarantee_rate: number | null;
   excluded?: boolean;
+  is_active?: boolean;
+  status?: UserStatus;
+  has_password?: boolean;
+  has_passcode?: boolean;
   created_at: string;
   updated_at: string;
 }

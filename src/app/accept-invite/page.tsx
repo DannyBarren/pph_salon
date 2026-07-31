@@ -10,7 +10,7 @@ import type { InvitePreview } from "@/lib/api/types";
 function AcceptInviteInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const { demoMode, refreshMe } = useAuth();
+  const { demoMode, refreshMe, satisfyPasscode } = useAuth();
   const token = params.get("token") ?? "";
 
   const [preview, setPreview] = useState<InvitePreview | null>(null);
@@ -19,6 +19,9 @@ function AcceptInviteInner() {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // After the password is set we optionally offer a quick numeric passcode.
+  const [phase, setPhase] = useState<"password" | "passcode">("password");
+  const [passcode, setPasscode] = useState("");
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -57,10 +60,37 @@ function AcceptInviteInner() {
     setSubmitting(true);
     try {
       await authApi.acceptInvite(token, password);
-      await refreshMe();
-      router.replace("/");
+      // Signed in now; offer an optional quick-access passcode before entering.
+      setSubmitting(false);
+      setPhase("passcode");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't complete setup. The link may have expired.");
+      setSubmitting(false);
+    }
+  };
+
+  const finish = async () => {
+    await refreshMe();
+    router.replace("/");
+  };
+
+  const savePasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!/^\d{4,6}$/.test(passcode)) {
+      setError("Passcode must be 4–6 digits (or tap Skip).");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // The password we just set is the current password for re-auth.
+      await authApi.setPasscode(passcode, password);
+      await refreshMe();
+      // Just set it while signed in — go straight to the app, not the gate.
+      satisfyPasscode();
+      router.replace("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save passcode. You can set it later in Account.");
       setSubmitting(false);
     }
   };
@@ -92,6 +122,43 @@ function AcceptInviteInner() {
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             This setup link is invalid or has expired. Ask your manager or admin to send a new one.
           </p>
+        ) : phase === "passcode" ? (
+          <form onSubmit={savePasscode} className="space-y-4">
+            <p className="text-sm text-[var(--color-ink-faint)]">
+              Optional: set a <b>4–6 digit passcode</b> for faster sign-in on this device. You&apos;ll still use your
+              password on new devices.
+            </p>
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              autoComplete="off"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value.replace(/\D/g, ""))}
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--color-brand)]"
+              placeholder="••••"
+            />
+            {error && (
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              {submitting ? "Saving…" : "Set passcode & continue"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void finish()}
+              disabled={submitting}
+              className="w-full text-center text-sm font-medium text-[var(--color-ink-faint)] hover:text-[var(--color-brand)]"
+            >
+              Skip for now
+            </button>
+          </form>
         ) : (
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="rounded-xl bg-[var(--color-surface-2)] px-3 py-2 text-sm">

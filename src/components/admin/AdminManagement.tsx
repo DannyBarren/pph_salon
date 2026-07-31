@@ -53,6 +53,23 @@ function errMessage(e: unknown): string {
   return "Something went wrong";
 }
 
+type AccountStatus = "pending_setup" | "active" | "deactivated";
+
+/** Resolve a user's lifecycle status, tolerating older/demo payloads. */
+function accountStatus(u: UserDTO): AccountStatus {
+  if (u.status) return u.status;
+  if (u.is_active === false) return "deactivated";
+  if (u.has_password === false) return "pending_setup";
+  return "active";
+}
+
+function StatusBadge({ u }: { u: UserDTO }) {
+  const s = accountStatus(u);
+  if (s === "deactivated") return <Badge tone="danger">Deactivated</Badge>;
+  if (s === "pending_setup") return <Badge tone="warning">Pending setup</Badge>;
+  return <Badge tone="success">Active</Badge>;
+}
+
 const input =
   "w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-brand)]";
 
@@ -429,12 +446,17 @@ function UserManager({
 
       <Card>
         <CardBody>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-1 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Users ({users.length})</h3>
             <Button variant="ghost" size="sm" onClick={() => void loadUsers()}>
               <RefreshCw size={14} /> Refresh
             </Button>
           </div>
+          <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
+            <b>Pending setup</b> profiles exist but can&apos;t sign in yet — use <b>Activate</b> to email a one-time
+            link (you&apos;ll be asked for their email if missing) so they set their own password. <b>Active</b> users
+            can log in; use <b>Send setup link</b> or <b>Reset password</b> to help them recover access.
+          </p>
           {resetInfo && (
             <div className="mb-3">
               <Notice kind="success">
@@ -482,46 +504,66 @@ function UserManager({
                 <thead className="text-xs uppercase text-[var(--color-ink-faint)]">
                   <tr>
                     <th className="py-1.5">Name</th>
-                    <th>Email</th>
+                    <th>Email / username</th>
                     <th>Role</th>
-                    <th>Salon</th>
+                    <th>Status</th>
                     <th>On PPH plan</th>
                     <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="border-t border-[var(--color-border)]">
-                      <td className="py-1.5 font-medium">{u.name}</td>
-                      <td className="text-[var(--color-ink-faint)]">{u.email ?? "—"}</td>
-                      <td>
-                        <Badge tone={u.role === "stylist" ? "brand" : u.role === "manager" ? "warning" : "success"}>{u.role}</Badge>
-                      </td>
-                      <td>#{u.salon_id}</td>
-                      <td>
-                        {u.excluded ? (
-                          <Badge tone="warning">Excluded</Badge>
-                        ) : (
-                          <span className="text-[var(--color-ink-faint)]">On plan</span>
-                        )}
-                      </td>
-                      <td className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => setEditing(u)}>
-                            Edit
-                          </Button>
-                          <Button variant="ghost" size="sm" disabled={inviteBusyId === u.id} onClick={() => sendSetupLink(u)}>
-                            {inviteBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                            Send setup link
-                          </Button>
-                          <Button variant="ghost" size="sm" disabled={resetBusyId === u.id} onClick={() => resetPassword(u.id)}>
-                            {resetBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
-                            Reset password
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {users.map((u) => {
+                    const status = accountStatus(u);
+                    const isPending = status === "pending_setup";
+                    const isDeactivated = status === "deactivated";
+                    const activateLabel = isPending
+                      ? "Activate"
+                      : isDeactivated
+                        ? "Reactivate"
+                        : "Send setup link";
+                    return (
+                      <tr key={u.id} className="border-t border-[var(--color-border)]">
+                        <td className="py-1.5 font-medium">{u.name}</td>
+                        <td className="text-[var(--color-ink-faint)]">{u.email ?? "—"}</td>
+                        <td>
+                          <Badge tone={u.role === "stylist" ? "brand" : u.role === "manager" ? "warning" : "success"}>{u.role}</Badge>
+                        </td>
+                        <td>
+                          <StatusBadge u={u} />
+                        </td>
+                        <td>
+                          {u.excluded ? (
+                            <Badge tone="warning">Excluded</Badge>
+                          ) : (
+                            <span className="text-[var(--color-ink-faint)]">On plan</span>
+                          )}
+                        </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => setEditing(u)}>
+                              Edit
+                            </Button>
+                            <Button
+                              variant={isPending ? "outline" : "ghost"}
+                              size="sm"
+                              disabled={inviteBusyId === u.id}
+                              onClick={() => sendSetupLink(u)}
+                              title="Unlock the account and send a one-time link so the user can set their own password"
+                            >
+                              {inviteBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                              {activateLabel}
+                            </Button>
+                            {!isPending && (
+                              <Button variant="ghost" size="sm" disabled={resetBusyId === u.id} onClick={() => resetPassword(u.id)}>
+                                {resetBusyId === u.id ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
+                                Reset password
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

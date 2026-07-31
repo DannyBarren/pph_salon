@@ -1,11 +1,17 @@
 """Seed a production database with the super-admin + the real salon roster.
 
 Run once on the production deploy (after `alembic upgrade head`), from the
-`backend/` directory with `DATABASE_URL` set:
+`backend/` directory with `DATABASE_URL` set. The defaults create the preset
+production admin (username ``admin`` / password ``venitaadmin``):
 
     python -m scripts.seed_production \
-        --admin-username Venita_Admin \
-        --admin-password 'Salon_Admin' \
+        --csv "../PPH Data 06-26-2026.xlsx.csv"
+
+    # equivalent to the defaults below:
+    python -m scripts.seed_production \
+        --admin-username admin \
+        --admin-password 'venitaadmin' \
+        --admin-name Venita \
         --csv "../PPH Data 06-26-2026.xlsx.csv"
 
 What it does (idempotent — safe to re-run):
@@ -41,8 +47,8 @@ DEFAULT_CSV = Path(__file__).resolve().parents[2] / "PPH Data 06-26-2026.xlsx.cs
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed production: admin + real roster.")
-    parser.add_argument("--admin-username", default="Venita_Admin")
-    parser.add_argument("--admin-password", default="Salon_Admin")
+    parser.add_argument("--admin-username", default="admin")
+    parser.add_argument("--admin-password", default="venitaadmin")
     parser.add_argument("--admin-name", default="Venita")
     parser.add_argument("--admin-role", default="owner", choices=["owner", "admin"])
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="Path to the client roster CSV/XLSX")

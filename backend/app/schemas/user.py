@@ -73,6 +73,13 @@ class UserRead(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    # Account lifecycle for admin UIs. ``status`` is one of
+    # "pending_setup" | "active" | "deactivated" (see ``User.status``).
+    is_active: bool = True
+    status: str = "active"
+    # Whether the account has finished setup (can log in) / has a fast passcode.
+    has_password: bool = False
+    has_passcode: bool = False
 
 
 class ResetPasswordResponse(BaseModel):
