@@ -63,6 +63,29 @@ class AcceptInviteRequest(BaseModel):
     new_password: str
 
 
+class SetPasscodeRequest(BaseModel):
+    """Set or change the fast-access numeric passcode (authenticated).
+
+    Re-authenticating with the current password is required so a walk-up on an
+    unlocked session can't silently change the passcode.
+    """
+
+    passcode: str
+    current_password: str
+
+
+class VerifyPasscodeRequest(BaseModel):
+    """Verify a passcode for a remembered device (authenticated, rate-limited)."""
+
+    passcode: str
+
+
+class PasscodeStatus(BaseModel):
+    """Whether the signed-in user has a passcode configured."""
+
+    has_passcode: bool
+
+
 class InvitePreview(BaseModel):
     """Public, non-sensitive preview shown on the 'set your password' page."""
 
@@ -84,4 +107,7 @@ class CurrentUser(BaseModel):
     manager_id: int | None = None
     # Not on the PPH pay plan (no personal pay/PPH dashboard; team views only).
     excluded: bool = False
+    # Whether a fast-access numeric passcode is configured (drives the daily
+    # passcode gate on the frontend).
+    has_passcode: bool = False
     is_demo: bool = False

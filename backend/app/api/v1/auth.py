@@ -27,9 +27,12 @@ from app.schemas.auth import (
     CurrentUser,
     InvitePreview,
     LoginRequest,
+    PasscodeStatus,
     RefreshRequest,
     RegisterRequest,
+    SetPasscodeRequest,
     Token,
+    VerifyPasscodeRequest,
 )
 from app.schemas.user import UserRead
 from app.services.audit import record_audit
@@ -271,6 +274,106 @@ def accept_invite(
     )
 
 
+@router.post("/passcode", response_model=PasscodeStatus)
+def set_passcode(
+    body: SetPasscodeRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> PasscodeStatus:
+    """Set or change the fast-access numeric passcode for the signed-in user.
+
+    Requires the current password (re-auth). The passcode is stored only as an
+    argon2 hash and never logged. Not available to the synthetic demo principal.
+    """
+    if settings.demo_mode or not user.id or user.hashed_password is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Setting a passcode requires a real signed-in account",
+        )
+    if not security.verify_password(body.current_password, user.hashed_password):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is incorrect")
+    try:
+        security.validate_passcode(body.passcode)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    user.passcode_hash = security.hash_passcode(body.passcode)
+    user.passcode_set_at = datetime.now(UTC)
+    user.passcode_failed_attempts = 0
+    session.add(user)
+    session.commit()
+    record_audit(session, actor=user, action="auth.passcode_set", target_type="user",
+                 target_id=user.id, salon_id=user.salon_id, detail={})
+    return PasscodeStatus(has_passcode=True)
+
+
+@router.delete("/passcode", response_model=PasscodeStatus)
+def clear_passcode(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> PasscodeStatus:
+    """Disable the fast-access passcode for the signed-in user."""
+    if settings.demo_mode or not user.id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Managing a passcode requires a real signed-in account",
+        )
+    user.passcode_hash = None
+    user.passcode_set_at = None
+    user.passcode_failed_attempts = 0
+    session.add(user)
+    session.commit()
+    record_audit(session, actor=user, action="auth.passcode_clear", target_type="user",
+                 target_id=user.id, salon_id=user.salon_id, detail={})
+    return PasscodeStatus(has_passcode=False)
+
+
+@router.post("/passcode/verify", response_model=Token)
+@limiter.limit(_LOGIN_LIMIT)
+def verify_passcode(
+    request: Request,
+    body: VerifyPasscodeRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Token:
+    """Verify the passcode for a remembered device and issue a fresh token pair.
+
+    Rate-limited and lockout-protected: after too many consecutive failures the
+    passcode is disabled and the user must fall back to a full password login.
+    Returns a new JWT pair so the caller can extend the remembered session.
+    """
+    if settings.demo_mode or not user.id or user.passcode_hash is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No passcode is set for this account")
+    if user.passcode_failed_attempts >= security.PASSCODE_MAX_ATTEMPTS:
+        # Lock the passcode; force a full login to re-establish trust.
+        user.passcode_hash = None
+        user.passcode_set_at = None
+        session.add(user)
+        session.commit()
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many incorrect attempts. Sign in with your password.",
+        )
+    if not security.verify_passcode(body.passcode, user.passcode_hash):
+        user.passcode_failed_attempts += 1
+        session.add(user)
+        session.commit()
+        remaining = max(0, security.PASSCODE_MAX_ATTEMPTS - user.passcode_failed_attempts)
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            f"Incorrect passcode. {remaining} attempt(s) left before password sign-in is required.",
+        )
+    user.passcode_failed_attempts = 0
+    session.add(user)
+    session.commit()
+    return Token(
+        access_token=security.create_access_token(user.id, role=str(user.role)),
+        refresh_token=security.create_refresh_token(user.id),
+    )
+
+
 @router.get("/me", response_model=CurrentUser)
 def me(
     user: User = Depends(get_current_user),
@@ -285,5 +388,6 @@ def me(
         salon_id=user.salon_id,
         manager_id=user.manager_id,
         excluded=bool(getattr(user, "excluded", False)),
+        has_passcode=bool(getattr(user, "passcode_hash", None)),
         is_demo=settings.demo_mode,
     )

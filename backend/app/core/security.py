@@ -39,6 +39,36 @@ def validate_password(password: str) -> None:
         )
 
 
+# ── Fast-access numeric passcode ────────────────────────────────────────────
+# A short (4–6 digit) numeric PIN for quick same-device re-entry. It is NOT a
+# substitute for the password: the user always authenticates fully at least
+# once, and the passcode only unlocks an already-remembered device each day.
+PASSCODE_MIN_DIGITS = 4
+PASSCODE_MAX_DIGITS = 6
+# After this many consecutive failures the passcode is locked and the user must
+# fall back to a full email/username + password login.
+PASSCODE_MAX_ATTEMPTS = 5
+
+
+def validate_passcode(passcode: str) -> None:
+    """Enforce the numeric-passcode policy. Raises ``ValueError`` on failure."""
+    if not passcode.isdigit():
+        raise ValueError("Passcode must contain digits only")
+    if not (PASSCODE_MIN_DIGITS <= len(passcode) <= PASSCODE_MAX_DIGITS):
+        raise ValueError(
+            f"Passcode must be {PASSCODE_MIN_DIGITS}–{PASSCODE_MAX_DIGITS} digits"
+        )
+
+
+def hash_passcode(passcode: str) -> str:
+    """Hash a numeric passcode with the same argon2 context as passwords."""
+    return pwd_context.hash(passcode)
+
+
+def verify_passcode(passcode: str, hashed: str) -> bool:
+    return pwd_context.verify(passcode, hashed)
+
+
 def generate_setup_token() -> str:
     """A high-entropy, URL-safe one-time token for account-setup / invite links.
 

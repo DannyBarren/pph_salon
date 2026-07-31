@@ -43,6 +43,35 @@ class User(TimestampMixin, table=True):
     setup_token_hash: Optional[str] = Field(default=None, index=True)
     setup_token_expires_at: Optional[datetime] = Field(default=None)
 
+    # Optional 4–6 digit numeric passcode for fast, same-device re-entry. Stored
+    # only as an argon2 hash (never plaintext, never logged). It is a convenience
+    # gate on top of a full login — the user still authenticates fully (email +
+    # password) at least once, and the app requires the passcode again at each
+    # calendar-day boundary on the remembered device. ``passcode_failed_attempts``
+    # supports a server-side lock so a lost device can't be brute-forced.
+    passcode_hash: Optional[str] = Field(default=None)
+    passcode_set_at: Optional[datetime] = Field(default=None)
+    passcode_failed_attempts: int = Field(default=0, nullable=False)
+
+    @property
+    def has_password(self) -> bool:
+        """Whether the account has completed setup (can log in with a password)."""
+        return self.hashed_password is not None
+
+    @property
+    def has_passcode(self) -> bool:
+        """Whether a fast-access numeric passcode is configured."""
+        return self.passcode_hash is not None
+
+    @property
+    def status(self) -> str:
+        """Lifecycle badge for admin UIs: pending_setup / active / deactivated."""
+        if not self.is_active:
+            return "deactivated"
+        if self.hashed_password is None:
+            return "pending_setup"
+        return "active"
+
     # Per-stylist guaranteed $/hr floor (falls back to the salon/global rate).
     guarantee_rate: Optional[float] = Field(default=None)
 
