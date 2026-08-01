@@ -138,6 +138,28 @@ export const ALL_STYLISTS = STYLISTS;
 export const USERS: User[] = [...STYLISTS, ...MANAGERS, OWNER, ADMIN];
 export const userById = (id: string) => USERS.find((u) => u.id === id);
 
+// Employee code (e.g. "VG1426") → demo user id ("u2"), for import routing.
+const ROSTER_ID_BY_CODE = new Map<string, string>();
+for (const p of CLIENT_ROSTER) {
+  if (p.employeeCode) ROSTER_ID_BY_CODE.set(p.employeeCode.trim().toUpperCase(), p.id);
+}
+
+/**
+ * Resolve an import row's `employee_id` to a demo user id. Accepts the client
+ * Employee code (``VG1426``) OR our user id (``u2`` / ``2``). Routing is by that
+ * id ONLY — the salon on the row is ignored — mirroring the live import so a
+ * wrong/blank salon never misroutes the data. Returns undefined if unknown.
+ */
+export function resolveRosterUserId(identifier: string): string | undefined {
+  const raw = (identifier ?? "").trim();
+  if (!raw) return undefined;
+  const byCode = ROSTER_ID_BY_CODE.get(raw.toUpperCase());
+  if (byCode) return byCode;
+  if (userById(raw)) return raw;
+  if (userById(`u${raw}`)) return `u${raw}`;
+  return undefined;
+}
+
 /** Personas featured at the top of the demo account switcher (all are browsable). */
 export const DEMO_ACCOUNT_IDS = [
   ADMIN.id,
