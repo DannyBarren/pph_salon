@@ -95,18 +95,23 @@ _USERS_TEMPLATE_SAMPLE = [
     ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", ""],
 ]
 
-# The client's daily "Data provided to App" format (exact column order).
+# The client's real daily export (v2) — one row per employee per work day.
+# ``employee_id`` routes the row (hyphen optional: VG-1426 == VG1426);
+# ``salon_name`` is a label; ``actual_other_value``/``service_revenue`` is the
+# authoritative daily service revenue; ``Include/Exclude`` drives the pay-plan
+# excluded flag. Dates accept ISO (2026-06-22) or US M/D/YYYY (6/22/2026). The
+# older "Data provided to App" layout is still accepted on upload.
 DAILY_TEMPLATE_COLUMNS = [
-    "Salon", "EEID", "EE Name", "Excl?", "Date", "Sched Hrs", "Actual Hrs",
-    "Act Svc Rev($)", "Act Cuts Count", "Act Colors Count",
+    "employee_id", "salon_name", "sale_date", "scheduled_hrs", "actual_hrs",
+    "actual_haircuts", "actual_colors", "service_revenue", "Employee Name",
+    "pay_period", "Include/Exclude",
 ]
 
 _DAILY_TEMPLATE_SAMPLE = [
-    # Any date works — back-fill historical days or the current week. Days with no
-    # activity can be left blank (only Date/Sched Hrs populated) or omitted.
-    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-20", "5", "4.03", "56.7", "3", "0"],
-    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-21", "0", "", "", "", ""],
-    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-22", "5", "6.13", "70", "2", "0"],
+    # Many employees × many work days per file. Blank-activity days can be omitted.
+    ["VG-1426", "Burleson,TX", "2026-06-22", "5", "4.52", "3", "0", "113", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1426", "Burleson,TX", "2026-06-27", "6", "5.38", "7", "0", "167.7", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1296", "Burleson,TX", "2026-06-22", "9", "8", "5", "2", "260", "Mariah Perez", "06-22-2026 to 07-05-2026", "Include"],
 ]
 
 # The real client / Salon Success (SSF) export layout. One file provisions
@@ -180,7 +185,18 @@ def _to_date(value: str | date | datetime | None) -> date | None:
         return value.date()
     if isinstance(value, date):
         return value
-    return date.fromisoformat(str(value).strip()[:10])
+    s = str(value).strip()
+    try:
+        return date.fromisoformat(s[:10])
+    except ValueError:
+        pass
+    # Accept US-style dates from the client export (e.g. "6/22/2026").
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%m-%d-%Y", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"Unrecognised date: {value!r}")
 
 
 def _get_ci(raw: dict[str, object], *keys: str) -> object:
@@ -223,17 +239,21 @@ def _resolve_import_user(
         user = session.get(User, int(raw))
         if user is not None:
             return user
-    # 2) Employee code. Prefer the given salon as a tie-breaker (same code can
-    #    appear in >1 salon), but ALWAYS fall back to a global match so a wrong
-    #    or blank salon_name can never misroute the data — the employee id wins.
+    # 2) Employee code. Accept hyphen/space variants (the client v2 export uses
+    #    ``VG-1426`` while the roster stores ``VG1426``) by matching both forms.
+    #    Prefer the given salon as a tie-breaker (same code can appear in >1
+    #    salon), but ALWAYS fall back to a global match so a wrong or blank
+    #    salon_name can never misroute the data — the employee id wins.
     if raw:
+        compact = raw.replace("-", "").replace(" ", "")
+        codes = {raw, compact, compact.upper()}
         if salon is not None:
             scoped = session.exec(
-                select(User).where(User.employee_code == raw, User.salon_id == salon.id)
+                select(User).where(User.employee_code.in_(codes), User.salon_id == salon.id)
             ).first()
             if scoped is not None:
                 return scoped
-        user = session.exec(select(User).where(User.employee_code == raw)).first()
+        user = session.exec(select(User).where(User.employee_code.in_(codes))).first()
         if user is not None:
             return user
     # 3) Name within the salon (last resort).

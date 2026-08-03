@@ -1,5 +1,6 @@
 import type { DayRecord, MessageAcknowledgment, MessageBoardPost, PayConfig, Salon, StylistData, UsageStat, User } from "./types";
 import { CLIENT_ROSTER, CLIENT_SALONS, CLIENT_WEEK_START, type RosterPerson } from "./clientRoster";
+import { CLIENT_DAILY, CLIENT_DAILY_EXCLUDE, CLIENT_DAILY_WEEK_STARTS } from "./clientDaily";
 import { addDays, WEEKS } from "./time";
 import { COLOR_PRICE, HAIRCUT_PRICE, NP_PERCENT, NP_RATE, PPH_TIERS } from "./tiers";
 
@@ -91,6 +92,11 @@ function isExcludedCode(employeeCode: string | undefined): boolean {
 function toUser(p: RosterPerson): User {
   const salon = salonById(p.salonId);
   const isManager = p.role === "manager";
+  // Include/Exclude designation: prefer the client's real daily export flag,
+  // then the roster's own flag, then the legacy code list.
+  const code = (p.employeeCode || "").toUpperCase();
+  const excluded =
+    code in CLIENT_DAILY_EXCLUDE ? CLIENT_DAILY_EXCLUDE[code] : (p.excluded ?? isExcludedCode(p.employeeCode));
   return {
     id: p.id,
     name: p.name,
@@ -101,8 +107,7 @@ function toUser(p: RosterPerson): User {
     initials: initialsOf(p.name),
     hue: p.hue,
     guaranteeRate: p.guaranteeRate,
-    // Include/Exclude designation from the client's pay-period spreadsheets.
-    excluded: p.excluded ?? isExcludedCode(p.employeeCode),
+    excluded,
   };
 }
 
@@ -230,16 +235,56 @@ function genWeekDays(p: RosterPerson, weekStart: string, factor: number): DayRec
   return days;
 }
 
+const CLIENT_DAILY_WEEKS = new Set(CLIENT_DAILY_WEEK_STARTS);
+
 /**
- * Generate day records across EVERY week in the time model (not just the current
- * one) so historical pay periods can be selected and viewed. This is the demo's
- * persistent "data over time": the current week matches the client export
- * exactly, and prior/upcoming weeks carry deterministic variation. In the live
- * app the equivalent history lives in Postgres (see /api/v1/performance/*).
+ * Build a person's real 7-day week from the client's daily export, or null when
+ * they have no rows for that week. Missing work days are rendered as days off
+ * (zeros), so weekly sums equal the export exactly.
+ */
+function realWeekDays(employeeCode: string, weekStart: string): DayRecord[] | null {
+  const recs = CLIENT_DAILY[employeeCode.toUpperCase()];
+  if (!recs || recs.length === 0) return null;
+  const byDate = new Map(recs.map((r) => [r.date, r]));
+  const days: DayRecord[] = [];
+  let hasAny = false;
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(weekStart, i);
+    const r = byDate.get(date);
+    if (r) {
+      hasAny = true;
+      days.push({
+        date,
+        scheduledHours: r.scheduledHours,
+        workedHours: r.workedHours,
+        haircuts: r.haircuts,
+        colors: r.colors,
+        production: r.production,
+      });
+    } else {
+      days.push({ date, scheduledHours: 0, workedHours: 0, haircuts: 0, colors: 0, production: 0 });
+    }
+  }
+  return hasAny ? days : null;
+}
+
+/**
+ * Generate day records across EVERY week in the time model. For the weeks the
+ * client's real DAILY export covers (the 06-22 → 07-05 pay period), the REAL
+ * per-day numbers are used exactly; other weeks carry deterministic synthetic
+ * variation so historical pay periods are still browsable. In the live app the
+ * equivalent history lives in Postgres (see /api/v1/performance/*).
  */
 function genDaysForPerson(p: RosterPerson): DayRecord[] {
   const days: DayRecord[] = [];
   for (const w of WEEKS) {
+    if (CLIENT_DAILY_WEEKS.has(w.start)) {
+      const real = realWeekDays(p.employeeCode, w.start);
+      if (real) {
+        days.push(...real);
+        continue;
+      }
+    }
     days.push(...genWeekDays(p, w.start, weekFactor(p.id, w.start)));
   }
   return days;

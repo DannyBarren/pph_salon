@@ -2,10 +2,12 @@ import type { Week } from "./types";
 
 /**
  * Fixed "today" so the prototype is fully deterministic (no hydration drift).
- * Chosen mid-week so the current pay period has completed days AND upcoming
- * days, which makes the planner's "what you still need" meaningful.
+ * Anchored inside the client's real pay period (2026-06-22 → 07-05) and mid-week
+ * (Wed of the 06-29 week), so the current pay period pairs weeks 06-22 + 06-29 —
+ * exactly the weeks the client's real DAILY export covers — while still leaving
+ * completed AND upcoming days so the planner's "what you still need" is meaningful.
  */
-export const TODAY = "2026-06-25"; // a Thursday
+export const TODAY = "2026-07-01"; // a Wednesday, inside the 06-22 → 07-05 pay period
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKS_BACK = 7; // number of prior weeks generated before the current week (8 weeks / 4 pay periods)
