@@ -38,14 +38,16 @@ export const USERS_TEMPLATE = toCsv(
   ],
 );
 
-// The client's daily "Data provided to App" format (exact column order).
+// The client's real daily export (v2): one row per employee per work day.
+// employee_id routes the row (hyphen optional: VG-1426 == VG1426); salon_name is
+// a label; service_revenue is the authoritative daily revenue; Include/Exclude
+// drives the pay-plan excluded flag. Dates accept ISO or US M/D/YYYY.
 export const DAILY_TEMPLATE = toCsv(
-  ["Salon", "EEID", "EE Name", "Excl?", "Date", "Sched Hrs", "Actual Hrs", "Act Svc Rev($)", "Act Cuts Count", "Act Colors Count"],
+  ["employee_id", "salon_name", "sale_date", "scheduled_hrs", "actual_hrs", "actual_haircuts", "actual_colors", "service_revenue", "Employee Name", "pay_period", "Include/Exclude"],
   [
-    // Days with no activity can be left blank (only Date/Sched Hrs) or omitted.
-    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-20", "5", "4.03", "56.7", "3", "0"],
-    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-21", "0", "", "", "", ""],
-    ["11016-Burleson,TX-SSF", "VG1426", "Holliean Miller", "N", "2026-07-22", "5", "6.13", "70", "2", "0"],
+    ["VG-1426", "Burleson,TX", "2026-06-22", "5", "4.52", "3", "0", "113", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1426", "Burleson,TX", "2026-06-27", "6", "5.38", "7", "0", "167.7", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1296", "Burleson,TX", "2026-06-22", "9", "8", "5", "2", "260", "Mariah Perez", "06-22-2026 to 07-05-2026", "Include"],
   ],
 );
 

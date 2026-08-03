@@ -124,8 +124,20 @@ Distribute each stylist/manager their email + temporary password. On first login
 Download the exact templates from the Admin **Data Import** / **Users** tabs (they are also served by the API):
 
 - **Users:** `email, name, role, salon_id, salon_name, manager_id, manager_email, title, phone, guarantee_rate`
-- **Weekly:** `user_id, salon_name, week_start, guarantee_rate, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value, notes`
-- **Daily:** `user_id, date, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value`
+- **Weekly:** `employee_id, salon_name, week_start, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value, notes`
+- **Daily (client v2 export):** `employee_id, salon_name, sale_date, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, service_revenue, Employee Name, pay_period, Include/Exclude`
+
+### Uploading the client's daily export (recommended)
+
+The client's real file is **one row per employee per work day** (e.g. `v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx`). Upload it as-is under **Admin → Data Import → Daily performance**:
+
+- **`employee_id`** routes each row to the right person. The hyphen is optional — `VG-1426` and `VG1426` both match the roster — and routing is **by employee id regardless of `salon_name`** (salon is just a label).
+- **`sale_date`** accepts ISO (`2026-06-22`) or US `M/D/YYYY` (`6/22/2026`). The two-names-in-one-cell headers the client uses (`week_start`/`sale_date`, `actual_other_value`/`service_revenue`) are both accepted.
+- **`service_revenue`** (a.k.a. `actual_other_value`) is the **authoritative** daily service revenue; the day's production is taken directly from it (not re-derived from counts).
+- **`Include/Exclude`** drives each employee's pay-plan `excluded` flag (`Exclude` → excluded; `Include` → on-plan).
+- Daily rows are idempotently upserted and their parent **Week** is aggregated automatically, so the Stylist Dashboard, Daily Breakdown, Team views and Goal Planner show the real per-day numbers immediately. Re-uploading the same file is safe.
+
+The older "Data provided to App" daily layout (`Salon | EEID | … | Act Svc Rev($) | Act Cuts Count | Act Colors Count`) is still accepted.
 
 **Vendor sources:** select `zenoti` or `paycor` on upload to normalize their column headers to the native shape. Live API pulls are stubbed (`app/services/importers.py::fetch_zenoti_week` / `fetch_paycor_week`) and ready to wire when you have vendor credentials.
 

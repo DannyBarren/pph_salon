@@ -2,6 +2,7 @@ import type { StylistDayRecord, StylistWeekRecord, TeamDataPayload } from "./tea
 import { v, safeParse } from "./validate";
 import { STYLIST_DATA, USERS, salonById } from "./mockData";
 import { CLIENT_ROSTER, CLIENT_WEEK_START, CLIENT_WEEK_END } from "./clientRoster";
+import { weekdayIndex } from "./time";
 
 /**
  * Team Dashboard seed data — derived from the client's REAL export via the same
@@ -63,15 +64,19 @@ function buildRecords(): StylistWeekRecord[] {
   for (const u of USERS) {
     const data = STYLIST_DATA[u.id];
     if (!data) continue; // owner/SDL has no personal performance record
-    const days: StylistDayRecord[] = data.days.map((d, i) => ({
-      date: d.date,
-      label: DAY_LABELS[i] ?? "",
-      scheduledHours: d.scheduledHours,
-      actualHours: d.workedHours,
-      production: d.production,
-      haircuts: d.haircuts,
-      colors: d.colors,
-    }));
+    // STYLIST_DATA spans multiple weeks; the team roll-up is the current pay
+    // week, so slice to it and label each day by its weekday.
+    const days: StylistDayRecord[] = data.days
+      .filter((d) => d.date >= TEAM_WEEK.start && d.date <= TEAM_WEEK.end)
+      .map((d) => ({
+        date: d.date,
+        label: DAY_LABELS[weekdayIndex(d.date)] ?? "",
+        scheduledHours: d.scheduledHours,
+        actualHours: d.workedHours,
+        production: d.production,
+        haircuts: d.haircuts,
+        colors: d.colors,
+      }));
     records.push({
       id: u.id,
       stylistId: EMPLOYEE_CODE_BY_ID.get(u.id) ?? u.id,
