@@ -207,8 +207,55 @@ def test_daily_import_syncs_excluded_flag(client, engine):
 def test_daily_template_matches_client_columns(client):
     header = client.get(f"{PP}/admin/import-daily-template").text.splitlines()[0]
     assert header == (
-        "Salon,EEID,EE Name,Excl?,Date,Sched Hrs,Actual Hrs,Act Svc Rev($),Act Cuts Count,Act Colors Count"
+        "employee_id,salon_name,sale_date,scheduled_hrs,actual_hrs,actual_haircuts,"
+        "actual_colors,service_revenue,Employee Name,pay_period,Include/Exclude"
     )
+
+
+def test_daily_import_v2_client_format(client, engine):
+    """The client v2 daily export: hyphenated employee_id (VG-1426), a
+    week_start/sale_date column, US M/D/YYYY dates, service_revenue as the
+    authoritative production, and Include/Exclude driving the excluded flag."""
+    from sqlmodel import select
+
+    with Session(engine) as s:
+        salon = Salon(name="Burleson, TX", location="11016-Burleson,TX-SSF")
+        s.add(salon)
+        s.commit()
+        s.refresh(salon)
+        # Roster stores the code WITHOUT the hyphen; the file sends VG-1426.
+        u = User(name="Holliean Miller", role=UserRole.stylist, salon_id=salon.id,
+                 employee_code="VG1426", excluded=False)
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        uid = u.id
+
+    # Note the two-names-in-one-cell headers (newline) and US date format.
+    csv_text = (
+        'employee_id,salon_name,"week_start\nsale_date",scheduled_hrs,actual_hrs,'
+        'actual_haircuts,actual_colors,"actual_other_value\nservice_revenue",'
+        "Employee Name,pay_period,Include/Exclude\n"
+        "VG-1426,\"Burleson,TX\",6/22/2026,5,4.52,3,0,113,Holliean Miller,06-22-2026 to 07-05-2026,Exclude\n"
+        "VG-1426,\"Burleson,TX\",6/27/2026,6,5.38,7,0,167.7,Holliean Miller,06-22-2026 to 07-05-2026,Exclude\n"
+    )
+    files = {"file": ("v2daily.csv", io.BytesIO(csv_text.encode()), "text/csv")}
+    r = client.post(f"{PP}/admin/import-daily", files=files)
+    assert r.status_code == 200, r.text
+    assert r.json()["inserted"] == 2
+
+    from app.models import DailyPerformance, Week
+    with Session(engine) as s:
+        week = s.exec(select(Week).where(Week.stylist_id == uid)).first()
+        assert week is not None
+        assert week.week_start.isoformat() == "2026-06-22"
+        # Authoritative daily service revenue summed for the week.
+        assert week.actual_production == pytest.approx(113 + 167.7)
+        assert week.actual_haircuts == 10  # 3 + 7
+        days = s.exec(select(DailyPerformance).where(DailyPerformance.week_id == week.id)).all()
+        assert {d.date.isoformat() for d in days} == {"2026-06-22", "2026-06-27"}
+        # Include/Exclude = Exclude → excluded True.
+        assert s.get(User, uid).excluded is True
 
 
 def test_zenoti_source_normalization(client, engine):
