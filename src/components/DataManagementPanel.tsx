@@ -13,21 +13,21 @@ import {
   UserCog,
 } from "lucide-react";
 import { useApp } from "@/store/AppContext";
-import { SALONS, getStylistsBySalon, salonById, userById } from "@/lib/mockData";
+import { SALONS, getStylistsBySalon, salonById } from "@/lib/mockData";
 import { guaranteeRateFor } from "@/lib/payEngine";
 import { servicePricesFor } from "@/lib/privacy";
-import { WEEKS, CURRENT_WEEK, weekById, addDays } from "@/lib/time";
-import { parseCsv } from "@/lib/csv";
+import { WEEKS, CURRENT_WEEK, addDays } from "@/lib/time";
+import { WEEKLY_TEMPLATE } from "@/lib/importTemplates";
+import { parseWeeklyBulk, weeklyRowToDays } from "@/lib/demoImport";
 import { Card, CardBody, Button, Select, NumberField, SectionTitle, Badge, Avatar } from "@/components/ui/primitives";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
-/** Column order for the downloadable import template (matches the backend). */
+/** Column order for the downloadable import template (matches the live backend). */
 const TEMPLATE_COLUMNS = [
-  "user_id",
+  "employee_id",
   "salon_name",
   "week_start",
-  "guarantee_rate",
   "scheduled_hrs",
   "actual_hrs",
   "actual_haircuts",
@@ -350,7 +350,7 @@ interface ImportResult {
 }
 
 function BulkImport() {
-  const { getWeeklyData, upsertWeeklyData, upsertUserProfile } = useApp();
+  const { getWeeklyData, upsertWeeklyData, addRecords } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [fileName, setFileName] = useState("");
@@ -362,56 +362,24 @@ function BulkImport() {
   };
 
   const runImport = (text: string): ImportResult => {
-    const parsed = parseCsv(text);
-    const idx = (name: string) => parsed.headers.findIndex((h) => h.toLowerCase().replace(/[^a-z]/g, "") === name.replace(/_/g, ""));
-    const col = {
-      user_id: idx("userid"),
-      week_start: idx("weekstart"),
-      guarantee_rate: idx("guaranteerate"),
-      scheduled_hrs: idx("scheduledhrs"),
-      actual_hrs: idx("actualhrs"),
-      actual_haircuts: idx("actualhaircuts"),
-      actual_colors: idx("actualcolors"),
-      actual_other_value: idx("actualothervalue"),
-      notes: idx("notes"),
-    };
-    const res: ImportResult = { inserted: 0, updated: 0, skipped: 0, errors: [] };
-    const numOf = (v: string) => {
-      const n = parseFloat((v ?? "").replace(/[^0-9.\-]/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    parsed.rows.forEach((row, i) => {
-      const line = i + 2; // header is line 1
-      const userId = (row[col.user_id] ?? "").trim();
-      const weekStart = (row[col.week_start] ?? "").trim().slice(0, 10);
-      if (!userId) return;
-      if (!userById(userId)) {
-        res.skipped += 1;
-        res.errors.push(`Row ${line}: unknown user_id "${userId}"`);
-        return;
-      }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
-        res.skipped += 1;
-        res.errors.push(`Row ${line}: invalid week_start "${weekStart}" (use YYYY-MM-DD)`);
-        return;
-      }
-      const existed = getWeeklyData(userId, weekStart) !== undefined;
-      if (col.guarantee_rate >= 0 && (row[col.guarantee_rate] ?? "").trim() !== "") {
-        upsertUserProfile(userId, { guaranteeRate: numOf(row[col.guarantee_rate]) });
-      }
-      upsertWeeklyData(userId, weekStart, {
-        weekEnd: addDays(weekStart, 6),
-        scheduledHrs: numOf(row[col.scheduled_hrs]),
-        actualHrs: numOf(row[col.actual_hrs]),
-        actualHaircuts: Math.round(numOf(row[col.actual_haircuts])),
-        actualColors: Math.round(numOf(row[col.actual_colors])),
-        actualOtherValue: numOf(row[col.actual_other_value]),
-        notes: col.notes >= 0 ? (row[col.notes] ?? "").trim() : undefined,
+    const parsed = parseWeeklyBulk(text);
+    const res: ImportResult = { inserted: 0, updated: 0, skipped: parsed.skipped, errors: parsed.errors };
+    for (const r of parsed.rows) {
+      const existed = getWeeklyData(r.userId, r.weekStart) !== undefined;
+      // Weekly store (for the editor/team views) + day records (for dashboards).
+      upsertWeeklyData(r.userId, r.weekStart, {
+        weekEnd: addDays(r.weekStart, 6),
+        scheduledHrs: r.scheduledHrs,
+        actualHrs: r.actualHrs,
+        actualHaircuts: r.actualHaircuts,
+        actualColors: r.actualColors,
+        actualOtherValue: r.actualOtherValue,
+        notes: r.notes,
       });
+      addRecords(r.userId, weeklyRowToDays(r));
       if (existed) res.updated += 1;
       else res.inserted += 1;
-    });
+    }
     return res;
   };
 
@@ -421,10 +389,11 @@ function BulkImport() {
         <CardBody className="space-y-3">
           <h4 className="text-sm font-semibold">1. Download the template</h4>
           <p className="text-sm text-[var(--color-ink-faint)]">
-            Columns: {TEMPLATE_COLUMNS.join(", ")}. One row per stylist-week; the key is{" "}
-            <b>user_id + week_start</b>. Set hours to 0 for a full-week call-off.
+            Columns: {TEMPLATE_COLUMNS.join(", ")}. One row per <b>employee per week</b> — many employees and pay
+            periods per file. Routed to the right person by <b>employee_id</b> (Employee code like <code>VG1426</code>,
+            or a user id) <b>regardless of salon_name</b>. Set hours to 0 for a full-week call-off.
           </p>
-          <Button variant="outline" size="sm" onClick={() => downloadText(buildTemplate(), "pph-weekly-template.csv")}>
+          <Button variant="outline" size="sm" onClick={() => downloadText(buildTemplate(), "pph-payperiod-template.csv")}>
             <Download size={15} /> Download CSV template
           </Button>
         </CardBody>
@@ -439,7 +408,7 @@ function BulkImport() {
           >
             <Upload size={24} className="text-[var(--color-brand)]" />
             <span className="text-sm font-medium">Click to upload a CSV</span>
-            <span className="text-xs text-[var(--color-ink-faint)]">Idempotent upsert by user_id + week_start</span>
+            <span className="text-xs text-[var(--color-ink-faint)]">Bulk: many employees × pay periods, keyed by employee_id + week_start</span>
           </button>
           <input
             ref={fileRef}
@@ -476,29 +445,9 @@ function BulkImport() {
 /* ─────────────────────────── Helpers ─────────────────────────── */
 
 function buildTemplate(): string {
-  const rows: string[][] = [TEMPLATE_COLUMNS];
-  // Two example rows using real seed stylists + the current week.
-  const samples = getStylistsBySalon("s1").slice(0, 2);
-  const wk = weekById(CURRENT_WEEK.id);
-  samples.forEach((s, i) => {
-    rows.push([
-      s.id,
-      salonById(s.salonId).name,
-      wk.start,
-      "16",
-      "40",
-      i === 1 ? "0" : "38",
-      i === 1 ? "0" : "22",
-      i === 1 ? "0" : "9",
-      i === 1 ? "0" : "40",
-      i === 1 ? "Full-week call-off (sick)" : "Great color week",
-    ]);
-  });
-  return rows.map((r) => r.map(csvCell).join(",")).join("\n");
-}
-
-function csvCell(v: string): string {
-  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  // Shared, corrected bulk template (employee_id + salon_name, many employees
+  // across many pay periods). Kept in sync with the live backend template.
+  return WEEKLY_TEMPLATE;
 }
 
 function downloadText(text: string, name: string) {
