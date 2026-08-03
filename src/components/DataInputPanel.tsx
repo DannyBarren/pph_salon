@@ -1,26 +1,13 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
-import { Upload, FileSpreadsheet, Download, Check, PlusCircle, ClipboardList } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Upload, FileSpreadsheet, Download, PlusCircle, ClipboardList, AlertTriangle } from "lucide-react";
 import { useApp } from "@/store/AppContext";
 import { ALL_STYLISTS as STYLISTS_FOR_ADMIN, salonById } from "@/lib/mockData";
-import { parseCsv, SAMPLE_CSV, type ParsedCsv } from "@/lib/csv";
-import { WEEKS, daysOfWeek, weekById, fmtShort, WEEKDAY_LABELS, weekdayIndex } from "@/lib/time";
-import type { DayRecord } from "@/lib/types";
+import { WEEKS, daysOfWeek, weekById, fmtShort, WEEKDAY_LABELS, weekdayIndex, addDays } from "@/lib/time";
+import { WEEKLY_TEMPLATE } from "@/lib/importTemplates";
+import { parseWeeklyBulk, weeklyRowToDays } from "@/lib/demoImport";
 import { Card, CardBody, Button, Select, Segmented, SectionTitle, Badge, NumberField } from "@/components/ui/primitives";
-
-const FIELDS = ["date", "scheduledHours", "workedHours", "haircuts", "colors", "production"] as const;
-type Field = (typeof FIELDS)[number];
-
-function autoMap(headers: string[]): Record<Field, number> {
-  const map = {} as Record<Field, number>;
-  for (const f of FIELDS) {
-    const idx = headers.findIndex((h) => h.toLowerCase().replace(/[^a-z]/g, "").includes(f.toLowerCase().replace(/[^a-z]/g, "")));
-    map[f] = idx;
-  }
-  if (map.date < 0) map.date = headers.findIndex((h) => /date|day/i.test(h));
-  return map;
-}
 
 export function DataInputPanel() {
   const [tab, setTab] = useState<"upload" | "manual">("upload");
@@ -35,7 +22,7 @@ export function DataInputPanel() {
           </SectionTitle>
           <Segmented
             options={[
-              { value: "upload", label: "File upload" },
+              { value: "upload", label: "Bulk import" },
               { value: "manual", label: "Manual entry" },
             ]}
             value={tab}
@@ -48,179 +35,111 @@ export function DataInputPanel() {
   );
 }
 
-function UploadTab() {
-  const { addRecords } = useApp();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [parsed, setParsed] = useState<ParsedCsv | null>(null);
-  const [fileName, setFileName] = useState("");
-  const [mapping, setMapping] = useState<Record<Field, number>>({} as Record<Field, number>);
-  const [stylistId, setStylistId] = useState(STYLISTS_FOR_ADMIN[0].id);
-  const [remapWeek, setRemapWeek] = useState<string>("none");
-  const [applied, setApplied] = useState(0);
+interface BulkResult {
+  imported: number;
+  employees: number;
+  skipped: number;
+  errors: string[];
+}
 
-  const ingest = (text: string, name: string) => {
-    const p = parseCsv(text);
-    setParsed(p);
+/**
+ * Bulk pay-period import for the WHOLE organization: one file, many employees,
+ * many weeks / pay periods. Each row is routed to a stylist by `employee_id`
+ * (Employee code like VG1426, or user id) — the `salon_name` column is just a
+ * label and does not affect routing. Mirrors the live /admin/import-weekly.
+ */
+function UploadTab() {
+  const { addRecords, upsertWeeklyData } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [result, setResult] = useState<BulkResult | null>(null);
+  const [fileName, setFileName] = useState("");
+
+  const runText = (text: string, name: string) => {
+    const parsed = parseWeeklyBulk(text);
+    const employees = new Set<string>();
+    for (const r of parsed.rows) {
+      employees.add(r.userId);
+      addRecords(r.userId, weeklyRowToDays(r));
+      upsertWeeklyData(r.userId, r.weekStart, {
+        weekEnd: addDays(r.weekStart, 6),
+        scheduledHrs: r.scheduledHrs,
+        actualHrs: r.actualHrs,
+        actualHaircuts: r.actualHaircuts,
+        actualColors: r.actualColors,
+        actualOtherValue: r.actualOtherValue,
+        notes: r.notes,
+      });
+    }
     setFileName(name);
-    setMapping(autoMap(p.headers));
-    setApplied(0);
+    setResult({ imported: parsed.rows.length, employees: employees.size, skipped: parsed.skipped, errors: parsed.errors });
   };
 
   const onFile = async (file: File) => {
-    const text = await file.text();
-    ingest(text, file.name);
-  };
-
-  const records: DayRecord[] = useMemo(() => {
-    if (!parsed) return [];
-    const week = remapWeek !== "none" ? weekById(remapWeek) : null;
-    const weekDays = week ? daysOfWeek(week) : null;
-    const num = (v: string) => {
-      const n = parseFloat((v ?? "").replace(/[^0-9.\-]/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    };
-    return parsed.rows
-      .map((r, i) => {
-        let date = mapping.date >= 0 ? (r[mapping.date] ?? "").trim() : "";
-        if (weekDays) date = weekDays[i % 7];
-        if (!date) return null;
-        return {
-          date,
-          scheduledHours: num(r[mapping.scheduledHours]),
-          workedHours: num(r[mapping.workedHours]),
-          haircuts: Math.round(num(r[mapping.haircuts])),
-          colors: Math.round(num(r[mapping.colors])),
-          production: Math.round(num(r[mapping.production])),
-        } as DayRecord;
-      })
-      .filter((d): d is DayRecord => d !== null);
-  }, [parsed, mapping, remapWeek]);
-
-  const apply = () => {
-    if (records.length === 0) return;
-    addRecords(stylistId, records);
-    setApplied(records.length);
+    runText(await file.text(), file.name);
   };
 
   return (
     <div className="space-y-4">
-      {!parsed ? (
-        <div>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-2)] p-8 text-center transition hover:border-[var(--color-brand)]"
-          >
-            <Upload size={28} className="text-[var(--color-brand)]" />
-            <span className="font-medium">Click to upload a CSV or XLSX</span>
-            <span className="text-xs text-[var(--color-ink-faint)]">Columns: date, scheduledHours, workedHours, haircuts, colors, production</span>
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.txt,.xlsx"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-          />
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => ingest(SAMPLE_CSV, "sample-week.csv")}>
-              <FileSpreadsheet size={14} /> Load sample data
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => downloadCsv(SAMPLE_CSV, "pph-template.csv")}>
-              <Download size={14} /> Download template
-            </Button>
-          </div>
-          <p className="mt-3 text-xs text-[var(--color-ink-faint)]">
-            XLSX files should be exported to CSV first for this prototype&apos;s parser.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <Badge tone="brand">
-              <FileSpreadsheet size={13} /> {fileName} · {parsed.rows.length} rows
-            </Badge>
-            <Button variant="ghost" size="sm" onClick={() => setParsed(null)}>
-              Choose another
-            </Button>
-          </div>
+      <button
+        onClick={() => fileRef.current?.click()}
+        className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-2)] p-8 text-center transition hover:border-[var(--color-brand)]"
+      >
+        <Upload size={28} className="text-[var(--color-brand)]" />
+        <span className="font-medium">Upload the whole org&apos;s pay-period data (CSV)</span>
+        <span className="text-xs text-[var(--color-ink-faint)]">
+          Columns: employee_id, salon_name, week_start, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value, notes
+        </span>
+        <span className="text-xs text-[var(--color-ink-faint)]">
+          One row per employee per week — many employees &amp; pay periods per file. Routed by employee_id (salon is just a label).
+        </span>
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,.txt"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="ghost" size="sm" onClick={() => downloadCsv(WEEKLY_TEMPLATE, "pph-payperiod-template.csv")}>
+          <Download size={14} /> Download template
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => runText(WEEKLY_TEMPLATE, "sample-payperiods.csv")}>
+          <FileSpreadsheet size={14} /> Load sample data
+        </Button>
+      </div>
+      <p className="text-xs text-[var(--color-ink-faint)]">
+        <b>employee_id</b> is the routing key (client Employee code like <code>VG1426</code>, or a user id). Data goes to
+        the right person regardless of the <b>salon_name</b> value. XLSX files should be exported to CSV first for this
+        prototype&apos;s parser.
+      </p>
 
-          {/* Preview */}
-          <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)]">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--color-surface-2)] text-left">
-                <tr>
-                  {parsed.headers.map((h, i) => (
-                    <th key={i} className="px-3 py-2 font-semibold text-[var(--color-ink-soft)]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {parsed.rows.slice(0, 6).map((r, i) => (
-                  <tr key={i} className="border-t border-[var(--color-border)]">
-                    {parsed.headers.map((_, j) => (
-                      <td key={j} className="px-3 py-1.5 tabular-nums text-[var(--color-ink-soft)]">{r[j]}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {result && (
+        <div className="animate-pop space-y-2 rounded-2xl bg-[var(--color-surface-2)] p-3 text-sm">
+          <div className="flex items-center gap-2 font-medium">
+            <FileSpreadsheet size={15} className="text-[var(--color-brand)]" /> {fileName}
           </div>
-
-          {/* Mapping + assignment */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {FIELDS.map((f) => (
-              <label key={f} className="block">
-                <span className="mb-1 block text-xs font-medium text-[var(--color-ink-soft)]">{f}</span>
-                <Select
-                  className="h-9 w-full text-sm"
-                  value={mapping[f] ?? -1}
-                  onChange={(e) => setMapping((m) => ({ ...m, [f]: Number(e.target.value) }))}
-                >
-                  <option value={-1}>—</option>
-                  {parsed.headers.map((h, i) => (
-                    <option key={i} value={i}>{h}</option>
-                  ))}
-                </Select>
-              </label>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="success">{result.imported} rows imported</Badge>
+            <Badge tone="brand">{result.employees} employees</Badge>
+            {result.skipped > 0 && <Badge tone="warning">{result.skipped} skipped</Badge>}
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-[var(--color-ink-soft)]">Assign to stylist</span>
-              <Select className="h-9 w-full text-sm" value={stylistId} onChange={(e) => setStylistId(e.target.value)}>
-                {STYLISTS_FOR_ADMIN.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} · {salonById(s.salonId).name}</option>
-                ))}
-              </Select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-[var(--color-ink-soft)]">Assign to week (optional remap)</span>
-              <Select className="h-9 w-full text-sm" value={remapWeek} onChange={(e) => setRemapWeek(e.target.value)}>
-                <option value="none">Use dates from file</option>
-                {[...WEEKS].reverse().map((w) => (
-                  <option key={w.id} value={w.id}>{w.label}</option>
-                ))}
-              </Select>
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--color-surface-2)] p-3">
-            <span className="text-sm text-[var(--color-ink-soft)]">
-              {records.length} valid records → <b>{STYLISTS_FOR_ADMIN.find((s) => s.id === stylistId)?.name}</b>
-              {remapWeek !== "none" && <> · remapped to {fmtShort(weekById(remapWeek).start)}</>}
-            </span>
-            <Button onClick={apply} disabled={records.length === 0}>
-              <Check size={16} /> Apply data
-            </Button>
-          </div>
-
-          {applied > 0 && (
-            <div className="animate-pop rounded-2xl bg-[var(--color-success-soft)] p-3 text-sm font-medium text-[var(--color-success)]">
-              ✓ Imported {applied} day records. Open the dashboard to see them reflected.
-            </div>
+          {result.errors.length > 0 && (
+            <ul className="mt-1 max-h-32 list-disc space-y-0.5 overflow-y-auto pl-5 text-xs text-[var(--color-warning)]">
+              {result.errors.slice(0, 20).map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
           )}
-        </>
+          {result.imported > 0 && (
+            <p className="text-xs text-[var(--color-ink-faint)]">Open the dashboard and pick the pay period/week to see it reflected.</p>
+          )}
+          {result.imported === 0 && result.skipped > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
+              <AlertTriangle size={13} /> No rows imported — check the employee_id and week_start columns.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
