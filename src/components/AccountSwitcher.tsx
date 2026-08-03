@@ -40,6 +40,28 @@ function UserMenu() {
   );
 }
 
+/**
+ * Small include/exclude indicator (demo-only — this row is only rendered inside
+ * the demo AccountSwitcher; production uses UserMenu). Green = on the PPH pay
+ * plan, grey = excluded (no personal PPH dashboard).
+ */
+function PphIndicator({ excluded }: { excluded?: boolean }) {
+  return (
+    <span
+      title={excluded ? "Not on the PPH pay plan" : "On the PPH pay plan"}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+        excluded
+          ? "bg-[var(--color-surface-2)] text-[var(--color-ink-faint)]"
+          : "bg-[var(--color-success-soft)] text-[var(--color-success)]",
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", excluded ? "bg-[var(--color-ink-faint)]" : "bg-[var(--color-success)]")} />
+      {excluded ? "Off PPH" : "On PPH"}
+    </span>
+  );
+}
+
 function AccountRow({ u, active, onPick }: { u: User; active: boolean; onPick: (id: string) => void }) {
   const m = roleMeta[u.role];
   return (
@@ -52,12 +74,13 @@ function AccountRow({ u, active, onPick }: { u: User; active: boolean; onPick: (
     >
       <Avatar initials={u.initials} hue={u.hue} size={38} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="truncate font-semibold">{u.name}</span>
           <Badge tone={m.tone}>
             {m.icon}
             {m.label}
           </Badge>
+          <PphIndicator excluded={u.excluded} />
         </div>
         <div className="truncate text-xs text-[var(--color-ink-faint)]">{m.blurb(u)}</div>
       </div>
