@@ -27,8 +27,14 @@ import { dirname, join } from "node:path";
 register("./ts-loader.mjs", import.meta.url);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const WORKBOOK = join(ROOT, "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx");
 const PAY_PERIOD_WEEKS = ["2026-06-22", "2026-06-29"];
+
+// The client sends the same workbook under either name — a browser download of
+// a second copy appends " (2)". Use whichever is checked in.
+const WORKBOOK = [
+  "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx",
+  "v2.PPH Data 06-22-2026 TO 07-05-2026 (2).xlsx",
+].map((name) => join(ROOT, name)).find(existsSync) ?? "";
 
 const { readXlsxSheet, sheetToCsv } = await import("../src/lib/xlsx.ts");
 const { looksLikeDailyImport, parseDailyBulk, dailyRowsToWeeks } = await import("../src/lib/demoImport.ts");
@@ -37,7 +43,7 @@ const { getCurrentEffectivePayRate, HAIRCUT_PRICE, COLOR_PRICE } = await import(
 const { DEFAULT_CONFIG, STYLIST_DATA, resolveRosterUserId, userById } = await import("../src/lib/mockData.ts");
 const { CLIENT_ROSTER } = await import("../src/lib/clientRoster.ts");
 
-const skip = existsSync(WORKBOOK) ? false : "client workbook not in the repo";
+const skip = WORKBOOK ? false : "client workbook not in the repo";
 
 /** Read the workbook the way the browser upload does: unzip → CSV text. */
 async function readWorkbookCsv() {

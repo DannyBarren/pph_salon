@@ -26,7 +26,12 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-DEFAULT_SRC = "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx"
+# The same workbook arrives under either name — a browser download of a second
+# copy appends " (2)".
+DEFAULT_SRCS = (
+    "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx",
+    "v2.PPH Data 06-22-2026 TO 07-05-2026 (2).xlsx",
+)
 OUT = Path("src/lib/clientDaily.ts")
 
 
@@ -72,7 +77,10 @@ def monday_of(iso: str) -> str:
 
 
 def main() -> None:
-    src = Path(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SRC)
+    if len(sys.argv) > 1:
+        src = Path(sys.argv[1])
+    else:
+        src = next((p for p in map(Path, DEFAULT_SRCS) if p.exists()), Path(DEFAULT_SRCS[0]))
     wb = load_workbook(src, read_only=True, data_only=True)
     rows = list(wb.active.iter_rows(values_only=True))[1:]
 
