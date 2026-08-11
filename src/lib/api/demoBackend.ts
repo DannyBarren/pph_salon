@@ -11,6 +11,8 @@
 import { DEFAULT_CONFIG, SALONS, USERS } from "@/lib/mockData";
 import { computePreview, getActiveTiers, type ActivePaymentLogic } from "@/lib/paymentLogic";
 import { CLIENT_TEMPLATE, DAILY_TEMPLATE, USERS_TEMPLATE, WEEKLY_TEMPLATE } from "@/lib/importTemplates";
+import { looksLikeDailyImport, parseDailyBulk, parseWeeklyBulk } from "@/lib/demoImport";
+import { importFileToCsv } from "@/lib/xlsx";
 import type {
   AuditLogDTO,
   BackendRole,
@@ -182,11 +184,17 @@ function splitCsvLine(line: string): string[] {
 }
 
 async function readRows(file: File): Promise<string[][]> {
-  const text = (await file.text()).replace(/^\uFEFF/, "");
+  const text = (await importFileToCsv(file)).replace(/^\uFEFF/, "");
   return text
     .split(/\r?\n/)
     .filter((l) => l.trim().length > 0)
     .map(splitCsvLine);
+}
+
+/** Import result for a daily file, matching what /admin/import-daily returns. */
+function dailyImportResult(text: string): WeeklyImportResult {
+  const parsed = parseDailyBulk(text);
+  return { inserted: parsed.rows.length, updated: 0, skipped: parsed.skipped, errors: parsed.errors };
 }
 
 export const demoBackend = {
@@ -320,7 +328,10 @@ export const demoBackend = {
     };
   },
 
-  // ── Imports (simulated: parse the file to report believable counts) ────────
+  // ── Imports ────────────────────────────────────────────────────────────────
+  // User/client imports are simulated (row counts only); the performance imports
+  // run the real parsers so the reported rows, employees and errors are the ones
+  // the live backend would produce for that file.
   async importUsers(file: File): Promise<BulkUserResult> {
     const rows = await readRows(file);
     const created = Math.max(0, rows.length - 1);
@@ -328,14 +339,18 @@ export const demoBackend = {
     return { created, updated: 0, skipped: 0, errors: [], credentials: {} };
   },
   async importWeekly(file: File): Promise<WeeklyImportResult> {
-    const rows = await readRows(file);
+    const text = await importFileToCsv(file);
     logAudit("import.weekly", "week");
-    return { inserted: Math.max(0, rows.length - 1), updated: 0, skipped: 0, errors: [] };
+    // A daily file uploaded under "Weekly" still imports — the live backend
+    // routes on the headers too, so mirror that instead of miscounting.
+    if (looksLikeDailyImport(text)) return dailyImportResult(text);
+    const parsed = parseWeeklyBulk(text);
+    return { inserted: parsed.rows.length, updated: 0, skipped: parsed.skipped, errors: parsed.errors };
   },
   async importDaily(file: File): Promise<WeeklyImportResult> {
-    const rows = await readRows(file);
+    const text = await importFileToCsv(file);
     logAudit("import.daily", "daily_performance");
-    return { inserted: Math.max(0, rows.length - 1), updated: 0, skipped: 0, errors: [] };
+    return dailyImportResult(text);
   },
   async importClient(file: File, weekStart?: string): Promise<ClientImportResult> {
     const rows = await readRows(file);

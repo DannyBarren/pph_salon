@@ -151,14 +151,17 @@ for (const p of CLIENT_ROSTER) {
 
 /**
  * Resolve an import row's `employee_id` to a demo user id. Accepts the client
- * Employee code (``VG1426``) OR our user id (``u2`` / ``2``). Routing is by that
- * id ONLY — the salon on the row is ignored — mirroring the live import so a
- * wrong/blank salon never misroutes the data. Returns undefined if unknown.
+ * Employee code (``VG1426``, or ``VG-1426`` as their daily export spells it) OR
+ * our user id (``u2`` / ``2``). Routing is by that id ONLY — the salon on the
+ * row is ignored — mirroring the live import so a wrong/blank salon never
+ * misroutes the data. Returns undefined if unknown.
  */
 export function resolveRosterUserId(identifier: string): string | undefined {
   const raw = (identifier ?? "").trim();
   if (!raw) return undefined;
-  const byCode = ROSTER_ID_BY_CODE.get(raw.toUpperCase());
+  const byCode =
+    ROSTER_ID_BY_CODE.get(raw.toUpperCase()) ??
+    ROSTER_ID_BY_CODE.get(raw.replace(/[-\s]/g, "").toUpperCase());
   if (byCode) return byCode;
   if (userById(raw)) return raw;
   if (userById(`u${raw}`)) return `u${raw}`;

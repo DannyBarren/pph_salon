@@ -5,8 +5,15 @@ import { Upload, FileSpreadsheet, Download, PlusCircle, ClipboardList, AlertTria
 import { useApp } from "@/store/AppContext";
 import { ALL_STYLISTS as STYLISTS_FOR_ADMIN, salonById } from "@/lib/mockData";
 import { WEEKS, daysOfWeek, weekById, fmtShort, WEEKDAY_LABELS, weekdayIndex, addDays } from "@/lib/time";
-import { WEEKLY_TEMPLATE } from "@/lib/importTemplates";
-import { parseWeeklyBulk, weeklyRowToDays } from "@/lib/demoImport";
+import { DAILY_TEMPLATE, WEEKLY_TEMPLATE } from "@/lib/importTemplates";
+import {
+  dailyRowsToWeeks,
+  looksLikeDailyImport,
+  parseDailyBulk,
+  parseWeeklyBulk,
+  weeklyRowToDays,
+} from "@/lib/demoImport";
+import { importFileToCsv } from "@/lib/xlsx";
 import { Card, CardBody, Button, Select, Segmented, SectionTitle, Badge, NumberField } from "@/components/ui/primitives";
 
 export function DataInputPanel() {
@@ -36,27 +43,55 @@ export function DataInputPanel() {
 }
 
 interface BulkResult {
+  kind: "daily" | "weekly";
   imported: number;
   employees: number;
+  weeks: string[];
   skipped: number;
   errors: string[];
 }
 
 /**
  * Bulk pay-period import for the WHOLE organization: one file, many employees,
- * many weeks / pay periods. Each row is routed to a stylist by `employee_id`
- * (Employee code like VG1426, or user id) — the `salon_name` column is just a
- * label and does not affect routing. Mirrors the live /admin/import-weekly.
+ * many weeks / pay periods. Accepts the client's daily export (one row per
+ * employee per work day) and our weekly template, in CSV or XLSX. Each row is
+ * routed to a stylist by `employee_id` (Employee code like VG1426, or user id)
+ * — the `salon_name` column is just a label and does not affect routing.
+ * Mirrors the live /admin/import-daily and /admin/import-weekly.
  */
 function UploadTab() {
   const { addRecords, upsertWeeklyData } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<BulkResult | null>(null);
   const [fileName, setFileName] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const runText = (text: string, name: string) => {
-    const parsed = parseWeeklyBulk(text);
+    setError(null);
+    setFileName(name);
     const employees = new Set<string>();
+
+    // Daily export: the day rows ARE the data (service_revenue is the day's
+    // production), so they are written straight to the dashboards.
+    if (looksLikeDailyImport(text)) {
+      const parsed = parseDailyBulk(text);
+      const weeks = dailyRowsToWeeks(parsed.rows);
+      for (const w of weeks) {
+        employees.add(w.userId);
+        addRecords(w.userId, w.days);
+      }
+      setResult({
+        kind: "daily",
+        imported: parsed.rows.length,
+        employees: employees.size,
+        weeks: Array.from(new Set(weeks.map((w) => w.weekStart))).sort(),
+        skipped: parsed.skipped,
+        errors: parsed.errors,
+      });
+      return;
+    }
+
+    const parsed = parseWeeklyBulk(text);
     for (const r of parsed.rows) {
       employees.add(r.userId);
       addRecords(r.userId, weeklyRowToDays(r));
@@ -70,12 +105,24 @@ function UploadTab() {
         notes: r.notes,
       });
     }
-    setFileName(name);
-    setResult({ imported: parsed.rows.length, employees: employees.size, skipped: parsed.skipped, errors: parsed.errors });
+    setResult({
+      kind: "weekly",
+      imported: parsed.rows.length,
+      employees: employees.size,
+      weeks: Array.from(new Set(parsed.rows.map((r) => r.weekStart))).sort(),
+      skipped: parsed.skipped,
+      errors: parsed.errors,
+    });
   };
 
   const onFile = async (file: File) => {
-    runText(await file.text(), file.name);
+    try {
+      runText(await importFileToCsv(file), file.name);
+    } catch (err) {
+      setResult(null);
+      setFileName(file.name);
+      setError(err instanceof Error ? err.message : "Could not read that file.");
+    }
   };
 
   return (
@@ -85,34 +132,46 @@ function UploadTab() {
         className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-2)] p-8 text-center transition hover:border-[var(--color-brand)]"
       >
         <Upload size={28} className="text-[var(--color-brand)]" />
-        <span className="font-medium">Upload the whole org&apos;s pay-period data (CSV)</span>
+        <span className="font-medium">Upload the whole org&apos;s pay-period data (CSV or XLSX)</span>
         <span className="text-xs text-[var(--color-ink-faint)]">
-          Columns: employee_id, salon_name, week_start, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value, notes
+          <b>Daily</b> (the client export): employee_id, salon_name, sale_date, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, service_revenue, Employee Name, pay_period, Include/Exclude
         </span>
         <span className="text-xs text-[var(--color-ink-faint)]">
-          One row per employee per week — many employees &amp; pay periods per file. Routed by employee_id (salon is just a label).
+          <b>Weekly</b>: employee_id, salon_name, week_start, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value, notes
+        </span>
+        <span className="text-xs text-[var(--color-ink-faint)]">
+          The layout is detected from the headers — drop the client&apos;s workbook in as-is. Routed by employee_id (salon is just a label).
         </span>
       </button>
       <input
         ref={fileRef}
         type="file"
-        accept=".csv,.txt"
+        accept=".csv,.txt,.xlsx,.xlsm"
         className="hidden"
         onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
       />
       <div className="flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" onClick={() => downloadCsv(WEEKLY_TEMPLATE, "pph-payperiod-template.csv")}>
-          <Download size={14} /> Download template
+        <Button variant="ghost" size="sm" onClick={() => downloadCsv(DAILY_TEMPLATE, "pph-daily-template.csv")}>
+          <Download size={14} /> Daily template
         </Button>
-        <Button variant="outline" size="sm" onClick={() => runText(WEEKLY_TEMPLATE, "sample-payperiods.csv")}>
+        <Button variant="ghost" size="sm" onClick={() => downloadCsv(WEEKLY_TEMPLATE, "pph-payperiod-template.csv")}>
+          <Download size={14} /> Weekly template
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => runText(DAILY_TEMPLATE, "sample-daily.csv")}>
           <FileSpreadsheet size={14} /> Load sample data
         </Button>
       </div>
       <p className="text-xs text-[var(--color-ink-faint)]">
-        <b>employee_id</b> is the routing key (client Employee code like <code>VG1426</code>, or a user id). Data goes to
-        the right person regardless of the <b>salon_name</b> value. XLSX files should be exported to CSV first for this
-        prototype&apos;s parser.
+        <b>employee_id</b> is the routing key (client Employee code like <code>VG-1426</code>, or a user id). Data goes to
+        the right person regardless of the <b>salon_name</b> value. On daily rows <b>service_revenue</b> is the day&apos;s
+        production as reported — it is never recalculated from the haircut/color counts.
       </p>
+
+      {error && (
+        <p className="flex items-center gap-1.5 rounded-2xl bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-warning)]">
+          <AlertTriangle size={13} /> {error}
+        </p>
+      )}
 
       {result && (
         <div className="animate-pop space-y-2 rounded-2xl bg-[var(--color-surface-2)] p-3 text-sm">
@@ -120,8 +179,11 @@ function UploadTab() {
             <FileSpreadsheet size={15} className="text-[var(--color-brand)]" /> {fileName}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone="success">{result.imported} rows imported</Badge>
+            <Badge tone="success">
+              {result.imported} {result.kind === "daily" ? "day rows" : "weekly rows"} imported
+            </Badge>
             <Badge tone="brand">{result.employees} employees</Badge>
+            {result.weeks.length > 0 && <Badge tone="neutral">weeks {result.weeks.join(", ")}</Badge>}
             {result.skipped > 0 && <Badge tone="warning">{result.skipped} skipped</Badge>}
           </div>
           {result.errors.length > 0 && (
@@ -136,7 +198,7 @@ function UploadTab() {
           )}
           {result.imported === 0 && result.skipped > 0 && (
             <p className="flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
-              <AlertTriangle size={13} /> No rows imported — check the employee_id and week_start columns.
+              <AlertTriangle size={13} /> No rows imported — check the employee_id and date columns.
             </p>
           )}
         </div>
