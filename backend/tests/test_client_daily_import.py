@@ -32,8 +32,21 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 PP = "/api/v1"
 REPO_ROOT = Path(__file__).resolve().parents[2]
-V2_WORKBOOK = REPO_ROOT / "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx"
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+# The client sends the same workbook under either name — a browser download of a
+# second copy appends " (2)". Use whichever is checked in.
+V2_WORKBOOK = next(
+    (
+        REPO_ROOT / name
+        for name in (
+            "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx",
+            "v2.PPH Data 06-22-2026 TO 07-05-2026 (2).xlsx",
+        )
+        if (REPO_ROOT / name).exists()
+    ),
+    REPO_ROOT / "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx",
+)
 
 # The v2 header cells, exactly as the client's workbook spells them.
 V2_HEADERS = [
