@@ -34,7 +34,8 @@ const { readXlsxSheet, sheetToCsv } = await import("../src/lib/xlsx.ts");
 const { looksLikeDailyImport, parseDailyBulk, dailyRowsToWeeks } = await import("../src/lib/demoImport.ts");
 const { summarize } = await import("../src/lib/payEngine.ts");
 const { getCurrentEffectivePayRate, HAIRCUT_PRICE, COLOR_PRICE } = await import("../src/lib/tiers.ts");
-const { DEFAULT_CONFIG, resolveRosterUserId, userById } = await import("../src/lib/mockData.ts");
+const { DEFAULT_CONFIG, STYLIST_DATA, resolveRosterUserId, userById } = await import("../src/lib/mockData.ts");
+const { CLIENT_ROSTER } = await import("../src/lib/clientRoster.ts");
 
 const skip = existsSync(WORKBOOK) ? false : "client workbook not in the repo";
 
@@ -56,14 +57,23 @@ function isoOfUsDate(us) {
   return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
-/** Per (employee code, week) totals read directly out of the spreadsheet. */
+/**
+ * Totals read directly out of the spreadsheet, one bucket per person-week.
+ *
+ * Rows are bucketed by the roster entry they belong to, which for the two
+ * employees who work at two salons means one bucket per location — the salon on
+ * each row says where the day was worked.
+ */
 function expectedTotals(sheet) {
   const totals = new Map();
   for (const row of sheet.rows) {
-    const [code, , saleDate, sched, hours, cuts, colors, revenue] = row;
+    const [code, salon, saleDate, sched, hours, cuts, colors, revenue] = row;
     if (!code) continue;
-    const key = `${code}|${mondayOf(isoOfUsDate(saleDate))}`;
-    const t = totals.get(key) ?? { scheduled: 0, hours: 0, cuts: 0, colors: 0, revenue: 0, days: 0 };
+    const userId = resolveRosterUserId(code, salon);
+    const weekStart = mondayOf(isoOfUsDate(saleDate));
+    const key = `${userId ?? code}|${weekStart}`;
+    const t = totals.get(key) ??
+      { code, salon, userId, weekStart, scheduled: 0, hours: 0, cuts: 0, colors: 0, revenue: 0, days: 0 };
     t.scheduled += Number(sched || 0);
     t.hours += Number(hours || 0);
     t.cuts += Number(cuts || 0);
@@ -110,11 +120,10 @@ test("daily rows rebuild whole weeks that tie out to the spreadsheet", { skip },
   assert.deepEqual([...new Set(weeks.map((w) => w.weekStart))].sort(), PAY_PERIOD_WEEKS);
 
   let checked = 0;
-  for (const [key, want] of totals) {
-    const [code, weekStart] = key.split("|");
-    const userId = resolveRosterUserId(code);
-    if (!userId) continue; // not on the roster — already asserted as skipped
-    const week = weeks.find((w) => w.userId === userId && w.weekStart === weekStart);
+  for (const want of totals.values()) {
+    if (!want.userId) continue; // not on the roster — already asserted as skipped
+    const { code, weekStart } = want;
+    const week = weeks.find((w) => w.userId === want.userId && w.weekStart === weekStart);
     assert.ok(week, `missing week ${weekStart} for ${code}`);
     assert.equal(week.days.length, 7, "a week is always a full Mon–Sun");
     assert.ok(close(week.scheduledHrs, want.scheduled), `${code} ${weekStart} scheduled hours`);
@@ -125,6 +134,7 @@ test("daily rows rebuild whole weeks that tie out to the spreadsheet", { skip },
     assert.ok(close(week.production, want.revenue), `${code} ${weekStart} production`);
     checked += 1;
   }
+  assert.equal(checked, weeks.length, "every imported week was checked against the file");
   assert.ok(checked > 90, `expected ~100 employee-weeks, checked ${checked}`);
 });
 
@@ -141,12 +151,57 @@ test("service_revenue is never re-derived from the haircut/color counts", { skip
   }
   assert.ok(differ > 50, `expected the models to differ widely, they differed ${differ} times`);
 
-  const revenueTotal = [...totals.values()].reduce((a, t) => a + t.revenue, 0);
+  const onRoster = [...totals.values()].filter((t) => t.userId).reduce((a, t) => a + t.revenue, 0);
   const importedTotal = weeks.reduce((a, w) => a + w.production, 0);
-  const missing = [...totals.entries()]
-    .filter(([key]) => !resolveRosterUserId(key.split("|")[0]))
-    .reduce((a, [, t]) => a + t.revenue, 0);
-  assert.ok(close(importedTotal, revenueTotal - missing, 0.5));
+  assert.ok(close(importedTotal, onRoster, 0.02));
+});
+
+test("the seeded demo weeks add up to the export, employee by employee", { skip }, async () => {
+  const { sheet } = await readWorkbookCsv();
+  const totals = expectedTotals(sheet);
+
+  // Everyone the export knows about — the rest of the roster keeps generated
+  // numbers, since the file says nothing about them at all.
+  const inExport = new Set([...totals.values()].filter((t) => t.userId).map((t) => t.userId));
+
+  for (const [weekStart, weekEnd] of [["2026-06-22", "2026-06-28"], ["2026-06-29", "2026-07-05"]]) {
+    const seeded = CLIENT_ROSTER.filter((p) => inExport.has(p.id)).reduce((a, p) => {
+      const days = (STYLIST_DATA[p.id]?.days ?? []).filter((d) => d.date >= weekStart && d.date <= weekEnd);
+      return a + days.reduce((x, d) => x + d.production, 0);
+    }, 0);
+    const fromFile = [...totals.values()]
+      .filter((t) => t.userId && t.weekStart === weekStart)
+      .reduce((a, t) => a + t.revenue, 0);
+    assert.ok(close(seeded, fromFile, 0.02),
+      `week ${weekStart}: demo shows ${seeded.toFixed(2)}, export says ${fromFile.toFixed(2)}`);
+  }
+});
+
+test("an employee who works at two salons is not counted twice", { skip }, async () => {
+  const { sheet } = await readWorkbookCsv();
+  const codesAtTwoSalons = new Map();
+  for (const [code, salon] of sheet.rows.map((r) => [r[0], r[1]])) {
+    codesAtTwoSalons.set(code, (codesAtTwoSalons.get(code) ?? new Set()).add(salon));
+  }
+
+  for (const [code, salons] of codesAtTwoSalons) {
+    if (salons.size < 2) continue;
+    const entries = CLIENT_ROSTER.filter((p) => p.employeeCode === code.replace(/-/g, ""));
+    assert.equal(entries.length, salons.size, `${code} should be on the roster once per salon`);
+    const period = sheet.rows.filter((r) => r[0] === code);
+    const expected = period.reduce((a, r) => a + Number(r[7] || 0), 0);
+    const seeded = entries.reduce((a, p) => {
+      const days = (STYLIST_DATA[p.id]?.days ?? []).filter((d) => d.date >= "2026-06-22" && d.date <= "2026-07-05");
+      return a + days.reduce((x, d) => x + d.production, 0);
+    }, 0);
+    assert.ok(close(seeded, expected, 0.02),
+      `${code} across ${salons.size} salons: demo ${seeded.toFixed(2)} vs export ${expected.toFixed(2)}`);
+    // …and each entry only carries the days worked at its own location.
+    for (const p of entries) {
+      const days = (STYLIST_DATA[p.id]?.days ?? []).filter((d) => d.date >= "2026-06-22" && d.date <= "2026-07-05");
+      assert.ok(days.reduce((x, d) => x + d.production, 0) < expected - 0.01, `${code} at ${p.salonName} has it all`);
+    }
+  }
 });
 
 test("dashboard metrics for the imported weeks match the spreadsheet", { skip }, async () => {
@@ -156,10 +211,8 @@ test("dashboard metrics for the imported weeks match the spreadsheet", { skip },
 
   for (const week of weeks) {
     const user = userById(week.userId);
-    const code = [...totals.keys()]
-      .map((k) => k.split("|"))
-      .find(([c, ws]) => resolveRosterUserId(c) === week.userId && ws === week.weekStart)[0];
-    const want = totals.get(`${code}|${week.weekStart}`);
+    const want = totals.get(`${week.userId}|${week.weekStart}`);
+    const code = want.code;
     const guarantee = user.guaranteeRate ?? DEFAULT_CONFIG.guaranteeRate;
 
     const summary = summarize(week.days, user.salonId, DEFAULT_CONFIG, guarantee);

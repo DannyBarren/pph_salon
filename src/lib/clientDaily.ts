@@ -3567,6 +3567,3571 @@ export const CLIENT_DAILY: Record<string, ClientDailyRecord[]> = {
   ]
 };
 
+/**
+ * The same records keyed by `CODE|salon` (salon lowercased, letters and
+ * digits only). Use this for anyone in CLIENT_DAILY_MULTI_SALON so each of
+ * their roster entries only carries the days worked at that location.
+ */
+export const CLIENT_DAILY_BY_SALON: Record<string, ClientDailyRecord[]> = {
+  "VG1426|burlesontx": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 5.0,
+      "workedHours": 4.52,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 113.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 5.38,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 167.7
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.0,
+      "workedHours": 5.2,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 54.4
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.0,
+      "workedHours": 6.42,
+      "haircuts": 3,
+      "colors": 3,
+      "production": 183.75
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.0,
+      "workedHours": 5.15,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 85.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 5.5,
+      "workedHours": 5.58,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 221.0
+    }
+  ],
+  "VG1116|burlesontx": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 6.5,
+      "workedHours": 6.2,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 157.0
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 6.5,
+      "workedHours": 6.38,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 65.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 6.5,
+      "workedHours": 4.83,
+      "haircuts": 4,
+      "colors": 5,
+      "production": 282.75
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 6.5,
+      "workedHours": 6.57,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 184.4
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 4.5,
+      "workedHours": 7.35,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 173.7
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 6.5,
+      "workedHours": 6.38,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 263.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 6.5,
+      "workedHours": 6.48,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 258.7
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 6.5,
+      "workedHours": 6.1,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 82.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.5,
+      "workedHours": 6.33,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 164.45
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 4.5,
+      "workedHours": 5.85,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 179.4
+    }
+  ],
+  "VG1296|burlesontx": [
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 5.0,
+      "workedHours": 4.75,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 69.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 7.2,
+      "haircuts": 9,
+      "colors": 3,
+      "production": 365.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.0,
+      "workedHours": 5.05,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 305.7
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 5.62,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 142.7
+    }
+  ],
+  "VG1496|shermantx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 4.12,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 19.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 5.0,
+      "workedHours": 4.97,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 27.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 5.0,
+      "workedHours": 5.3,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 5.93,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 112.7
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 5.0,
+      "workedHours": 5.27,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 19.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 5.0,
+      "workedHours": 5.08,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 111.7
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 6.0,
+      "workedHours": 6.3,
+      "haircuts": 1,
+      "colors": 2,
+      "production": 218.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 3.43,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 98.55
+    }
+  ],
+  "VG1494|shermantx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 6.18,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 186.7
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 5.0,
+      "workedHours": 2.58,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 35.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 5.0,
+      "workedHours": 4.62,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 6.0,
+      "workedHours": 6.82,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 187.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 5.0,
+      "workedHours": 5.05,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 156.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 6.0,
+      "workedHours": 5.67,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 95.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.0,
+      "workedHours": 6.05,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 99.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 5.0,
+      "workedHours": 4.75,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 53.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.0,
+      "workedHours": 6.02,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 123.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 2.95,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 76.0
+    }
+  ],
+  "VG1406|shermantx": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 7.0,
+      "workedHours": 9.1,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 265.15
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 4.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 5.5,
+      "workedHours": 4.55,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 116.8
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 6.7,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 107.5
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 7.0,
+      "workedHours": 10.07,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 195.9
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.0,
+      "workedHours": 4.12,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 237.7
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 2.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 6.0,
+      "workedHours": 6.32,
+      "haircuts": 2,
+      "colors": 1,
+      "production": 23.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 4.17,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 65.0
+    }
+  ],
+  "VG1500|paristx": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 6.0,
+      "workedHours": 8.38,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 243.7
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 5.98,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 92.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 7.98,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 129.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 5.0,
+      "workedHours": 5.45,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 169.4
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 5.0,
+      "workedHours": 5.53,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 122.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 6.0,
+      "workedHours": 7.43,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 89.7
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 5.0,
+      "workedHours": 5.55,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 69.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 7.0,
+      "workedHours": 7.27,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 195.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 4.0,
+      "workedHours": 3.43,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 124.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 5.0,
+      "workedHours": 5.3,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 97.0
+    }
+  ],
+  "VG1443|paristx": [
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 7.7,
+      "haircuts": 14,
+      "colors": 1,
+      "production": 400.5
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 8.68,
+      "haircuts": 12,
+      "colors": 1,
+      "production": 386.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 6.15,
+      "haircuts": 8,
+      "colors": 2,
+      "production": 322.2
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 5.52,
+      "haircuts": 9,
+      "colors": 1,
+      "production": 262.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 7.83,
+      "haircuts": 12,
+      "colors": 1,
+      "production": 380.2
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 7.48,
+      "haircuts": 9,
+      "colors": 3,
+      "production": 334.56
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 8.22,
+      "haircuts": 12,
+      "colors": 0,
+      "production": 380.55
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 5.65,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 220.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 1.88,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 30.0
+    }
+  ],
+  "VG1499|paristx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 6.47,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 76.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 7.0,
+      "workedHours": 7.37,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 104.5
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 6.0,
+      "workedHours": 6.18,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 70.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 5.0,
+      "workedHours": 5.17,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 39.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 7.0,
+      "workedHours": 6.6,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 103.95
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 7.0,
+      "workedHours": 6.82,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 115.0
+    }
+  ],
+  "VG1486|paristx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 5.82,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 8.3,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 131.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 7.58,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 142.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 6.0,
+      "workedHours": 6.25,
+      "haircuts": 1,
+      "colors": 2,
+      "production": 150.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 7.0,
+      "workedHours": 7.2,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 142.4
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 7.57,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 104.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 7.83,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 153.7
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 6.0,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 82.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 1.75,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 23.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 5.0,
+      "workedHours": 4.95,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 95.0
+    }
+  ],
+  "VG1475|paristx": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 9.52,
+      "haircuts": 4,
+      "colors": 2,
+      "production": 189.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 9.0,
+      "workedHours": 9.48,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 132.2
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 5.0,
+      "workedHours": 5.55,
+      "haircuts": 1,
+      "colors": 2,
+      "production": 156.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 7.0,
+      "workedHours": 3.23,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 63.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.6,
+      "haircuts": 4,
+      "colors": 2,
+      "production": 182.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 9.0,
+      "workedHours": 9.1,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 345.2
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 7.53,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 112.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 4.37,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 90.0
+    }
+  ],
+  "VG1210|paysonut": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 7.5,
+      "workedHours": 7.57,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 207.2
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 7.5,
+      "workedHours": 7.65,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 219.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 4.0,
+      "workedHours": 4.37,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 72.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 7.5,
+      "workedHours": 7.53,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 141.0
+    }
+  ],
+  "VG1235|paysonut": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 7.9,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 251.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 8.03,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 323.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 8.38,
+      "haircuts": 11,
+      "colors": 1,
+      "production": 367.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 8.27,
+      "haircuts": 6,
+      "colors": 1,
+      "production": 332.66
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.22,
+      "haircuts": 2,
+      "colors": 4,
+      "production": 283.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 8.27,
+      "haircuts": 11,
+      "colors": 2,
+      "production": 457.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 6.12,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 283.2
+    }
+  ],
+  "VG1368|paysonut": [
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 4.75,
+      "workedHours": 4.88,
+      "haircuts": 2,
+      "colors": 2,
+      "production": 171.4
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 6.2,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 263.6
+    }
+  ],
+  "VG1376|paysonut": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 5.68,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 100.9
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 3.0,
+      "workedHours": 3.2,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 135.7
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 8.17,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 261.7
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 8.12,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 267.7
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 5.0,
+      "workedHours": 5.28,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 3.0,
+      "workedHours": 3.13,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 61.7
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 8.23,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 249.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 6.17,
+      "haircuts": 3,
+      "colors": 4,
+      "production": 212.7
+    }
+  ],
+  "VG1452|paysonut": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 6.35,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 93.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 6.0,
+      "workedHours": 5.52,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 7.0,
+      "workedHours": 7.08,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 138.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 6.08,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 175.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 6.1,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 66.7
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 6.0,
+      "workedHours": 6.08,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 127.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 8.27,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 201.7
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 6.28,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 129.0
+    }
+  ],
+  "VG1498|mainstbillingsmt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 5.0,
+      "workedHours": 5.0,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 70.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 5.0,
+      "workedHours": 4.93,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 75.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 5.0,
+      "workedHours": 4.75,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 14.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 4.0,
+      "workedHours": 3.67,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 35.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 5.0,
+      "workedHours": 4.83,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 120.4
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 3.0,
+      "workedHours": 3.03,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 113.0
+    }
+  ],
+  "VG1469|mainstbillingsmt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 7.0,
+      "workedHours": 7.17,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 96.0
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 7.0,
+      "workedHours": 6.57,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 332.91
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 7.0,
+      "workedHours": 7.28,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 306.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 7.0,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 159.8
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 5.9,
+      "haircuts": 2,
+      "colors": 4,
+      "production": 182.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 7.0,
+      "workedHours": 5.43,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 205.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 7.0,
+      "workedHours": 6.65,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 288.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 7.0,
+      "workedHours": 7.65,
+      "haircuts": 5,
+      "colors": 2,
+      "production": 273.8
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.0,
+      "workedHours": 5.43,
+      "haircuts": 4,
+      "colors": 4,
+      "production": 257.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.0,
+      "workedHours": 5.65,
+      "haircuts": 2,
+      "colors": 3,
+      "production": 231.4
+    }
+  ],
+  "VG1363|mainstbillingsmt": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 7.0,
+      "workedHours": 6.45,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 313.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 7.0,
+      "workedHours": 4.28,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 157.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 7.0,
+      "workedHours": 6.17,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 161.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 6.05,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 257.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 5.2,
+      "haircuts": 4,
+      "colors": 2,
+      "production": 256.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 7.0,
+      "workedHours": 6.6,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 78.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 7.0,
+      "workedHours": 7.2,
+      "haircuts": 3,
+      "colors": 4,
+      "production": 202.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 7.0,
+      "workedHours": 7.67,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 335.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 7.0,
+      "workedHours": 5.35,
+      "haircuts": 7,
+      "colors": 2,
+      "production": 363.92
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.0,
+      "workedHours": 5.47,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 171.12
+    }
+  ],
+  "VG1438|kingavebillingsmt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 6.0,
+      "workedHours": 6.57,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 93.0
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 7.0,
+      "workedHours": 6.65,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 120.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 7.0,
+      "workedHours": 5.23,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 106.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 9.37,
+      "haircuts": 0,
+      "colors": 8,
+      "production": 250.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 5.0,
+      "workedHours": 5.27,
+      "haircuts": 1,
+      "colors": 3,
+      "production": 165.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 6.0,
+      "workedHours": 6.45,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 152.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 7.0,
+      "workedHours": 6.65,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 138.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 7.0,
+      "workedHours": 7.52,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 243.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 6.0,
+      "workedHours": 5.42,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 106.0
+    }
+  ],
+  "VG1460|kingavebillingsmt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 7.82,
+      "haircuts": 3,
+      "colors": 3,
+      "production": 321.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 5.0,
+      "workedHours": 4.93,
+      "haircuts": 1,
+      "colors": 1,
+      "production": 143.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 6.0,
+      "workedHours": 7.78,
+      "haircuts": 2,
+      "colors": 5,
+      "production": 505.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.0,
+      "workedHours": 9.83,
+      "haircuts": 5,
+      "colors": 2,
+      "production": 323.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 7.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 5.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    }
+  ],
+  "VG1467|kingavebillingsmt": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 8.25,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 162.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 6.0,
+      "workedHours": 6.68,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 194.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 8.23,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 94.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 5.0,
+      "workedHours": 5.23,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 200.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 7.78,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 78.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 5.92,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 197.7
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 7.0,
+      "workedHours": 8.05,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 213.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 5.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    }
+  ],
+  "VG1344|kalispellmt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 8.07,
+      "haircuts": 7,
+      "colors": 1,
+      "production": 260.7
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 8.07,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 231.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 8.27,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 250.7
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 7.9,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 189.7
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.05,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 256.5
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 9.57,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 335.9
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 8.43,
+      "haircuts": 6,
+      "colors": 3,
+      "production": 393.7
+    }
+  ],
+  "VG1134|kalispellmt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 5.0,
+      "workedHours": 4.03,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 20.7
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 5.32,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 149.4
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 5.0,
+      "workedHours": 5.57,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 176.7
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 5.0,
+      "workedHours": 5.5,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 182.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.0,
+      "workedHours": 3.27,
+      "haircuts": 2,
+      "colors": 1,
+      "production": 158.9
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 5.0,
+      "workedHours": 5.02,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 132.4
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 5.0,
+      "workedHours": 5.35,
+      "haircuts": 3,
+      "colors": 1,
+      "production": 162.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.0,
+      "workedHours": 5.32,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 151.5
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 5.0,
+      "workedHours": 5.72,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 172.3
+    }
+  ],
+  "VG1473|kalispellmt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 4.0,
+      "workedHours": 3.37,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 74.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 3.0,
+      "workedHours": 3.55,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 85.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 4.0,
+      "workedHours": 3.18,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 82.7
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 4.0,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 3.0,
+      "workedHours": 3.15,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 62.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 4.0,
+      "workedHours": 4.3,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 92.0
+    }
+  ],
+  "VG1381|buttemt": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 8.08,
+      "haircuts": 13,
+      "colors": 0,
+      "production": 303.8
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 7.63,
+      "haircuts": 17,
+      "colors": 0,
+      "production": 326.4
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 8.17,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 255.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 8.3,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 205.9
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 8.32,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 197.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 8.6,
+      "haircuts": 11,
+      "colors": 2,
+      "production": 324.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 8.08,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 260.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 8.43,
+      "haircuts": 9,
+      "colors": 3,
+      "production": 374.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 8.07,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 203.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 3.0,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 39.9
+    }
+  ],
+  "VG1143|buttemt": [
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 8.53,
+      "haircuts": 8,
+      "colors": 2,
+      "production": 367.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 8.32,
+      "haircuts": 10,
+      "colors": 1,
+      "production": 362.5
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.0,
+      "workedHours": 8.1,
+      "haircuts": 13,
+      "colors": 3,
+      "production": 416.1
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 6.0,
+      "workedHours": 6.77,
+      "haircuts": 6,
+      "colors": 4,
+      "production": 354.0
+    }
+  ],
+  "VG1301|buttemt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 7.62,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 260.6
+    }
+  ],
+  "VG1158|buttemt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 8.08,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 197.0
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 8.08,
+      "haircuts": 12,
+      "colors": 0,
+      "production": 274.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 8.17,
+      "haircuts": 16,
+      "colors": 0,
+      "production": 326.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 8.12,
+      "haircuts": 14,
+      "colors": 0,
+      "production": 341.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 8.27,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 252.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 5.97,
+      "haircuts": 15,
+      "colors": 0,
+      "production": 297.7
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.02,
+      "haircuts": 12,
+      "colors": 0,
+      "production": 279.9
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 8.3,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 277.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 4.02,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 62.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 6.27,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 194.0
+    }
+  ],
+  "VG1305|missoulamt": [
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 7.0,
+      "workedHours": 5.03,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 96.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 7.0,
+      "workedHours": 6.18,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 258.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 6.18,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 224.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 7.0,
+      "workedHours": 6.57,
+      "haircuts": 10,
+      "colors": 1,
+      "production": 340.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 4.83,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 176.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 7.0,
+      "workedHours": 3.17,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 113.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 7.0,
+      "workedHours": 5.82,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 260.2
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 7.0,
+      "workedHours": 7.23,
+      "haircuts": 6,
+      "colors": 3,
+      "production": 364.6
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 5.0,
+      "workedHours": 3.03,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 120.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 4.77,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 159.0
+    }
+  ],
+  "VG1137|missoulamt": [
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 10.0,
+      "workedHours": 10.27,
+      "haircuts": 17,
+      "colors": 2,
+      "production": 681.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 10.0,
+      "workedHours": 10.28,
+      "haircuts": 20,
+      "colors": 0,
+      "production": 494.6
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 10.0,
+      "workedHours": 10.15,
+      "haircuts": 19,
+      "colors": 1,
+      "production": 611.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 10.0,
+      "workedHours": 10.25,
+      "haircuts": 16,
+      "colors": 0,
+      "production": 526.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 10.0,
+      "workedHours": 10.3,
+      "haircuts": 24,
+      "colors": 0,
+      "production": 585.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 10.0,
+      "workedHours": 10.32,
+      "haircuts": 14,
+      "colors": 0,
+      "production": 436.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 10.0,
+      "workedHours": 10.5,
+      "haircuts": 15,
+      "colors": 2,
+      "production": 543.6
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 10.0,
+      "workedHours": 10.33,
+      "haircuts": 10,
+      "colors": 2,
+      "production": 499.6
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 7.0,
+      "workedHours": 7.0,
+      "haircuts": 6,
+      "colors": 1,
+      "production": 224.0
+    }
+  ],
+  "VG1140|missoulamt": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 10.0,
+      "workedHours": 9.75,
+      "haircuts": 19,
+      "colors": 0,
+      "production": 428.0
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 10.0,
+      "workedHours": 10.52,
+      "haircuts": 14,
+      "colors": 0,
+      "production": 347.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 10.0,
+      "workedHours": 9.65,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 383.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 8.0,
+      "workedHours": 8.22,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 310.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 10.0,
+      "workedHours": 9.78,
+      "haircuts": 9,
+      "colors": 3,
+      "production": 441.6
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 7.0,
+      "workedHours": 6.38,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 185.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 8.0,
+      "workedHours": 7.92,
+      "haircuts": 11,
+      "colors": 2,
+      "production": 405.0
+    }
+  ],
+  "VG1280|bismarckskylinend": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 8.33,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 168.0
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 7.77,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 196.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 0.5,
+      "workedHours": 0.85,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 14.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 7.27,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 206.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 8.42,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 178.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.5,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 192.3
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 8.68,
+      "haircuts": 7,
+      "colors": 1,
+      "production": 210.3
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 8.35,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 187.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 7.0,
+      "workedHours": 7.28,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 174.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 6.57,
+      "haircuts": 3,
+      "colors": 1,
+      "production": 146.6
+    }
+  ],
+  "VG1295|bismarckskylinend": [
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 8.5,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 156.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 8.17,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 175.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 6.0,
+      "workedHours": 6.62,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 182.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 7.87,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 200.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 6.53,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 193.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 7.95,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 177.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 6.0,
+      "workedHours": 6.83,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 199.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 6.62,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 216.0
+    }
+  ],
+  "VG1124|bismarckskylinend": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 9.0,
+      "workedHours": 9.13,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 114.0
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 9.0,
+      "workedHours": 9.23,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 229.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 9.0,
+      "workedHours": 9.13,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 154.8
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 7.38,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 186.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 9.0,
+      "workedHours": 9.17,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 248.1
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 9.0,
+      "workedHours": 9.22,
+      "haircuts": 10,
+      "colors": 1,
+      "production": 280.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 9.0,
+      "workedHours": 9.22,
+      "haircuts": 10,
+      "colors": 1,
+      "production": 248.0
+    }
+  ],
+  "VG1126|bismarckskylinend": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 3.0,
+      "workedHours": 3.6,
+      "haircuts": 0,
+      "colors": 1,
+      "production": 111.95
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 3.0,
+      "workedHours": 2.8,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 40.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 3.0,
+      "workedHours": 2.92,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 115.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 3.0,
+      "workedHours": 3.02,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 77.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 3.0,
+      "workedHours": 3.42,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 115.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 3.0,
+      "workedHours": 3.35,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 124.0
+    }
+  ],
+  "VG1161|codywy": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 7.0,
+      "workedHours": 7.27,
+      "haircuts": 1,
+      "colors": 1,
+      "production": 157.1
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 7.0,
+      "workedHours": 4.35,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 133.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 7.0,
+      "workedHours": 7.07,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 220.1
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 6.38,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 190.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 6.65,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 182.7
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 6.0,
+      "workedHours": 6.43,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 246.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 7.0,
+      "workedHours": 7.73,
+      "haircuts": 7,
+      "colors": 1,
+      "production": 253.7
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 7.0,
+      "workedHours": 6.87,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 165.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.0,
+      "workedHours": 5.42,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 203.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 4.0,
+      "workedHours": 4.28,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 140.0
+    }
+  ],
+  "VG1480|codywy": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 7.27,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 246.5
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 7.75,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 243.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 6.0,
+      "workedHours": 5.7,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 238.4
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 7.45,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 217.7
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 7.5,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 253.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 7.65,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 317.1
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 7.7,
+      "haircuts": 12,
+      "colors": 0,
+      "production": 276.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.0,
+      "workedHours": 4.83,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 176.7
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.0,
+      "workedHours": 5.87,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 217.7
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 6.0,
+      "workedHours": 5.73,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 225.0
+    }
+  ],
+  "VG1429|caspercyavewy": [
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 8.35,
+      "haircuts": 9,
+      "colors": 3,
+      "production": 408.2
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 6.5,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 140.7
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 8.95,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 276.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 5.0,
+      "workedHours": 4.27,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 155.0
+    }
+  ],
+  "VG1392|caspercyavewy": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 6.08,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 195.4
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 6.0,
+      "workedHours": 6.08,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 216.2
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 10.43,
+      "haircuts": 12,
+      "colors": 1,
+      "production": 351.8
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 6.0,
+      "workedHours": 7.12,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 170.2
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 7.0,
+      "workedHours": 7.65,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 253.5
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.18,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 206.3
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 6.0,
+      "workedHours": 5.77,
+      "haircuts": 7,
+      "colors": 1,
+      "production": 207.8
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 8.55,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 304.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.0,
+      "workedHours": 6.08,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 207.9
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 7.0,
+      "workedHours": 7.4,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 290.3
+    }
+  ],
+  "VG1346|caspercyavewy": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 9.0,
+      "workedHours": 9.17,
+      "haircuts": 7,
+      "colors": 2,
+      "production": 237.4
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 6.0,
+      "workedHours": 4.45,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 240.5
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 7.03,
+      "haircuts": 10,
+      "colors": 1,
+      "production": 327.9
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 6.47,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 284.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 9.0,
+      "workedHours": 9.5,
+      "haircuts": 12,
+      "colors": 1,
+      "production": 326.3
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 6.0,
+      "workedHours": 6.03,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 269.14
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 7.0,
+      "workedHours": 5.6,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 239.31
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 7.0,
+      "workedHours": 7.02,
+      "haircuts": 2,
+      "colors": 3,
+      "production": 336.7
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 7.0,
+      "workedHours": 6.47,
+      "haircuts": 7,
+      "colors": 2,
+      "production": 237.95
+    }
+  ],
+  "VG1429|casper2ndstwy": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 7.15,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 253.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 6.03,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 131.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.05,
+      "haircuts": 7,
+      "colors": 1,
+      "production": 261.4
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 5.03,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 143.7
+    }
+  ],
+  "VG1170|casper2ndstwy": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 7.7,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 218.1
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 7.75,
+      "haircuts": 15,
+      "colors": 0,
+      "production": 300.1
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 6.9,
+      "haircuts": 7,
+      "colors": 3,
+      "production": 371.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 7.0,
+      "workedHours": 6.77,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 158.7
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.5,
+      "workedHours": 5.67,
+      "haircuts": 7,
+      "colors": 2,
+      "production": 286.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 7.88,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 185.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 6.45,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 83.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 7.53,
+      "haircuts": 10,
+      "colors": 2,
+      "production": 401.7
+    }
+  ],
+  "VG1165|casper2ndstwy": [
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 8.28,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 198.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 7.0,
+      "workedHours": 6.9,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 225.7
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 8.15,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 137.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 8.17,
+      "haircuts": 6,
+      "colors": 2,
+      "production": 271.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 8.15,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 159.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 8.05,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 106.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 7.32,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 152.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 8.15,
+      "haircuts": 13,
+      "colors": 0,
+      "production": 285.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 5.93,
+      "haircuts": 7,
+      "colors": 2,
+      "production": 278.1
+    }
+  ],
+  "VG1348|casper2ndstwy": [
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 3.5,
+      "workedHours": 3.53,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 62.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 3.5,
+      "workedHours": 3.7,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 108.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 3.5,
+      "workedHours": 3.68,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 108.1
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 3.5,
+      "workedHours": 3.67,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 82.7
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 1.5,
+      "workedHours": 1.45,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 3.5,
+      "workedHours": 0.0,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    }
+  ],
+  "VG1478|bismarckcivicplazand": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 6.0,
+      "workedHours": 5.92,
+      "haircuts": 8,
+      "colors": 1,
+      "production": 216.1
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.5,
+      "workedHours": 5.55,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 137.65
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 5.5,
+      "workedHours": 5.78,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 149.65
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 6.0,
+      "workedHours": 5.63,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 156.7
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 6.0,
+      "workedHours": 5.37,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 139.65
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 6.0,
+      "workedHours": 6.08,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 213.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 5.5,
+      "workedHours": 5.2,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 170.65
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 6.0,
+      "workedHours": 5.82,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 151.65
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.0,
+      "workedHours": 5.85,
+      "haircuts": 13,
+      "colors": 0,
+      "production": 260.05
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 4.0,
+      "workedHours": 4.25,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 207.05
+    }
+  ],
+  "VG1488|bismarckcivicplazand": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 5.0,
+      "workedHours": 4.78,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 93.75
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 5.18,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 117.7
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 5.0,
+      "workedHours": 5.08,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 102.9
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.0,
+      "workedHours": 1.12,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    }
+  ],
+  "VG1327|bismarckcivicplazand": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 8.0,
+      "workedHours": 8.43,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 174.65
+    },
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 8.67,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 138.3
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 8.68,
+      "haircuts": 10,
+      "colors": 0,
+      "production": 199.5
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 8.77,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 149.65
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 7.48,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 169.6
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 9.22,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 197.15
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 8.4,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 139.75
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 8.0,
+      "workedHours": 8.65,
+      "haircuts": 7,
+      "colors": 1,
+      "production": 190.65
+    }
+  ],
+  "VG1476|wichitafallslawrencetx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 8.0,
+      "workedHours": 7.12,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 180.7
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 7.0,
+      "workedHours": 6.78,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 79.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 6.0,
+      "workedHours": 5.85,
+      "haircuts": 1,
+      "colors": 1,
+      "production": 158.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 7.2,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 231.7
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 6.0,
+      "workedHours": 5.82,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 135.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 5.52,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    }
+  ],
+  "VG1502|wichitafallslawrencetx": [
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.0,
+      "workedHours": 5.18,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.0,
+      "workedHours": 5.37,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 104.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 6.0,
+      "workedHours": 5.92,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 88.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.0,
+      "workedHours": 4.45,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 69.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 5.65,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 23.0
+    }
+  ],
+  "VG1455|wichitafallslawrencetx": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 6.0,
+      "workedHours": 6.1,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 72.0
+    }
+  ],
+  "VG1501|wichitafallslawrencetx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 6.0,
+      "workedHours": 5.63,
+      "haircuts": 5,
+      "colors": 1,
+      "production": 199.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 6.0,
+      "workedHours": 6.15,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 69.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 6.7,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 133.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 6.0,
+      "workedHours": 6.22,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 115.0
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 5.33,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 53.0
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 8.0,
+      "workedHours": 7.03,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 159.5
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 6.0,
+      "workedHours": 5.75,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 161.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 5.5,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 30.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 5.92,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 23.0
+    }
+  ],
+  "VG1361|wichitafallslawrencetx": [
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 8.0,
+      "workedHours": 5.75,
+      "haircuts": 0,
+      "colors": 0,
+      "production": 0.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 8.0,
+      "workedHours": 7.22,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 216.0
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 8.0,
+      "workedHours": 6.08,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 163.0
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 8.0,
+      "workedHours": 8.18,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 268.5
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.0,
+      "workedHours": 6.08,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 138.0
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 8.0,
+      "workedHours": 8.25,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 46.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 7.0,
+      "workedHours": 8.42,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 151.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 7.38,
+      "haircuts": 9,
+      "colors": 2,
+      "production": 327.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 8.0,
+      "workedHours": 8.23,
+      "haircuts": 5,
+      "colors": 2,
+      "production": 274.0
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.0,
+      "workedHours": 6.2,
+      "haircuts": 3,
+      "colors": 1,
+      "production": 169.0
+    }
+  ],
+  "VG1477|wichitafallscentraltx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 5.0,
+      "workedHours": 4.85,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 43.7
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 7.25,
+      "workedHours": 6.0,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 43.7
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 6.25,
+      "workedHours": 3.82,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 75.4
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 7.25,
+      "workedHours": 5.62,
+      "haircuts": 2,
+      "colors": 1,
+      "production": 49.7
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 7.0,
+      "workedHours": 6.83,
+      "haircuts": 4,
+      "colors": 1,
+      "production": 211.5
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.0,
+      "workedHours": 3.83,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 39.0
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 5.25,
+      "workedHours": 3.9,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 23.0
+    }
+  ],
+  "VG1373|wichitafallscentraltx": [
+    {
+      "date": "2026-06-22",
+      "scheduledHours": 9.0,
+      "workedHours": 7.9,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 202.7
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 5.25,
+      "workedHours": 1.25,
+      "haircuts": 1,
+      "colors": 0,
+      "production": 27.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 6.25,
+      "workedHours": 6.13,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 181.7
+    },
+    {
+      "date": "2026-06-27",
+      "scheduledHours": 9.25,
+      "workedHours": 7.65,
+      "haircuts": 14,
+      "colors": 0,
+      "production": 316.7
+    },
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 6.25,
+      "workedHours": 3.25,
+      "haircuts": 5,
+      "colors": 0,
+      "production": 121.4
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 7.25,
+      "workedHours": 5.6,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 206.87
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 8.0,
+      "workedHours": 6.45,
+      "haircuts": 11,
+      "colors": 0,
+      "production": 239.4
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 3.0,
+      "workedHours": 3.65,
+      "haircuts": 7,
+      "colors": 0,
+      "production": 164.7
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 6.25,
+      "workedHours": 5.32,
+      "haircuts": 13,
+      "colors": 0,
+      "production": 327.1
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 6.0,
+      "workedHours": 3.42,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 137.5
+    }
+  ],
+  "VG1455|wichitafallscentraltx": [
+    {
+      "date": "2026-06-28",
+      "scheduledHours": 5.25,
+      "workedHours": 4.47,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 82.0
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.25,
+      "workedHours": 4.25,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 94.0
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.25,
+      "workedHours": 5.6,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 98.7
+    },
+    {
+      "date": "2026-07-04",
+      "scheduledHours": 5.25,
+      "workedHours": 3.83,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 56.0
+    },
+    {
+      "date": "2026-07-05",
+      "scheduledHours": 5.0,
+      "workedHours": 4.97,
+      "haircuts": 2,
+      "colors": 1,
+      "production": 123.5
+    }
+  ],
+  "VG1313|wichitafallscentraltx": [
+    {
+      "date": "2026-06-23",
+      "scheduledHours": 6.25,
+      "workedHours": 5.17,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 96.0
+    },
+    {
+      "date": "2026-06-24",
+      "scheduledHours": 5.25,
+      "workedHours": 6.02,
+      "haircuts": 4,
+      "colors": 2,
+      "production": 204.0
+    },
+    {
+      "date": "2026-06-25",
+      "scheduledHours": 6.25,
+      "workedHours": 5.88,
+      "haircuts": 6,
+      "colors": 0,
+      "production": 228.8
+    },
+    {
+      "date": "2026-06-26",
+      "scheduledHours": 6.25,
+      "workedHours": 5.85,
+      "haircuts": 4,
+      "colors": 0,
+      "production": 192.4
+    },
+    {
+      "date": "2026-06-29",
+      "scheduledHours": 5.25,
+      "workedHours": 6.37,
+      "haircuts": 3,
+      "colors": 2,
+      "production": 186.7
+    },
+    {
+      "date": "2026-06-30",
+      "scheduledHours": 6.25,
+      "workedHours": 6.92,
+      "haircuts": 9,
+      "colors": 0,
+      "production": 282.6
+    },
+    {
+      "date": "2026-07-01",
+      "scheduledHours": 5.25,
+      "workedHours": 5.33,
+      "haircuts": 8,
+      "colors": 0,
+      "production": 194.4
+    },
+    {
+      "date": "2026-07-02",
+      "scheduledHours": 5.25,
+      "workedHours": 6.15,
+      "haircuts": 3,
+      "colors": 0,
+      "production": 92.1
+    },
+    {
+      "date": "2026-07-03",
+      "scheduledHours": 5.25,
+      "workedHours": 1.67,
+      "haircuts": 2,
+      "colors": 0,
+      "production": 41.4
+    }
+  ]
+};
+
+/** Employee codes that appear at more than one salon in the export. */
+export const CLIENT_DAILY_MULTI_SALON: string[] = ["VG1429", "VG1455"];
+
 /** Include/Exclude from the file — true = excluded from the PPH pay plan. */
 export const CLIENT_DAILY_EXCLUDE: Record<string, boolean> = {
   "VG1426": true,
@@ -3624,6 +7189,67 @@ export const CLIENT_DAILY_EXCLUDE: Record<string, boolean> = {
   "VG1477": false,
   "VG1373": true,
   "VG1313": false
+};
+
+/** Include/Exclude per `CODE|salon` — it can differ between locations. */
+export const CLIENT_DAILY_EXCLUDE_BY_SALON: Record<string, boolean> = {
+  "VG1426|burlesontx": true,
+  "VG1116|burlesontx": true,
+  "VG1296|burlesontx": true,
+  "VG1496|shermantx": true,
+  "VG1494|shermantx": false,
+  "VG1406|shermantx": true,
+  "VG1500|paristx": false,
+  "VG1443|paristx": true,
+  "VG1499|paristx": false,
+  "VG1486|paristx": false,
+  "VG1475|paristx": false,
+  "VG1210|paysonut": true,
+  "VG1235|paysonut": true,
+  "VG1368|paysonut": true,
+  "VG1376|paysonut": true,
+  "VG1452|paysonut": true,
+  "VG1498|mainstbillingsmt": true,
+  "VG1469|mainstbillingsmt": true,
+  "VG1363|mainstbillingsmt": true,
+  "VG1438|kingavebillingsmt": true,
+  "VG1460|kingavebillingsmt": true,
+  "VG1467|kingavebillingsmt": true,
+  "VG1344|kalispellmt": true,
+  "VG1134|kalispellmt": true,
+  "VG1473|kalispellmt": true,
+  "VG1381|buttemt": true,
+  "VG1143|buttemt": true,
+  "VG1301|buttemt": true,
+  "VG1158|buttemt": true,
+  "VG1305|missoulamt": true,
+  "VG1137|missoulamt": true,
+  "VG1140|missoulamt": true,
+  "VG1280|bismarckskylinend": true,
+  "VG1295|bismarckskylinend": true,
+  "VG1124|bismarckskylinend": true,
+  "VG1126|bismarckskylinend": true,
+  "VG1161|codywy": true,
+  "VG1480|codywy": true,
+  "VG1429|caspercyavewy": true,
+  "VG1392|caspercyavewy": true,
+  "VG1346|caspercyavewy": true,
+  "VG1429|casper2ndstwy": true,
+  "VG1170|casper2ndstwy": true,
+  "VG1165|casper2ndstwy": true,
+  "VG1348|casper2ndstwy": true,
+  "VG1478|bismarckcivicplazand": true,
+  "VG1488|bismarckcivicplazand": true,
+  "VG1327|bismarckcivicplazand": true,
+  "VG1476|wichitafallslawrencetx": false,
+  "VG1502|wichitafallslawrencetx": true,
+  "VG1455|wichitafallslawrencetx": true,
+  "VG1501|wichitafallslawrencetx": false,
+  "VG1361|wichitafallslawrencetx": true,
+  "VG1477|wichitafallscentraltx": false,
+  "VG1373|wichitafallscentraltx": true,
+  "VG1455|wichitafallscentraltx": false,
+  "VG1313|wichitafallscentraltx": false
 };
 
 /** Employee display names from the file (for reference). */

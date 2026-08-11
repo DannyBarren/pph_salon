@@ -145,7 +145,7 @@ export function parseWeeklyBulk(text: string): WeeklyBulkParse {
       out.errors.push(`Row ${line}: employee_id is required`);
       return;
     }
-    const userId = resolveRosterUserId(ident);
+    const userId = resolveRosterUserId(ident, cell(row, col.salon));
     if (!userId) {
       out.skipped += 1;
       out.errors.push(`Row ${line}: unknown employee_id "${ident}"`);
@@ -235,7 +235,7 @@ export function parseDailyBulk(text: string): DailyBulkParse {
       out.errors.push(`Row ${line}: employee_id is required`);
       return;
     }
-    const userId = resolveRosterUserId(ident);
+    const userId = resolveRosterUserId(ident, cell(row, col.salon));
     if (!userId) {
       // Name the person too — an unknown code is almost always a new hire who
       // is not on the roster yet, and the client needs to know who to add.
