@@ -200,7 +200,12 @@ The client's real file is **one row per employee per work day** (e.g. `v2.PPH Da
 - **`Include/Exclude`** drives each employee's pay-plan `excluded` flag (`Exclude` → excluded; `Include` → on-plan).
 - Daily rows are idempotently upserted and their parent **Week** is aggregated automatically, so the Stylist Dashboard, Daily Breakdown, Team views and Goal Planner show the real per-day numbers immediately. Re-uploading the same file is safe.
 
-The older "Data provided to App" daily layout (`Salon | EEID | … | Act Svc Rev($) | Act Cuts Count | Act Colors Count`) is still accepted.
+Two other daily layouts are accepted as-is, with the same behaviour:
+
+- The client's **raw per-day export** — `Salon Name | Employee ID | Employee Name | Sale Date | Scheduled Hours | Actual Hours | Service Sale | Haircuts | Color | Include/Exclude` (`Service Sale` is the authoritative revenue, as `service_revenue` is above).
+- The older **"Data provided to App"** layout — `Salon | EEID | … | Act Svc Rev($) | Act Cuts Count | Act Colors Count`.
+
+The credential-free demo build accepts the same files: the Admin page's **Data input** and **Data Management → Bulk import** panels read `.xlsx` directly and pick the daily or weekly parser from the file's headers.
 
 **Vendor sources:** select `zenoti` or `paycor` on upload to normalize their column headers to the native shape. Live API pulls are stubbed (`app/services/importers.py::fetch_zenoti_week` / `fetch_paycor_week`) and ready to wire when you have vendor credentials.
 
