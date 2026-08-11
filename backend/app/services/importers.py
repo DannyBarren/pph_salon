@@ -93,13 +93,16 @@ _APP_DAILY_MAP = {
     "scheduled_hrs": ["sched hrs", "sched. hrs", "scheduled hrs", "scheduled hours", "sched hours", "scheduled_hrs"],
     "actual_hrs": ["actual hrs", "actual hours", "hours worked", "worked hours", "actual_hrs"],
     # ``service_revenue``/``actual_other_value`` (client v2) is the AUTHORITATIVE
-    # daily service revenue.
+    # daily service revenue. ``Service Sale`` is the same figure in the client's
+    # raw per-day export (the layout they send straight out of their reporting
+    # tool, e.g. "PPH Data 07-06-2026 TO 07-19-2026.xlsx").
     "service_rev": [
         "act svc rev($)", "act svc rev ($)", "act svc rev", "actual service revenue",
         "actual svc rev", "service revenue", "service_revenue", "svc rev", "service_rev",
+        "service sale", "service sales", "service_sale", "svc sale", "net service rev",
     ],
-    "actual_haircuts": ["act cuts count", "act cuts", "actual cuts", "cuts", "haircuts", "actual_haircuts"],
-    "actual_colors": ["act colors count", "act colors", "actual colors", "colors", "actual_colors"],
+    "actual_haircuts": ["act cuts count", "act cuts", "actual cuts", "cuts", "haircuts", "haircut", "actual_haircuts"],
+    "actual_colors": ["act colors count", "act colors", "actual colors", "colors", "color", "actual_colors"],
     "actual_other_value": ["actual_other_value", "other value", "other revenue"],
 }
 
@@ -128,15 +131,21 @@ def normalize_daily_rows(
 ) -> list[dict[str, Any]]:
     """Map the daily import file onto our canonical daily columns.
 
-    The default (``native``) accepts the client's real daily exports —
-    both the older "Data provided to App" layout (``Salon | EEID | … | Act Svc
-    Rev($) | Act Cuts Count | Act Colors Count``) and the v2 per-day template
-    (``employee_id | salon_name | week_start/sale_date | scheduled_hrs |
-    actual_hrs | actual_haircuts | actual_colors | actual_other_value/
-    service_revenue | Employee Name | pay_period | Include/Exclude``). Recognised
-    headers (and sensible aliases, including two-names-in-one-cell headers) map to
-    canonical keys; originals are preserved so nothing is silently dropped.
-    ``zenoti``/``paycor`` delegate to the weekly vendor maps.
+    The default (``native``) accepts every daily layout the client has sent:
+
+    * the v2 per-day template — ``employee_id | salon_name | week_start/sale_date
+      | scheduled_hrs | actual_hrs | actual_haircuts | actual_colors |
+      actual_other_value/service_revenue | Employee Name | pay_period |
+      Include/Exclude``;
+    * their raw per-day export — ``Salon Name | Employee ID | Employee Name |
+      Sale Date | Scheduled Hours | Actual Hours | Service Sale | Haircuts |
+      Color | Include/Exclude``;
+    * the older "Data provided to App" layout — ``Salon | EEID | … | Act Svc
+      Rev($) | Act Cuts Count | Act Colors Count``.
+
+    Recognised headers (and sensible aliases, including two-names-in-one-cell
+    headers) map to canonical keys; originals are preserved so nothing is
+    silently dropped. ``zenoti``/``paycor`` delegate to the weekly vendor maps.
     """
     source = (source or "native").strip().lower()
     if source in ("zenoti", "paycor"):
