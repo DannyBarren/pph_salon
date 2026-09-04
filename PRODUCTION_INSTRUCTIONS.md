@@ -1,5 +1,14 @@
 # PPH Stylist App — Production Deployment Guide (v1.0, `production` branch)
 
+> **Production readiness (2026-09-04):** the full stack below was verified
+> end-to-end against a local production-mode deployment (Postgres 16, gunicorn,
+> `ENVIRONMENT=production`, `NEXT_PUBLIC_DEMO_MODE=false`): migrations, seed
+> (16 salons / 60 employees / admin), both client pay-period workbooks imported
+> with zero skips (430 + 424 day rows), idempotent re-uploads, client-aligned
+> pay periods, and the invite/activation flow. Before deploying, merge the four
+> readiness PRs and follow the click-by-click provider steps in
+> [`DEPLOYMENT_RUNBOOK.md`](./DEPLOYMENT_RUNBOOK.md).
+
 **Status:** Ready for hundreds of stylists across multiple salons.
 **Branch:** `production`
 **Stack:** Next.js 16 (Vercel) frontend + FastAPI (Railway/Render/Docker) backend + managed PostgreSQL.
