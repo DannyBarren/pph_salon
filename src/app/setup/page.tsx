@@ -8,10 +8,10 @@ import { authApi } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 
 /**
- * First-run setup: create the very first owner (top of the hierarchy) using the
+ * First-run setup: create the very first admin (top of the hierarchy) using the
  * server's one-time `BOOTSTRAP_TOKEN`. Only works while the backend has no users;
  * afterwards the endpoint returns 409 and this page reports it. From here the
- * owner creates managers, and managers create their stylists.
+ * admin creates owners/managers, and managers create their stylists.
  */
 export default function SetupPage() {
   const router = useRouter();
@@ -64,7 +64,7 @@ export default function SetupPage() {
           <div>
             <h1 className="text-xl font-bold tracking-tight">First-run setup</h1>
             <p className="mt-1 text-sm text-[var(--color-ink-faint)]">
-              Create the first owner account. This is a one-time, token-protected step.
+              Create the first admin account. This is a one-time, token-protected step.
             </p>
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function SetupPage() {
             onChange={(e) => setToken(e.target.value)}
           />
           <input className={field} placeholder="Your full name" required value={name} onChange={(e) => setName(e.target.value)} />
-          <input className={field} type="email" placeholder="Owner email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className={field} type="email" placeholder="Admin email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className={field} type="password" placeholder="Password (min 8 chars)" required value={password} onChange={(e) => setPassword(e.target.value)} />
           <input className={field} placeholder="Salon name" value={salon} onChange={(e) => setSalon(e.target.value)} />
 
@@ -94,7 +94,7 @@ export default function SetupPage() {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
           >
             {busy ? <Loader2 size={16} className="animate-spin" /> : <ShieldPlus size={16} />}
-            {busy ? "Creating owner…" : "Create owner & sign in"}
+            {busy ? "Creating admin…" : "Create admin & sign in"}
           </button>
         </form>
 

@@ -33,9 +33,10 @@ def main() -> None:
     parser.add_argument("--salon", default="Main Salon", help="Salon name to attach the owner to")
     parser.add_argument(
         "--role",
-        default="owner",
+        default="admin",
         choices=[r.value for r in UserRole],
-        help="Super-admin role (owner or admin)",
+        help="Super-admin role. Defaults to admin — the top role and the only "
+        "one with import/user/salon/pay-config powers.",
     )
     args = parser.parse_args()
 

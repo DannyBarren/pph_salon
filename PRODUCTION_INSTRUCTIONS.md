@@ -61,7 +61,7 @@ postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME
 | `ALLOWED_HOSTS` | your backend hostname, e.g. `your-backend.up.railway.app` |
 | `ENABLE_DOCS` | `false` (keep Swagger private) |
 | `WEB_CONCURRENCY` | `4` (gunicorn workers; tune to CPU) |
-| `BOOTSTRAP_TOKEN` | one-time secret for the `/setup` first-owner flow (set for initial deploy, then unset) — see §3.3 |
+| `BOOTSTRAP_TOKEN` | one-time secret for the `/setup` first-admin flow (set for initial deploy, then unset) — see §3.3 |
 | *(optional)* `SENDGRID_API_KEY`, `EMAIL_FROM` | to email user invites |
 | *(optional)* `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | to send SMS |
 | *(optional)* `SENTRY_DSN` | backend error reporting |
@@ -92,7 +92,7 @@ It creates the preset admin and imports every real salon + employee. Defaults:
 |---|---|
 | Admin **username** (login identifier, stored in the `email` field) | `admin` |
 | Admin **password** | `venitaadmin` |
-| Admin **role** | `owner` (full org-wide powers) |
+| Admin **role** | `admin` (the top role — sole holder of import/user/salon/pay-config powers) |
 
 The admin is **active immediately** and can sign in right away at `/login` using
 `admin` / `venitaadmin`. **Change this password after the first login**
@@ -101,13 +101,13 @@ The admin is **active immediately** and can sign in right away at `/login` using
 them (§5). The seeder is **idempotent** — safe to re-run. Override any default via
 `--admin-username`, `--admin-password`, `--admin-name`, `--admin-role`, `--csv`.
 
-**Alternative first-owner methods** (if you'd rather not use the preset admin):
+**Alternative first-admin methods** (if you'd rather not use the preset admin):
 
 - **Web setup page:** set `BOOTSTRAP_TOKEN` on the backend, visit
-  `https://your-app.vercel.app/setup`, enter the token + owner name/email/password
+  `https://your-app.vercel.app/setup`, enter the token + admin name/email/password
   + salon name. Works **only while the users table is empty** (409 afterward), so
   it can't be reused as a backdoor. **Unset/rotate `BOOTSTRAP_TOKEN`** afterward.
-- **CLI:** `python -m scripts.create_superadmin --email owner@yoursalon.com --name "Jordan Avery" --salon "Aria Studio"` (prints a temp password; idempotent).
+- **CLI:** `python -m scripts.create_superadmin --email admin@yoursalon.com --name "Jordan Avery" --salon "Aria Studio"` (prints a temp password; idempotent; creates the top **admin** role by default).
 
 Everyone else is provisioned **down the hierarchy** — never by hand (§5).
 
@@ -133,21 +133,28 @@ Everyone else is provisioned **down the hierarchy** — never by hand (§5).
 ## 5. Provisioning model — a delegated hierarchy
 
 ### 5.1 How accounts are created
-Accounts cascade down the chain **owner → admin → manager → stylist**. Each level can only create accounts **strictly below** its own, and this is enforced by the backend on every endpoint (single create, bulk CSV, and `register`):
+Accounts cascade down the chain **admin → owner → manager → stylist**. Each level can only create accounts **strictly below** its own, and this is enforced by the backend on every endpoint (single create, bulk CSV, and `register`):
 
 | Signed-in role | Can create | Where |
 |---|---|---|
-| **Owner** | admins, managers, stylists | any salon |
-| **Admin** | managers, stylists | any salon |
+| **Admin** (top role) | owners, managers, stylists | any salon |
+| **Owner** (SDL) | managers, stylists | any salon |
 | **Manager** | **stylists only** | **their own salon** (new stylist auto-reports to them) |
 | **Stylist** | — (leaf level) | — |
+
+> **Admin is the sole administrator.** Only the `admin` role can import data,
+> manage salons, manage users via the Admin panel, view the audit log, or edit
+> the global pay tiers (`require_super_admin` / `require_highest_admin` are
+> admin-only; the frontend shows the Admin area only to `admin`). Owners see
+> everything read-only and can provision managers/stylists, but cannot
+> administer. This is why the seeded preset account (§3.3) is an **admin**.
 
 Managers are therefore **responsible for setting up their own stylists**, and they cannot touch other salons or create peers/superiors. Self-registration is disabled entirely.
 
 > **Full, step-by-step account guide:** [`ACCOUNT_SETUP_GUIDE.md`](./ACCOUNT_SETUP_GUIDE.md) covers the whole flow (first owner → managers → stylists), the CSV formats, credential distribution, password resets, and troubleshooting.
 
-### 5.2 Owner/admin bootstraps the org (Admin panel)
-Sign in as the owner (§3.3) → open **Admin**:
+### 5.2 Admin bootstraps the org (Admin panel)
+Sign in as the admin (§3.3) → open **Admin**:
 1. **Salons** tab → create each salon (name, city, guarantee $/hr, haircut/color prices).
 2. **Pay Plan** tab → set each salon's pay-tier ladder (desired $/hr → required PPH). Leave empty to use the Excel-accurate defaults.
 3. **Users** tab → create your **managers** (assign each to a salon). Single form or CSV bulk import (`email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate`). Temporary passwords are returned in the response (or emailed if SendGrid is configured).
@@ -223,7 +230,7 @@ The credential-free demo build accepts the same files: the Admin page's **Data i
 - [x] Passwords hashed with argon2; password policy enforced; login is rate-limited.
 - [x] Fast-access passcodes hashed with argon2 (never plaintext/logged); verify endpoint rate-limited + locks out after repeated failures.
 - [ ] Preset admin password (`venitaadmin`) changed after first login.
-- [x] Self-registration disabled — accounts are provisioned down the owner→admin→manager→stylist hierarchy only.
+- [x] Self-registration disabled — accounts are provisioned down the admin→owner→manager→stylist hierarchy only.
 - [x] Delegated provisioning enforced server-side (managers limited to stylists in their own salon).
 - [ ] `BOOTSTRAP_TOKEN` unset/rotated once the first owner exists (see §3.3).
 - [x] Row-level salon scoping + role-rank gating on all admin/provisioning endpoints.

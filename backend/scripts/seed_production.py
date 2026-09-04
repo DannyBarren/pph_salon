@@ -50,7 +50,11 @@ def main() -> None:
     parser.add_argument("--admin-username", default="admin")
     parser.add_argument("--admin-password", default="venitaadmin")
     parser.add_argument("--admin-name", default="Venita")
-    parser.add_argument("--admin-role", default="owner", choices=["owner", "admin"])
+    # ``admin`` is the top role (admin > owner/SDL > manager > stylist) and the
+    # only one that can import data, manage users/salons, and configure pay
+    # logic. Seeding ``owner`` would lock the preset account out of every
+    # admin endpoint (403) and hide the Admin UI.
+    parser.add_argument("--admin-role", default="admin", choices=["owner", "admin"])
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="Path to the client roster CSV/XLSX")
     parser.add_argument("--week-start", default=None, help="ISO Monday for the imported week")
     args = parser.parse_args()

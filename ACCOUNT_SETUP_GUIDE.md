@@ -2,7 +2,7 @@
 
 **Audience:** salon owners, admins, and managers responsible for setting up and
 running the app for their organization.
-**Scope:** how accounts work, how to create the first owner, and how each level
+**Scope:** how accounts work, how to create the first admin, and how each level
 sets up the people below it — from the org's very first login to day-to-day user
 management.
 
@@ -15,16 +15,16 @@ management.
 
 The app is **multi-tenant and hierarchical**. Every person has exactly one
 **role** and belongs to exactly one **salon**. Accounts are created **top-down**:
-the owner sets up the organization, and each level provisions the level directly
+the admin sets up the organization, and each level provisions the level directly
 below it, until you reach stylists (the "leaf" level).
 
 ```
             ┌─────────┐
-            │  OWNER  │  the org's top account (created once, at setup)
+            │  ADMIN  │  the org's top account (created once, at setup)
             └────┬────┘
        creates   │
             ┌────▼────┐
-            │  ADMIN  │  optional; org-wide helpers for large chains
+            │  OWNER  │  (SDL) org-wide visibility; runs the business
             └────┬────┘
        creates   │
             ┌────▼─────┐
@@ -44,17 +44,19 @@ server on every path — the UI, the CSV importer, and the API all obey it.
 
 | Your role | Can create | In which salon(s) | Can reset passwords for | Sees data for |
 |---|---|---|---|---|
-| **Owner** | admins, managers, stylists | any salon | anyone | the whole organization |
-| **Admin** | managers, stylists | any salon | anyone | the whole organization |
+| **Admin** | owners, managers, stylists | any salon | anyone | the whole organization |
+| **Owner** (SDL) | managers, stylists | any salon | anyone | the whole organization |
 | **Manager** | **stylists only** | **their own salon** (new stylist reports to them automatically) | their own-salon stylists | their salon's team |
 | **Stylist** | — (nothing) | — | — (only their own via *Change password*) | only themselves |
 
-**"Owner" vs "Admin":** they have the same powers (both are "super-admins").
-Use **Owner** for the person who owns the business; add **Admins** only if you
-run several salons and want extra org-wide helpers. A single salon needs only an
-owner + managers + stylists.
+**"Admin" vs "Owner":** **Admin is the top role and the sole administrator** —
+only admins can import data, manage salons, manage users from the Admin panel,
+view the audit log, or edit the global pay tiers. **Owner** (SDL) keeps org-wide
+visibility and can provision managers/stylists, but cannot administer. Use the
+seeded **Admin** account to run the organization; add **Owner** accounts for the
+business owners who need to see everything without changing configuration.
 
-> In the app's UI, owners/admins see the full **Admin** area; managers see a
+> In the app's UI, only **admins** see the full **Admin** area; managers see a
 > simpler **Staff** area scoped to their salon. Stylists see neither.
 
 ---
@@ -74,7 +76,7 @@ owner + managers + stylists.
 
 ---
 
-## 3. Part A — Create the first owner (one time)
+## 3. Part A — Create the first admin (one time)
 
 This is the only account created "from outside" the hierarchy. Pick **one** of
 the two methods.
@@ -87,10 +89,10 @@ the two methods.
 3. Fill in:
    - **Setup token** — the `BOOTSTRAP_TOKEN` value.
    - **Your full name** — e.g. *Jordan Avery*.
-   - **Owner email** — the address you'll sign in with.
+   - **Admin email** — the address you'll sign in with.
    - **Password** — at least 8 characters.
    - **Salon name** — your first/primary salon (you can add more later).
-4. Click **Create owner & sign in**. You're now signed in as the owner.
+4. Click **Create admin & sign in**. You're now signed in as the admin.
 5. **Security follow-up:** ask the deployer to **remove or rotate**
    `BOOTSTRAP_TOKEN`. The setup page automatically stops working once any user
    exists (it returns "already initialised"), but unsetting the token is good
@@ -107,27 +109,28 @@ If you'd rather not use a setup token, run this once in the backend's console
 
 ```bash
 python -m scripts.create_superadmin \
-  --email owner@yoursalon.com \
+  --email admin@yoursalon.com \
   --name "Jordan Avery" \
   --salon "Aria Studio"
 ```
 
 It prints a **temporary password** (or pass `--password "…"` to choose one). The
-command is idempotent — re-running it just updates that owner.
+command is idempotent — re-running it just updates that admin. (It creates the
+top **admin** role by default; `--role owner` creates an SDL/Owner instead.)
 
 ### Troubleshooting Part A
 
 | Symptom | Cause & fix |
 |---|---|
 | "Setup is disabled or the token is invalid" | `BOOTSTRAP_TOKEN` isn't set on the backend, or you typed it wrong. Set it and retry. |
-| "This application is already set up" (409) | An owner already exists. Use **Sign in** instead (or reset via CLI). |
+| "This application is already set up" (409) | An admin already exists. Use **Sign in** instead (or reset via CLI). |
 | "Password must be at least 8 characters" | Choose a longer password. |
 
 ---
 
-## 4. Part B — Owner builds the organization
+## 4. Part B — Admin builds the organization
 
-Sign in as the owner and open the **Admin** area (top navigation). Work through
+Sign in as the admin and open the **Admin** area (top navigation). Work through
 the tabs left to right.
 
 ### Step 1 — Create your salons
@@ -162,10 +165,12 @@ Every salon needs at least one **manager** who will run its team.
 **Bulk option (many managers at once):** use **Bulk import (CSV)** on the same
 tab — see the [CSV reference](#6-csv-reference-bulk-import) below.
 
-### Step 4 — (Optional) Create admins
+### Step 4 — (Optional) Create owners
 
-For multi-salon chains, add **Admins** the same way (Role = *Admin*). They get
-org-wide powers like the owner. Skip this for a single salon.
+For multi-salon chains, add **Owners** (SDLs) the same way (Role = *Owner*). They
+get org-wide visibility and can provision managers/stylists, but cannot
+administer (no imports, salon config, user management, or pay-tier editing).
+Skip this for a single salon.
 
 > **Owners/admins can create stylists directly too**, but the intended flow is to
 > let **managers create their own stylists** (next section). This keeps each
@@ -301,17 +306,17 @@ All from **Admin → Users** (owner/admin) or **Staff** (manager, own team):
 ## 9. Recommended setups by org size
 
 ### Single salon
-1. Owner completes **Setup** (Part A).
-2. Owner creates **1 manager** for the salon (Part B, Step 3).
+1. Admin completes **Setup** (Part A).
+2. Admin creates **1 manager** for the salon (Part B, Step 3).
 3. Manager creates the **stylists** (Part C).
-That's it — no admins or extra salons needed.
+That's it — no owners or extra salons needed.
 
 ### Multi-salon chain
-1. Owner completes **Setup**.
-2. Owner creates each **salon** and (optionally) an **admin** or two to help.
-3. Owner/admin creates **one manager per salon**.
+1. Admin completes **Setup**.
+2. Admin creates each **salon** and (optionally) an **owner** (SDL) or two to help.
+3. Admin/owner creates **one manager per salon**.
 4. Each **manager** builds their own salon's stylist roster (single or CSV).
-This keeps each salon's roster owned by its manager while the owner retains
+This keeps each salon's roster owned by its manager while the admin retains
 org-wide oversight and reporting.
 
 ---
@@ -325,7 +330,7 @@ org-wide oversight and reporting.
   rejected (HTTP 403).
 - **Strong credentials.** Passwords are hashed with argon2, must meet a minimum
   length, and login is rate-limited against guessing.
-- **One-time bootstrap.** The first-owner setup is token-gated and only works on
+- **One-time bootstrap.** The first-admin setup is token-gated and only works on
   an empty system.
 - **Auditability.** Provisioning actions are logged for later review.
 
@@ -333,8 +338,8 @@ org-wide oversight and reporting.
 
 ## 11. Quick checklists
 
-**Owner — day one**
-- [ ] Complete `/setup` (or run the CLI) to create the owner account.
+**Admin — day one**
+- [ ] Complete `/setup` (or run the CLI) to create the admin account.
 - [ ] Ask the deployer to unset `BOOTSTRAP_TOKEN`.
 - [ ] Create all salons; set guarantees & service prices.
 - [ ] (Optional) Configure each salon's pay-tier ladder.
@@ -375,7 +380,7 @@ All under the backend `/api/v1` prefix; all require a Bearer JWT except where no
 
 | Action | Method & path | Who |
 |---|---|---|
-| First-owner bootstrap | `POST /auth/bootstrap` (token in body; no auth) | one-time, empty DB |
+| First-admin bootstrap | `POST /auth/bootstrap` (token in body; no auth) | one-time, empty DB |
 | Sign in | `POST /auth/login` (no auth) | anyone with credentials |
 | Refresh token | `POST /auth/refresh` (no auth) | any session |
 | Who am I | `GET /auth/me` | any signed-in user |
@@ -386,8 +391,8 @@ All under the backend `/api/v1` prefix; all require a Bearer JWT except where no
 | Preview a setup link | `GET /auth/invite/{token}` (no auth) | invitee |
 | Accept invite (set password) | `POST /auth/accept-invite` (no auth) | invitee |
 | Send setup link / activate | `POST /users/{id}/invite` | manager+ (delegated) |
-| Create salon | `POST /salons` | owner/admin |
-| Configure pay tiers | `PUT /salons/{id}/pay-tiers` | owner/admin |
+| Create salon | `POST /salons` | admin |
+| Configure pay tiers | `PUT /salons/{id}/pay-tiers` | admin |
 | Create user | `POST /users` | manager+ (delegated rules apply) |
 | List users | `GET /users` | manager+ (salon-scoped) |
 | Update user (role/manager/…) | `PATCH /users/{id}` | manager+ (delegated rules apply) |
@@ -395,7 +400,7 @@ All under the backend `/api/v1` prefix; all require a Bearer JWT except where no
 | Deactivate user | `POST /users/{id}/deactivate` | manager+ (delegated rules apply) |
 | Bulk-import users | `POST /admin/import-users` (CSV) | manager+ (delegated rules apply) |
 | Users CSV template | `GET /admin/import-users-template` | manager+ |
-| Audit log | `GET /admin/audit` | owner/admin |
+| Audit log | `GET /admin/audit` | admin |
 
 "Delegated rules apply" = a creator may only affect roles below their own, and
 managers are confined to their own salon.
@@ -413,7 +418,8 @@ The organization admin signs in with a **username** (not an email):
 | Username | `admin` |
 | Password | `venitaadmin` |
 
-The admin is created as an **owner** (full org-wide powers) and can change this
+The admin is created with the top **admin** role (the only role with import,
+salon, user-management, and pay-config powers) and can change this
 password anytime from **Account → Change password** (or `/account`). **Change it
 promptly after the first login** — these are preset defaults. Everyone else signs
 in with their **email address**.

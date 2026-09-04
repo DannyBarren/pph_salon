@@ -107,14 +107,19 @@ def bootstrap(
     session: Session = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> Token:
-    """Create the first owner (top of the hierarchy) — token-gated, one-time.
+    """Create the first admin (top of the hierarchy) — token-gated, one-time.
 
     Guards:
     * ``BOOTSTRAP_TOKEN`` must be configured (else the endpoint is disabled), and
       the provided token must match (constant-time compare).
     * Only succeeds while **no users exist** — prevents re-use as a backdoor.
 
-    Returns a JWT pair so the new owner is immediately signed in.
+    The first account must be an **admin**: under the client's hierarchy
+    (admin > owner/SDL > manager > stylist) only admins can import data, manage
+    salons/users, and configure pay logic — an owner first-account would be
+    locked out of every admin capability.
+
+    Returns a JWT pair so the new admin is immediately signed in.
     """
     if not settings.bootstrap_token:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Bootstrap is disabled")
@@ -135,22 +140,22 @@ def bootstrap(
         session.commit()
         session.refresh(salon)
 
-    owner = User(
+    admin = User(
         name=body.name,
         email=body.email,
-        role=UserRole.owner,
+        role=UserRole.admin,
         salon_id=salon.id,
         hashed_password=security.hash_password(body.password),
         is_active=True,
     )
-    session.add(owner)
+    session.add(admin)
     session.commit()
-    session.refresh(owner)
-    record_audit(session, actor=owner, action="auth.bootstrap", target_type="user",
-                 target_id=owner.id, salon_id=salon.id, detail={"email": owner.email})
+    session.refresh(admin)
+    record_audit(session, actor=admin, action="auth.bootstrap", target_type="user",
+                 target_id=admin.id, salon_id=salon.id, detail={"email": admin.email})
     return Token(
-        access_token=security.create_access_token(owner.id, role=str(owner.role)),
-        refresh_token=security.create_refresh_token(owner.id),
+        access_token=security.create_access_token(admin.id, role=str(admin.role)),
+        refresh_token=security.create_refresh_token(admin.id),
     )
 
 
