@@ -17,13 +17,20 @@ import { SALONS, getStylistsBySalon, salonById } from "@/lib/mockData";
 import { guaranteeRateFor } from "@/lib/payEngine";
 import { servicePricesFor } from "@/lib/privacy";
 import { WEEKS, CURRENT_WEEK, addDays } from "@/lib/time";
-import { WEEKLY_TEMPLATE } from "@/lib/importTemplates";
-import { parseWeeklyBulk, weeklyRowToDays } from "@/lib/demoImport";
+import { DAILY_TEMPLATE, WEEKLY_TEMPLATE } from "@/lib/importTemplates";
+import {
+  dailyRowsToWeeks,
+  looksLikeDailyImport,
+  parseDailyBulk,
+  parseWeeklyBulk,
+  weeklyRowToDays,
+} from "@/lib/demoImport";
+import { importFileToCsv } from "@/lib/xlsx";
 import { Card, CardBody, Button, Select, NumberField, SectionTitle, Badge, Avatar } from "@/components/ui/primitives";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
-/** Column order for the downloadable import template (matches the live backend). */
+/** Column order for the downloadable import templates (matches the live backend). */
 const TEMPLATE_COLUMNS = [
   "employee_id",
   "salon_name",
@@ -34,6 +41,21 @@ const TEMPLATE_COLUMNS = [
   "actual_colors",
   "actual_other_value",
   "notes",
+];
+
+/** The client's daily export layout (one row per employee per work day). */
+const DAILY_TEMPLATE_COLUMNS = [
+  "employee_id",
+  "salon_name",
+  "sale_date",
+  "scheduled_hrs",
+  "actual_hrs",
+  "actual_haircuts",
+  "actual_colors",
+  "service_revenue",
+  "Employee Name",
+  "pay_period",
+  "Include/Exclude",
 ];
 
 /**
@@ -354,14 +376,29 @@ function BulkImport() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [fileName, setFileName] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleFile = async (file: File) => {
-    const text = await file.text();
     setFileName(file.name);
-    setResult(runImport(text));
+    setError(null);
+    try {
+      setResult(runImport(await importFileToCsv(file)));
+    } catch (err) {
+      setResult(null);
+      setError(err instanceof Error ? err.message : "Could not read that file.");
+    }
   };
 
   const runImport = (text: string): ImportResult => {
+    // The client's daily export: each row is one work day, and service_revenue
+    // is that day's production (never re-derived from the counts).
+    if (looksLikeDailyImport(text)) {
+      const parsed = parseDailyBulk(text);
+      for (const w of dailyRowsToWeeks(parsed.rows)) addRecords(w.userId, w.days);
+      // Day rows are upserted by (employee, date), so every parsed row lands.
+      return { inserted: parsed.rows.length, updated: 0, skipped: parsed.skipped, errors: parsed.errors };
+    }
+
     const parsed = parseWeeklyBulk(text);
     const res: ImportResult = { inserted: 0, updated: 0, skipped: parsed.skipped, errors: parsed.errors };
     for (const r of parsed.rows) {
@@ -389,13 +426,23 @@ function BulkImport() {
         <CardBody className="space-y-3">
           <h4 className="text-sm font-semibold">1. Download the template</h4>
           <p className="text-sm text-[var(--color-ink-faint)]">
-            Columns: {TEMPLATE_COLUMNS.join(", ")}. One row per <b>employee per week</b> — many employees and pay
-            periods per file. Routed to the right person by <b>employee_id</b> (Employee code like <code>VG1426</code>,
-            or a user id) <b>regardless of salon_name</b>. Set hours to 0 for a full-week call-off.
+            <b>Daily</b> ({DAILY_TEMPLATE_COLUMNS.join(", ")}) is the client&apos;s own export — one row per{" "}
+            <b>employee per work day</b>, with <b>service_revenue</b> as that day&apos;s production and{" "}
+            <b>Include/Exclude</b> setting the pay-plan flag.
           </p>
-          <Button variant="outline" size="sm" onClick={() => downloadText(buildTemplate(), "pph-payperiod-template.csv")}>
-            <Download size={15} /> Download CSV template
-          </Button>
+          <p className="text-sm text-[var(--color-ink-faint)]">
+            <b>Weekly</b> ({TEMPLATE_COLUMNS.join(", ")}) is one row per <b>employee per week</b>. Either way, many
+            employees and pay periods fit in one file and rows are routed by <b>employee_id</b> (Employee code like{" "}
+            <code>VG-1426</code>, or a user id) <b>regardless of salon_name</b>. Set hours to 0 for a call-off.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => downloadText(DAILY_TEMPLATE, "pph-daily-template.csv")}>
+              <Download size={15} /> Daily template
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => downloadText(buildTemplate(), "pph-payperiod-template.csv")}>
+              <Download size={15} /> Weekly template
+            </Button>
+          </div>
         </CardBody>
       </Card>
 
@@ -407,16 +454,21 @@ function BulkImport() {
             className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-2)] p-6 text-center transition hover:border-[var(--color-brand)]"
           >
             <Upload size={24} className="text-[var(--color-brand)]" />
-            <span className="text-sm font-medium">Click to upload a CSV</span>
-            <span className="text-xs text-[var(--color-ink-faint)]">Bulk: many employees × pay periods, keyed by employee_id + week_start</span>
+            <span className="text-sm font-medium">Click to upload a CSV or XLSX</span>
+            <span className="text-xs text-[var(--color-ink-faint)]">
+              Bulk: many employees × pay periods. Daily or weekly — the layout is detected from the headers.
+            </span>
           </button>
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,.txt"
+            accept=".csv,.txt,.xlsx,.xlsm"
             className="hidden"
             onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
           />
+          {error && (
+            <p className="rounded-2xl bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-warning)]">{error}</p>
+          )}
           {result && (
             <div className="animate-pop space-y-2 rounded-2xl bg-[var(--color-surface-2)] p-3 text-sm">
               <div className="flex items-center gap-2 font-medium">
