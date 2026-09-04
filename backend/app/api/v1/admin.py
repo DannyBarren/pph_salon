@@ -43,6 +43,7 @@ from app.services.importers import (
 )
 from app.services.weekly_repo import (
     get_salon_by_name,
+    normalize_salon_key,
     upsert_daily_performance,
     upsert_weekly_data_by_user_and_week,
     week_start_for,
@@ -227,11 +228,23 @@ def _resolve_import_user(
     salon = None
     if salon_name:
         # The client's "Salon" is usually the salon code (stored in location),
-        # but also try the display name.
+        # but also try the display name. Both comparisons tolerate punctuation
+        # drift between the roster and the daily export (e.g. the roster's
+        # "Casper 2nd St,WY" vs the export's "Casper, 2nd St,WY").
         code = str(salon_name).strip()
         salon = session.exec(select(Salon).where(Salon.location == code)).first()
         if salon is None:
             salon = get_salon_by_name(session, code)
+        if salon is None:
+            key = normalize_salon_key(code)
+            salon = next(
+                (
+                    s
+                    for s in session.exec(select(Salon).order_by(Salon.id)).all()
+                    if s.location and normalize_salon_key(s.location) == key
+                ),
+                None,
+            )
 
     raw = str(eeid).strip() if eeid is not None else ""
     # 1) Numeric primary key.
@@ -249,11 +262,19 @@ def _resolve_import_user(
         codes = {raw, compact, compact.upper()}
         if salon is not None:
             scoped = session.exec(
-                select(User).where(User.employee_code.in_(codes), User.salon_id == salon.id)
+                select(User)
+                .where(User.employee_code.in_(codes), User.salon_id == salon.id)
+                .order_by(User.id)
             ).first()
             if scoped is not None:
                 return scoped
-        user = session.exec(select(User).where(User.employee_code.in_(codes))).first()
+        # Global fallback must stay deterministic (lowest id wins): a blank or
+        # unrecognized salon then always resolves to the same user record, so
+        # re-uploads update in place instead of duplicating days across the
+        # records of a dual-salon employee.
+        user = session.exec(
+            select(User).where(User.employee_code.in_(codes)).order_by(User.id)
+        ).first()
         if user is not None:
             return user
     # 3) Name within the salon (last resort).

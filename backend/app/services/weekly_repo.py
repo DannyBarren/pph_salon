@@ -8,12 +8,24 @@ template — so the same file can be re-imported safely and manual edits win.
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
 from app.models import DailyPerformance, Salon, User, UserRole, Week
 from app.schemas.weekly import WeeklyDataInput
+
+
+def normalize_salon_key(value: str) -> str:
+    """Punctuation/whitespace-insensitive salon key.
+
+    The client's roster export and their daily export spell the same salon
+    differently (``Casper 2nd St,WY`` vs ``Casper, 2nd St,WY``). Comparing on
+    alphanumerics only makes the importer's salon tie-breaker deterministic
+    instead of silently falling through to an any-salon match.
+    """
+    return re.sub(r"[^a-z0-9]+", "", value.casefold())
 
 
 def get_stylists_by_salon(session: Session, salon_id: int) -> list[User]:
@@ -27,14 +39,20 @@ def get_stylists_by_salon(session: Session, salon_id: int) -> list[User]:
 
 
 def get_salon_by_name(session: Session, name: str) -> Salon | None:
-    """Resolve a salon by (case-insensitive) name — used by the importer."""
+    """Resolve a salon by name — exact, then case-insensitive, then
+    punctuation-insensitive (see :func:`normalize_salon_key`). Used by the
+    importer. Matches are deterministic: ties break on the lowest salon id."""
     stmt = select(Salon).where(Salon.name == name)
     salon = session.exec(stmt).first()
     if salon is not None:
         return salon
     lowered = name.strip().lower()
-    for s in session.exec(select(Salon)).all():
+    key = normalize_salon_key(name)
+    for s in session.exec(select(Salon).order_by(Salon.id)).all():
         if s.name.strip().lower() == lowered:
+            return s
+    for s in session.exec(select(Salon).order_by(Salon.id)).all():
+        if normalize_salon_key(s.name) == key:
             return s
     return None
 
