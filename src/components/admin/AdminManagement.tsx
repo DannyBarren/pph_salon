@@ -26,6 +26,7 @@ import { Card, CardBody, Button, Badge, Select, Modal } from "@/components/ui/pr
 import { adminApi, salonApi, userApi } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import { DEMO_MODE } from "@/lib/featureFlags";
+import { useApp } from "@/store/AppContext";
 import type {
   AuditLogDTO,
   BackendRole,
@@ -178,6 +179,11 @@ function UserManager({
   /** Manager mode: lock creation to stylists in the given salon (reporting to the manager). */
   restrict?: { salonId: number };
 }) {
+  const { currentUser } = useApp();
+  // Locked visibility rule: only Admin sees off-PPH people or toggles PPH.
+  // Demo mode keeps the playground behavior (switcher-driven) unchanged.
+  const viewerIsAdmin = currentUser.role === "admin";
+  const showPphControls = DEMO_MODE || viewerIsAdmin;
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -217,6 +223,13 @@ function UserManager({
   }, [loadUsers]);
 
   const managers = useMemo(() => users.filter((u) => u.role === "manager" || u.role === "owner"), [users]);
+  // Defensive client-side filter: off-PPH people render for Admin only (the API
+  // already omits them for owner/manager — this catches a stale payload). Demo
+  // mode is unfiltered so the playground switcher keeps working.
+  const visibleUsers = useMemo(
+    () => (DEMO_MODE ? users : users.filter((u) => viewerIsAdmin || !u.excluded)),
+    [users, viewerIsAdmin],
+  );
 
   const submitSingle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -380,8 +393,8 @@ function UserManager({
                     ))}
                   </Select>
                   <label className="flex items-center gap-2 text-sm text-[var(--color-ink-soft)]">
-                    <input type="checkbox" checked={excluded} onChange={(e) => setExcluded(e.target.checked)} />
-                    Excluded from the PPH pay plan (no personal PPH dashboard — team views only)
+                    <input type="checkbox" checked={!excluded} onChange={(e) => setExcluded(!e.target.checked)} />
+                    On PPH plan (uncheck to keep them off the plan — no personal PPH dashboard)
                   </label>
                 </>
               )}
@@ -447,7 +460,7 @@ function UserManager({
       <Card>
         <CardBody>
           <div className="mb-1 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Users ({users.length})</h3>
+            <h3 className="text-sm font-semibold">Users ({visibleUsers.length})</h3>
             <Button variant="ghost" size="sm" onClick={() => void loadUsers()}>
               <RefreshCw size={14} /> Refresh
             </Button>
@@ -512,7 +525,7 @@ function UserManager({
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => {
+                  {visibleUsers.map((u) => {
                     const status = accountStatus(u);
                     const isPending = status === "pending_setup";
                     const isDeactivated = status === "deactivated";
@@ -576,6 +589,7 @@ function UserManager({
           user={editing}
           salons={salons}
           managers={managers}
+          canAdminister={showPphControls}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -592,12 +606,15 @@ function UserEditModal({
   user,
   salons,
   managers,
+  canAdminister,
   onClose,
   onSaved,
 }: {
   user: UserDTO;
   salons: SalonDTO[];
   managers: UserDTO[];
+  /** Admin viewers only: PPH on/off + manager assignment controls render. */
+  canAdminister: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -683,19 +700,21 @@ function UserEditModal({
               ))}
             </Select>
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Reports to (manager)</span>
-            <Select value={managerId} onChange={(e) => setManagerId(e.target.value === "" ? "" : Number(e.target.value))}>
-              <option value="">— none —</option>
-              {managers
-                .filter((m) => m.id !== user.id)
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-            </Select>
-          </label>
+          {canAdminister && (
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Reports to (manager)</span>
+              <Select value={managerId} onChange={(e) => setManagerId(e.target.value === "" ? "" : Number(e.target.value))}>
+                <option value="">— none —</option>
+                {managers
+                  .filter((m) => m.id !== user.id)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.role})
+                    </option>
+                  ))}
+              </Select>
+            </label>
+          )}
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Guarantee $/hr</span>
             <input className={input} type="number" step="0.25" value={guarantee} onChange={(e) => setGuarantee(e.target.value)} />
@@ -710,13 +729,15 @@ function UserEditModal({
           </label>
         </div>
 
-        <label className="flex items-start gap-2 rounded-lg bg-[var(--color-surface-2)] p-3 text-sm">
-          <input type="checkbox" className="mt-0.5" checked={excluded} onChange={(e) => setExcluded(e.target.checked)} />
-          <span>
-            <b>Excluded from the PPH pay plan.</b> No personal PPH dashboard; team visibility only (if they manage
-            people). Uncheck to put them on the plan with a personal dashboard.
-          </span>
-        </label>
+        {canAdminister && (
+          <label className="flex items-start gap-2 rounded-lg bg-[var(--color-surface-2)] p-3 text-sm">
+            <input type="checkbox" className="mt-0.5" checked={!excluded} onChange={(e) => setExcluded(!e.target.checked)} />
+            <span>
+              <b>On PPH plan.</b> Turn off to keep them off the plan (no personal PPH dashboard; hidden from
+              team views). Turn on to put them on the plan with a personal dashboard. Only Admins can change this.
+            </span>
+          </label>
+        )}
 
         {error && <Notice kind="error">{error}</Notice>}
         {ok && <Notice kind="success">{ok}</Notice>}

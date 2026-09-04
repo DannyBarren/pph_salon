@@ -50,6 +50,11 @@ def _seed(engine) -> dict[str, int]:
         s.commit()
         for u in (mgr, stylist, other):
             s.refresh(u)
+        # Reporting line: the stylist reports to the manager (visibility follows
+        # the manager_id tree, not the salon). "other" stays an orphan.
+        stylist.manager_id = mgr.id
+        s.add(stylist)
+        s.commit()
         # Two consecutive weeks inside the client's first real pay period
         # (06-22 → 07-05) + one week three periods earlier.
         w1 = Week(stylist_id=stylist.id, week_start=date(2026, 6, 22), week_end=date(2026, 6, 28),

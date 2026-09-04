@@ -9,8 +9,9 @@ Data is written over time by the admin import flows (``/admin/import-weekly`` /
 ``/admin/import-daily`` / ``/admin/import-client``); these endpoints are the
 read side, so nothing is ever lost — any past period can be selected and viewed.
 
-Visibility mirrors the rest of the app: a stylist sees only their own data, a
-manager sees stylists in their own salon, and admin/owner see anyone.
+Visibility follows the locked PPH rules (see ``deps.visible_user_ids``): Admin
+sees everyone (incl. off-PPH and orphans); owners/managers see only on-PPH
+members of their reporting tree; a stylist sees only themselves.
 """
 
 from __future__ import annotations
@@ -20,9 +21,9 @@ from datetime import UTC, date, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, func, select
 
-from app.api.deps import get_current_user, visible_stylist_ids
+from app.api.deps import get_current_user, is_admin, visible_stylist_ids, visible_user_ids
 from app.db.session import get_session
-from app.models import DailyPerformance, Salon, User, UserRole, Week
+from app.models import DailyPerformance, Salon, User, Week
 from app.schemas.performance import (
     DailyPerformanceRead,
     PayPeriodSummary,
@@ -49,18 +50,16 @@ def _period_index(week_start: date) -> int:
     return ((week_start - _PERIOD_ANCHOR).days // 7) // _WEEKS_PER_PERIOD
 
 
-def _is_super_admin(user: User) -> bool:
-    """admin / owner have org-wide visibility across all salons."""
-    return user.role in (UserRole.admin, UserRole.owner)
-
-
 def _resolve_target(
     session: Session, actor: User, stylist_id: int | None
 ) -> User:
     """Resolve + authorize the stylist whose data is being read.
 
-    Defaults to the caller when ``stylist_id`` is omitted. Enforces the standard
-    visibility rules (self / own-salon / org-wide).
+    Defaults to the caller when ``stylist_id`` is omitted. Enforces the locked
+    PPH visibility rules: Admin may open anyone; owner/manager may open only
+    on-PPH members of their reporting tree (403 on off-PPH or out-of-tree);
+    a stylist may only open themselves (even off-PPH, so the "not on the PPH
+    plan" screen can render).
     """
     target_id = stylist_id if stylist_id is not None else actor.id
     if target_id is None:
@@ -69,9 +68,9 @@ def _resolve_target(
     if target is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Stylist not found")
 
-    if _is_super_admin(actor) or actor.id == target.id:
+    if is_admin(actor) or actor.id == target.id:
         return target
-    if actor.role == UserRole.manager and target.salon_id == actor.salon_id:
+    if target.id in visible_user_ids(actor, session):
         return target
     raise HTTPException(status.HTTP_403_FORBIDDEN, "You cannot view this stylist's data")
 
@@ -189,13 +188,13 @@ def get_team_week(
 ) -> TeamWeekResponse:
     """Team dashboard payload: every visible stylist's record for one week.
 
-    Visibility matches the rest of the app (admin/owner → all stylists, manager
-    → own salon, stylist → self). When ``week_start`` is omitted, the most
-    recent week **with daily rows** across the visible roster is used (the
-    client's daily-import path), then the most recent week with any actuals
-    (weekly-only imports), then the current Monday — so the dashboard always
-    opens on the latest imported data. Stylists with no stored week still
-    appear, zeroed.
+    Visibility follows the locked PPH rules (admin → all stylists incl. off-PPH;
+    owner/manager → on-PPH stylists in their reporting tree; stylist → self).
+    When ``week_start`` is omitted, the most recent week **with daily rows**
+    across the visible roster is used (the client's daily-import path), then
+    the most recent week with any actuals (weekly-only imports), then the
+    current Monday — so the dashboard always opens on the latest imported data.
+    Stylists with no stored week still appear, zeroed.
     """
     ids = visible_stylist_ids(actor, session)
     if not ids:

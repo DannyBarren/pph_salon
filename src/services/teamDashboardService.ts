@@ -18,6 +18,9 @@ import { weekdayIndex } from "@/lib/time";
 export interface FetchOptions {
   /** Restrict to these salon ids (role scoping). Empty/undefined = all. */
   salonIds?: string[];
+  /** Admin viewers may see off-PPH people; everyone else's payload drops them
+   * (defense in depth — the API already omits them for non-admins). */
+  includeExcluded?: boolean;
   /** Retry attempts on failure (default 3). */
   retries?: number;
   /** Injected failure probability for testing resilience (0-1, default 0). */
@@ -66,6 +69,7 @@ function liveRecords(dto: TeamWeekDTO): StylistWeekRecord[] {
     salonId: `s${r.salon_id}`,
     hue: HUES[r.stylist_id % HUES.length],
     guaranteeRate: r.guarantee_rate,
+    excluded: r.excluded,
     weekStart: r.week_start,
     weekEnd: r.week_end,
     weekLabel,
@@ -84,7 +88,10 @@ function liveRecords(dto: TeamWeekDTO): StylistWeekRecord[] {
 /** Live payload from Postgres via the backend (production mode). */
 async function fetchLivePayload(opts: FetchOptions): Promise<TeamDataPayload> {
   const dto = await performanceApi.teamWeek();
-  const records = liveRecords(dto);
+  let records = liveRecords(dto);
+  // Locked visibility rule: off-PPH people render for Admin only. The API
+  // already omits them for owner/manager; this catches a stale payload.
+  if (!opts.includeExcluded) records = records.filter((r) => !r.excluded);
   const scoped = opts.salonIds && opts.salonIds.length > 0
     ? records.filter((r) => opts.salonIds!.includes(r.salonId))
     : records;

@@ -216,6 +216,13 @@ across her two salon records to the spreadsheet totals exactly.
    text/email it yourself.
 4. They open the link, set a password, and are signed straight in.
 
+> **Visibility note (locked 2026-09-04):** owners/managers see only on-PPH
+> members of their *Reports to* tree; off-PPH people and unassigned ("orphan")
+> accounts are visible to **Admin only**, and only Admin can toggle the
+> **On PPH plan** flag or reassign managers. After seeding, 15 managers and the
+> 4 Kalispell,MT stylists have no `manager_id` (the roster names no manager for
+> them) — assign them from Admin → Users so owner/manager trees fill in.
+
 **Data upload hand-holding**
 - The client's own export is the format — no template, no editing. Daily file
   → Daily performance. Unknown employees are skipped **by name**; add them under

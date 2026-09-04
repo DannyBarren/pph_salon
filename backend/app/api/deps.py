@@ -115,8 +115,79 @@ def role_rank(role: UserRole) -> int:
 
 
 def is_super_admin(user: User) -> bool:
-    """admin / owner have org-wide authority (all salons)."""
+    """admin / owner have org-wide authority (all salons).
+
+    NOTE: provisioning/salon-access convenience only — never use this for
+    VISIBILITY lists. What a user may *see* is governed by the reporting tree
+    via :func:`visible_user_ids` (locked PPH visibility rules, 2026-09-04).
+    """
     return user.role in (UserRole.admin, UserRole.owner)
+
+
+def is_admin(user: User) -> bool:
+    """The top **Admin** role — the only role with org-wide visibility and the
+    only role that may turn PPH on/off (``excluded``) or assign ``manager_id``."""
+    return user.role == UserRole.admin
+
+
+def descendant_ids(session: Session, root_id: int) -> set[int]:
+    """Every user whose ``manager_id`` chain reaches ``root_id`` (BFS downward).
+
+    Off-PPH intermediate managers are walked *through* — their reports still
+    belong to the tree — even though off-PPH managers are themselves hidden
+    from non-admin lists (the ``excluded`` filter lives in
+    :func:`visible_user_ids`, not here).
+    """
+    children: dict[int, list[int]] = {}
+    for uid, mid in session.exec(select(User.id, User.manager_id)).all():
+        if mid is not None:
+            children.setdefault(mid, []).append(uid)
+    seen: set[int] = set()
+    stack = list(children.get(root_id, []))
+    while stack:
+        cur = stack.pop()
+        if cur in seen:
+            continue
+        seen.add(cur)
+        stack.extend(children.get(cur, []))
+    return seen
+
+
+def visible_user_ids(actor: User, session: Session, *, team_view: bool = False) -> list[int]:
+    """The locked PPH visibility rules (2026-09-04).
+
+    * **Admin** — every account in every salon: on- and off-PPH, orphans,
+      people with no manager.
+    * **Owner / manager** — their reporting TREE: everyone whose ``manager_id``
+      ancestor chain reaches the viewer (may span salons), **minus** off-PPH
+      (``excluded=true``) people, who are hidden from non-admins everywhere.
+      Orphans (``manager_id`` null) are never visible to owners/managers.
+    * **Stylist** — themselves only (even when off-PPH: their own record drives
+      the "not on the PPH plan" screen).
+
+    ``team_view=True`` restricts the result to ``role == stylist`` (the Team
+    Dashboard / visible-stylists contract).
+    """
+    if actor.id is None:
+        return []
+    if is_admin(actor):
+        stmt = select(User.id)
+        if team_view:
+            stmt = stmt.where(User.role == UserRole.stylist)
+        return list(session.exec(stmt).all())
+    if actor.role in (UserRole.owner, UserRole.manager):
+        tree = descendant_ids(session, actor.id)
+        if not tree:
+            return []
+        stmt = (
+            select(User.id)
+            .where(User.id.in_(tree))
+            .where(User.excluded == False)  # noqa: E712  (SQLAlchemy needs ==, not `is`)
+        )
+        if team_view:
+            stmt = stmt.where(User.role == UserRole.stylist)
+        return list(session.exec(stmt).all())
+    return [actor.id]
 
 
 def require_super_admin(user: User = Depends(get_current_user)) -> User:
@@ -207,19 +278,9 @@ def assert_salon_access(user: User, salon_id: int | None) -> None:
 
 
 def visible_stylist_ids(user: User, session: Session) -> list[int]:
-    """IDs of stylists the ``user`` may see.
+    """IDs of stylists the ``user`` may see — the reporting-tree rules.
 
-    admin / owner → all stylists · manager → everyone in their salon ·
-    stylist → themselves.
+    admin → every stylist (incl. off-PPH and orphans) · owner/manager → on-PPH
+    stylists in their ``manager_id`` tree only · stylist → themselves.
     """
-    if user.role in (UserRole.admin, UserRole.owner):
-        rows = session.exec(select(User.id).where(User.role == UserRole.stylist)).all()
-        return list(rows)
-    if user.role == UserRole.manager:
-        rows = session.exec(
-            select(User.id).where(
-                User.salon_id == user.salon_id, User.role == UserRole.stylist
-            )
-        ).all()
-        return list(rows)
-    return [user.id] if user.id else []
+    return visible_user_ids(user, session, team_view=True)

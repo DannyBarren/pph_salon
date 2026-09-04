@@ -44,17 +44,33 @@ server on every path — the UI, the CSV importer, and the API all obey it.
 
 | Your role | Can create | In which salon(s) | Can reset passwords for | Sees data for |
 |---|---|---|---|---|
-| **Admin** | owners, managers, stylists | any salon | anyone | the whole organization |
-| **Owner** (SDL) | managers, stylists | any salon | anyone | the whole organization |
-| **Manager** | **stylists only** | **their own salon** (new stylist reports to them automatically) | their own-salon stylists | their salon's team |
+| **Admin** | owners, managers, stylists | any salon | anyone | **everyone** — every salon, incl. off-PPH people and unassigned (orphan) accounts |
+| **Owner** (SDL) | managers, stylists | any salon | anyone | their **reporting tree** (on-PPH descendants via *Reports to*, may span salons) |
+| **Manager** | **stylists only** | **their own salon** (new stylist reports to them automatically) | their own-salon stylists | their **reporting tree** (on-PPH descendants only) |
 | **Stylist** | — (nothing) | — | — (only their own via *Change password*) | only themselves |
+
+**Visibility rules (locked 2026-09-04):**
+
+- **Who you see** is decided by the *Reports to* chain (`manager_id`), not by
+  salon: an owner/manager sees exactly the people whose chain of managers
+  bottoms out at them — and **never** a peer's reports, even in the same salon.
+- **Off-PPH people** (the *On PPH plan* toggle is off, `excluded=true`) are
+  **hidden everywhere** for owners/managers — Team Dashboard, Staff, user lists,
+  performance reads. Only **Admin** sees them.
+- **Only Admin** can turn PPH on/off for an existing person, and only Admin can
+  assign or change someone's *Reports to* manager. (Managers still choose
+  on/off-PPH at the moment they *create* a stylist; after that it's Admin-only.)
+- **Orphans** (no manager assigned) are visible to **Admin only** until Admin
+  places them under a manager.
+- An off-PPH stylist who signs in still gets the "not on the PPH plan" screen.
 
 **"Admin" vs "Owner":** **Admin is the top role and the sole administrator** —
 only admins can import data, manage salons, manage users from the Admin panel,
-view the audit log, or edit the global pay tiers. **Owner** (SDL) keeps org-wide
-visibility and can provision managers/stylists, but cannot administer. Use the
-seeded **Admin** account to run the organization; add **Owner** accounts for the
-business owners who need to see everything without changing configuration.
+view the audit log, edit the global pay tiers, toggle PPH, or assign managers.
+**Owner** (SDL) sees their whole reporting tree (which can span salons) and can
+provision managers/stylists, but cannot administer. Use the seeded **Admin**
+account to run the organization; add **Owner** accounts for the business owners,
+then ask Admin to assign each manager to the right owner so their trees fill in.
 
 > In the app's UI, only **admins** see the full **Admin** area; managers see a
 > simpler **Staff** area scoped to their salon. Stylists see neither.

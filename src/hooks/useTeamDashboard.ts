@@ -17,6 +17,8 @@ export interface UseTeamDashboardArgs {
   enabled: boolean;
   /** Poll every 5 minutes when true. */
   autoRefresh: boolean;
+  /** Admin only: include off-PPH (excluded) people in the payload. */
+  includeExcluded?: boolean;
 }
 
 export interface UseTeamDashboardResult {
@@ -32,12 +34,12 @@ export interface UseTeamDashboardResult {
  * is memoized on the raw payload and target rate so recomputes are cheap.
  */
 export function useTeamDashboard(args: UseTeamDashboardArgs): UseTeamDashboardResult {
-  const { salonIds, targetPayRate, enabled, autoRefresh } = args;
+  const { salonIds, targetPayRate, enabled, autoRefresh, includeExcluded } = args;
   const salonKey = [...salonIds].sort().join(",") || "all";
 
   const query = useAsyncQuery<TeamDataPayload>({
-    queryKey: `team-data:${salonKey}`,
-    queryFn: (signal) => fetchTeamData({ salonIds, signal }),
+    queryKey: `team-data:${salonKey}:${includeExcluded ? "incl-excl" : "on-pph"}`,
+    queryFn: (signal) => fetchTeamData({ salonIds, includeExcluded, signal }),
     enabled,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
