@@ -147,11 +147,15 @@ def test_stylist_defaults_to_self(client, engine):
 
 def test_team_week_defaults_to_latest_week_with_actuals(client, engine):
     ids = _seed(engine)
-    # A later week carrying only scheduled hours (no actuals) must NOT become
-    # the default — the dashboard opens on the latest *imported* data.
+    # Later weeks that must NOT become the default: one scheduled-only (the
+    # roster seed's current-week row) and one with actuals but no daily rows
+    # (weekly-import style) — the daily-import week still wins.
     with Session(engine) as s:
         s.add(Week(stylist_id=ids["stylist"], week_start=date(2026, 7, 13),
                    scheduled_total_hrs=40))
+        s.add(Week(stylist_id=ids["stylist"], week_start=date(2026, 7, 6),
+                   scheduled_total_hrs=40, actual_total_hrs=38,
+                   actual_production=1500))
         s.commit()
 
     r = client.get(f"{PP}/performance/team-week", headers=_as(ids["mgr"]))

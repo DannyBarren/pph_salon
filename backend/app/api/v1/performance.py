@@ -191,9 +191,11 @@ def get_team_week(
 
     Visibility matches the rest of the app (admin/owner → all stylists, manager
     → own salon, stylist → self). When ``week_start`` is omitted, the most
-    recent week **with actuals** across the visible roster is used (falling back
-    to the current Monday), so the dashboard always opens on the latest imported
-    data. Stylists with no stored week still appear, zeroed.
+    recent week **with daily rows** across the visible roster is used (the
+    client's daily-import path), then the most recent week with any actuals
+    (weekly-only imports), then the current Monday — so the dashboard always
+    opens on the latest imported data. Stylists with no stored week still
+    appear, zeroed.
     """
     ids = visible_stylist_ids(actor, session)
     if not ids:
@@ -207,13 +209,26 @@ def get_team_week(
         )
 
     if week_start is None:
+        # Prefer the latest week with real per-day rows (the client's daily
+        # import path). Weekly-only imports leave no daily rows, so fall back to
+        # the latest week with any actuals, then to the current Monday.
         week_start = session.exec(
-            select(func.max(Week.week_start)).where(
-                Week.stylist_id.in_(ids),
-                (Week.actual_production.is_not(None))  # type: ignore[union-attr]
-                | (Week.actual_total_hrs.is_not(None)),  # type: ignore[union-attr]
+            select(func.max(Week.week_start))
+            .where(Week.stylist_id.in_(ids))
+            .where(
+                select(DailyPerformance.id)
+                .where(DailyPerformance.week_id == Week.id)
+                .exists()
             )
         ).first()
+        if week_start is None:
+            week_start = session.exec(
+                select(func.max(Week.week_start)).where(
+                    Week.stylist_id.in_(ids),
+                    (Week.actual_production.is_not(None))  # type: ignore[union-attr]
+                    | (Week.actual_total_hrs.is_not(None)),  # type: ignore[union-attr]
+                )
+            ).first()
     if week_start is None:
         today = date.today()
         week_start = today - timedelta(days=today.weekday())
