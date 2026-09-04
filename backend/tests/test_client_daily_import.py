@@ -245,3 +245,62 @@ def test_real_v2_workbook_imports_and_ties_out(client, engine):
     assert again["updated"] == len(data)
     with Session(engine) as s:
         assert len(s.exec(select(DailyPerformance)).all()) == len(data)
+
+
+def test_dual_salon_employee_with_salon_name_punctuation_drift(client, engine):
+    """The real roster and the real daily export spell the same salon
+    differently (roster: ``Casper 2nd St,WY`` — export: ``Casper, 2nd St,WY``).
+    A dual-salon employee (one user record per salon, same employee code) must
+    still have each day routed to the record for the salon named on the row,
+    and a re-upload must update in place. Previously the punctuation mismatch
+    made salon resolution fail silently, so rows fell through to a
+    non-deterministic any-salon match and re-uploads duplicated days across the
+    two records."""
+    with Session(engine) as s:
+        cy = Salon(name="Casper Cy Ave,WY", location="11931-Casper Cy Ave. WY-SSF")
+        second = Salon(name="Casper 2nd St,WY", location="11932-Casper, 2nd St., WY-SSF")
+        s.add(cy)
+        s.add(second)
+        s.commit()
+        s.refresh(cy)
+        s.refresh(second)
+        u_cy = User(name="Michelle Moore", role=UserRole.stylist, salon_id=cy.id,
+                    employee_code="VG1429")
+        u_2nd = User(name="Michelle Moore", role=UserRole.stylist, salon_id=second.id,
+                     employee_code="VG1429")
+        s.add(u_cy)
+        s.add(u_2nd)
+        s.commit()
+        s.refresh(u_cy)
+        s.refresh(u_2nd)
+        ids = (u_cy.id, u_2nd.id)
+
+    rows = [
+        # employee_id, salon_name (export spelling), sale_date, ...
+        ["VG-1429", "Casper Cy Ave,WY", "6/26/2026", 8, 8.35, 9, 0, 200.0,
+         "Michelle Moore", "06-22-2026 to 07-05-2026", "Include"],
+        ["VG-1429", "Casper, 2nd St,WY", "6/22/2026", 8, 7.15, 9, 0, 253.0,
+         "Michelle Moore", "06-22-2026 to 07-05-2026", "Include"],
+        ["VG-1429", "Casper, 2nd St,WY", "6/28/2026", 6, 6.03, 5, 0, 131.0,
+         "Michelle Moore", "06-22-2026 to 07-05-2026", "Include"],
+    ]
+    content = _xlsx_bytes(V2_HEADERS, rows)
+    body = _upload(client, "v2.PPH Data.xlsx", content).json()
+    assert body["inserted"] == 3, body
+
+    with Session(engine) as s:
+        cy_week = s.exec(
+            select(Week).where(Week.stylist_id == ids[0], Week.week_start == date(2026, 6, 22))
+        ).one()
+        second_week = s.exec(
+            select(Week).where(Week.stylist_id == ids[1], Week.week_start == date(2026, 6, 22))
+        ).one()
+        assert cy_week.actual_production == pytest.approx(200.0)
+        assert second_week.actual_production == pytest.approx(253.0 + 131.0)
+
+    # Re-upload: nothing new is created — the same rows update in place.
+    again = _upload(client, "v2.PPH Data.xlsx", content).json()
+    assert again["inserted"] == 0, again
+    assert again["updated"] == 3, again
+    with Session(engine) as s:
+        assert len(s.exec(select(DailyPerformance)).all()) == 3
