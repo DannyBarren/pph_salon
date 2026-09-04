@@ -32,5 +32,6 @@ export function authUserToFrontend(dto: CurrentUserDTO): User {
     initials: initialsOf(dto.name),
     hue: HUES[dto.id % HUES.length],
     excluded: dto.excluded ?? false,
+    guaranteeRate: dto.guarantee_rate ?? undefined,
   };
 }

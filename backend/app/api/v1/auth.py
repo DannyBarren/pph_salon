@@ -392,6 +392,7 @@ def me(
         role=user.role,
         salon_id=user.salon_id,
         manager_id=user.manager_id,
+        guarantee_rate=getattr(user, "guarantee_rate", None),
         excluded=bool(getattr(user, "excluded", False)),
         has_passcode=bool(getattr(user, "passcode_hash", None)),
         is_demo=settings.demo_mode,

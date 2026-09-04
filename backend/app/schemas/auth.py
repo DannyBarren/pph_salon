@@ -105,6 +105,9 @@ class CurrentUser(BaseModel):
     role: UserRole
     salon_id: int
     manager_id: int | None = None
+    # Personal guarantee floor ($/hr) — the stylist dashboard reads it directly
+    # (falls back to the salon/global default when unset).
+    guarantee_rate: float | None = None
     # Not on the PPH pay plan (no personal pay/PPH dashboard; team views only).
     excluded: bool = False
     # Whether a fast-access numeric passcode is configured (drives the daily
