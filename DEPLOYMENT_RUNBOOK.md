@@ -14,7 +14,7 @@ with `NEXT_PUBLIC_DEMO_MODE=false`).
 
 ## 0. Merge the readiness PRs first
 
-Seven small PRs into `production` fix blockers found during the production
+Eight small PRs into `production` fix blockers found during the production
 bring-up. Merge in this order (any order works except as noted):
 
 1. **#43** — config: accept plain-string `CORS_ORIGINS`/`ALLOWED_HOSTS` without
@@ -31,8 +31,10 @@ bring-up. Merge in this order (any order works except as noted):
    (was mock-only). **Stacked on #46 — merge #46 first.**
 7. **#50** — import UX: Data Import defaults to the client's **Daily
    performance** path; weekly import error points at it.
+8. **#51** — stylist dashboard: resolve the profile from the live session, not
+   mock data (without this, every non-excluded stylist crashes at login).
 
-Then redeploy/re-sync so `production` includes all seven.
+Then redeploy/re-sync so `production` includes all eight.
 
 ---
 
@@ -223,7 +225,7 @@ across her two salon records to the spreadsheet totals exactly.
 
 ## 7. Go-live checklist
 
-- [ ] PRs #43, #44, #45, #46, #47, #49, #50 merged to `production`
+- [ ] PRs #43, #44, #45, #46, #47, #49, #50, #51 merged to `production`
 - [ ] `ENVIRONMENT=production`, `DEMO_MODE=false` on backend (demo is also force-disabled in code)
 - [ ] `NEXT_PUBLIC_DEMO_MODE=false` on the NEW frontend project only
 - [ ] Unique `SECRET_KEY` ≥ 32 chars (boot fails otherwise)
