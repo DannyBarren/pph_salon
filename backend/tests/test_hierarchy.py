@@ -235,14 +235,16 @@ def test_bootstrap_rejects_bad_token(client, bootstrap_token):
     assert r.status_code == 403
 
 
-def test_bootstrap_creates_first_owner_then_is_one_time(client, engine, bootstrap_token):
+def test_bootstrap_creates_first_admin_then_is_one_time(client, engine, bootstrap_token):
     r = client.post(f"{PP}/auth/bootstrap", json=_boot_body(bootstrap_token))
     assert r.status_code == 201, r.text
     tokens = r.json()
     assert tokens["access_token"] and tokens["refresh_token"]
     with Session(engine) as s:
-        owner = s.exec(select(User).where(User.email == "founder@x.com")).first()
-        assert owner is not None and owner.role == UserRole.owner
+        admin = s.exec(select(User).where(User.email == "founder@x.com")).first()
+        # The first account must be the top role — an owner would be locked
+        # out of every admin capability (import, salons, users, pay config).
+        assert admin is not None and admin.role == UserRole.admin
 
     # Second call is rejected — cannot be reused as a backdoor.
     again = client.post(f"{PP}/auth/bootstrap", json=_boot_body(bootstrap_token))
