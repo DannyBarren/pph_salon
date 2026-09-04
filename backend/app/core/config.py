@@ -13,10 +13,12 @@ never ship with a known signing key.
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 INSECURE_SECRET = "dev-insecure-change-me"
 
@@ -34,10 +36,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://pph:pph@localhost:5432/pph"
 
     # CORS — the Next.js frontend origin(s). Accepts a JSON list or a
-    # comma-separated string (``https://a.com,https://b.com``).
-    cors_origins: list[str] = ["http://localhost:3000"]
+    # comma-separated string (``https://a.com,https://b.com``). ``NoDecode``
+    # stops pydantic-settings from json.loads()ing the raw env value before
+    # validation (which crashes on plain origin strings); ``_split_csv``
+    # below handles both forms.
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     # Trusted Host header allow-list. ``*`` disables the check (dev default).
-    allowed_hosts: list[str] = ["*"]
+    allowed_hosts: Annotated[list[str], NoDecode] = ["*"]
 
     # ── Auth / JWT ──────────────────────────────────────────────────────
     # Change SECRET_KEY in any real environment (env var / secret manager).
@@ -108,11 +113,14 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", "allowed_hosts", mode="before")
     @classmethod
     def _split_csv(cls, value: object) -> object:
-        """Allow comma-separated strings for list-typed settings from env."""
+        """Allow comma-separated strings or JSON lists for list-typed settings."""
         if isinstance(value, str):
             stripped = value.strip()
             if stripped.startswith("["):
-                return value  # let pydantic parse the JSON list
+                try:
+                    return json.loads(stripped)
+                except json.JSONDecodeError:
+                    return [stripped]
             return [item.strip() for item in stripped.split(",") if item.strip()]
         return value
 
@@ -130,7 +138,7 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "SECRET_KEY must be set to a strong random value (>=32 chars) "
                     "in production. Generate one with: python -c "
-                    "\"import secrets; print(secrets.token_urlsafe(48))\""
+                    '"import secrets; print(secrets.token_urlsafe(48))"'
                 )
             # Docs are opt-in in production.
             if "*" in self.allowed_hosts:
