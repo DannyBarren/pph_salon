@@ -839,7 +839,9 @@ function currentMondayIso(): string {
 }
 
 function ImportPanel() {
-  const [kind, setKind] = useState<ImportKind>("weekly");
+  // Default to the client's real path: their per-day export uploads as-is via
+  // "Daily performance". Weekly/client-export remain available in the dropdown.
+  const [kind, setKind] = useState<ImportKind>("daily");
   const [source, setSource] = useState("native");
   const [weekStart, setWeekStart] = useState<string>(currentMondayIso());
   const [result, setResult] = useState<WeeklyImportResult | null>(null);

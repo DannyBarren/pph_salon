@@ -354,7 +354,10 @@ async def import_weekly(
             continue
         if week_start is None:
             result.skipped += 1
-            result.errors.append(f"Row {i}: week_start is required")
+            result.errors.append(
+                f"Row {i}: week_start is required — if this is the client's "
+                "per-day export, choose the 'Daily performance' import type instead"
+            )
             continue
 
         # Route strictly by employee id — a wrong/blank salon never misroutes.
