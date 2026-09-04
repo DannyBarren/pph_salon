@@ -14,7 +14,7 @@ with `NEXT_PUBLIC_DEMO_MODE=false`).
 
 ## 0. Merge the readiness PRs first
 
-Six small PRs into `production` fix blockers found during the production
+Seven small PRs into `production` fix blockers found during the production
 bring-up. Merge in this order (any order works except as noted):
 
 1. **#43** — config: accept plain-string `CORS_ORIGINS`/`ALLOWED_HOSTS` without
@@ -29,8 +29,10 @@ bring-up. Merge in this order (any order works except as noted):
    import with **zero skips**.
 6. **#49** — team dashboard: serves live Postgres data in production mode
    (was mock-only). **Stacked on #46 — merge #46 first.**
+7. **#50** — import UX: Data Import defaults to the client's **Daily
+   performance** path; weekly import error points at it.
 
-Then redeploy/re-sync so `production` includes all six.
+Then redeploy/re-sync so `production` includes all seven.
 
 ---
 
@@ -194,13 +196,14 @@ across her two salon records to the spreadsheet totals exactly.
 
 **Add a new pay period**
 1. Sign in → **Admin** → **Data Import** tab.
-2. Import type = **Daily performance** → drop the client's new .xlsx (e.g.
-   `PPH Data 07-20-2026 TO 08-02-2026.xlsx`) → **Import**.
-3. Read the result line: `inserted / updated / skipped` with any unknown
+2. Import type = **Daily performance** (the default) → drop the client's new
+   .xlsx (e.g. `PPH Data 07-20-2026 TO 08-02-2026.xlsx`) → **Upload & import**.
+3. Read the result line: `Inserted / updated / skipped` with any unknown
    employees named.
 4. Open any stylist dashboard → **Pay Period** dropdown → the new period
    (e.g. **Jul 20 – Aug 2**) is there; pick it, then pick a week for
-   Week-by-Day.
+   Week-by-Day. The **Team Dashboard** automatically opens on the latest
+   imported week.
 
 **Add a new stylist**
 1. **Admin → Users → Add user** (single form): name, employee code, salon,
@@ -220,7 +223,7 @@ across her two salon records to the spreadsheet totals exactly.
 
 ## 7. Go-live checklist
 
-- [ ] PRs #43, #44, #45, #46, #47, #49 merged to `production`
+- [ ] PRs #43, #44, #45, #46, #47, #49, #50 merged to `production`
 - [ ] `ENVIRONMENT=production`, `DEMO_MODE=false` on backend (demo is also force-disabled in code)
 - [ ] `NEXT_PUBLIC_DEMO_MODE=false` on the NEW frontend project only
 - [ ] Unique `SECRET_KEY` ≥ 32 chars (boot fails otherwise)
