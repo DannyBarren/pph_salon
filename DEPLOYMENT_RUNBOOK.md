@@ -14,8 +14,8 @@ with `NEXT_PUBLIC_DEMO_MODE=false`).
 
 ## 0. Merge the readiness PRs first
 
-Four small PRs into `production` fix blockers found during the production
-bring-up. Merge all four before deploying (any order; they are independent):
+Six small PRs into `production` fix blockers found during the production
+bring-up. Merge in this order (any order works except as noted):
 
 1. **#43** — config: accept plain-string `CORS_ORIGINS`/`ALLOWED_HOSTS` without
    crashing (without this the backend cannot boot with the documented env vars).
@@ -23,10 +23,14 @@ bring-up. Merge all four before deploying (any order; they are independent):
    Without this the seeded `admin` gets 403 on every admin endpoint.
 3. **#45** — import: deterministic routing for dual-salon employees (fixes
    duplicate days on re-upload).
-4. **#47** — roster: adds VG-1502 / VG-1503 / VG-1504 so both client workbooks
+4. **#46** — performance: pay-period dropdown matches the client's payroll
+   calendar (Jun 22 – Jul 5, Jul 6 – Jul 19, …).
+5. **#47** — roster: adds VG-1502 / VG-1503 / VG-1504 so both client workbooks
    import with **zero skips**.
+6. **#49** — team dashboard: serves live Postgres data in production mode
+   (was mock-only). **Stacked on #46 — merge #46 first.**
 
-Then redeploy/re-sync so `production` includes all four.
+Then redeploy/re-sync so `production` includes all six.
 
 ---
 
@@ -216,7 +220,7 @@ across her two salon records to the spreadsheet totals exactly.
 
 ## 7. Go-live checklist
 
-- [ ] PRs #43, #44, #45, #47 merged to `production`
+- [ ] PRs #43, #44, #45, #46, #47, #49 merged to `production`
 - [ ] `ENVIRONMENT=production`, `DEMO_MODE=false` on backend (demo is also force-disabled in code)
 - [ ] `NEXT_PUBLIC_DEMO_MODE=false` on the NEW frontend project only
 - [ ] Unique `SECRET_KEY` ≥ 32 chars (boot fails otherwise)
