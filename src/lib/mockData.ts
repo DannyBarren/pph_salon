@@ -1,6 +1,14 @@
 import type { DayRecord, MessageAcknowledgment, MessageBoardPost, PayConfig, Salon, StylistData, UsageStat, User } from "./types";
 import { CLIENT_ROSTER, CLIENT_SALONS, CLIENT_WEEK_START, type RosterPerson } from "./clientRoster";
-import { CLIENT_DAILY, CLIENT_DAILY_EXCLUDE, CLIENT_DAILY_WEEK_STARTS } from "./clientDaily";
+import {
+  CLIENT_DAILY,
+  CLIENT_DAILY_BY_SALON,
+  CLIENT_DAILY_EXCLUDE,
+  CLIENT_DAILY_EXCLUDE_BY_SALON,
+  CLIENT_DAILY_MULTI_SALON,
+  CLIENT_DAILY_WEEK_STARTS,
+  type ClientDailyRecord,
+} from "./clientDaily";
 import { addDays, WEEKS } from "./time";
 import { COLOR_PRICE, HAIRCUT_PRICE, NP_PERCENT, NP_RATE, PPH_TIERS } from "./tiers";
 
@@ -89,14 +97,38 @@ function isExcludedCode(employeeCode: string | undefined): boolean {
   return !!employeeCode && EXCLUDED_EMPLOYEE_CODES.has(employeeCode.toUpperCase());
 }
 
+/** Salon names are punctuated differently across the client's files. */
+function salonKey(name: string): string {
+  return (name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+const MULTI_SALON_CODES = new Set(CLIENT_DAILY_MULTI_SALON);
+
+/**
+ * The real daily rows that belong to one roster entry. A few employees work at
+ * two salons and are listed once per location — their days are split by the
+ * salon on each row, so neither entry claims the other's production.
+ */
+function dailyRecordsFor(p: RosterPerson): ClientDailyRecord[] {
+  const code = (p.employeeCode || "").toUpperCase();
+  if (MULTI_SALON_CODES.has(code)) return CLIENT_DAILY_BY_SALON[`${code}|${salonKey(p.salonName)}`] ?? [];
+  return CLIENT_DAILY[code] ?? [];
+}
+
 function toUser(p: RosterPerson): User {
   const salon = salonById(p.salonId);
   const isManager = p.role === "manager";
-  // Include/Exclude designation: prefer the client's real daily export flag,
-  // then the roster's own flag, then the legacy code list.
+  // Include/Exclude designation: prefer the client's real daily export flag (per
+  // location for anyone who works at two), then the roster's own flag, then the
+  // legacy code list.
   const code = (p.employeeCode || "").toUpperCase();
+  const salonScoped = `${code}|${salonKey(p.salonName)}`;
   const excluded =
-    code in CLIENT_DAILY_EXCLUDE ? CLIENT_DAILY_EXCLUDE[code] : (p.excluded ?? isExcludedCode(p.employeeCode));
+    salonScoped in CLIENT_DAILY_EXCLUDE_BY_SALON
+      ? CLIENT_DAILY_EXCLUDE_BY_SALON[salonScoped]
+      : code in CLIENT_DAILY_EXCLUDE
+        ? CLIENT_DAILY_EXCLUDE[code]
+        : (p.excluded ?? isExcludedCode(p.employeeCode));
   return {
     id: p.id,
     name: p.name,
@@ -144,21 +176,36 @@ export const USERS: User[] = [...STYLISTS, ...MANAGERS, OWNER, ADMIN];
 export const userById = (id: string) => USERS.find((u) => u.id === id);
 
 // Employee code (e.g. "VG1426") → demo user id ("u2"), for import routing.
+// A second index keyed by code + salon disambiguates the few people who work at
+// more than one location and therefore appear on the roster twice.
 const ROSTER_ID_BY_CODE = new Map<string, string>();
+const ROSTER_ID_BY_CODE_AND_SALON = new Map<string, string>();
 for (const p of CLIENT_ROSTER) {
-  if (p.employeeCode) ROSTER_ID_BY_CODE.set(p.employeeCode.trim().toUpperCase(), p.id);
+  if (!p.employeeCode) continue;
+  const code = p.employeeCode.trim().toUpperCase();
+  if (!ROSTER_ID_BY_CODE.has(code)) ROSTER_ID_BY_CODE.set(code, p.id);
+  ROSTER_ID_BY_CODE_AND_SALON.set(`${code}|${salonKey(p.salonName)}`, p.id);
 }
 
 /**
  * Resolve an import row's `employee_id` to a demo user id. Accepts the client
- * Employee code (``VG1426``) OR our user id (``u2`` / ``2``). Routing is by that
- * id ONLY — the salon on the row is ignored — mirroring the live import so a
- * wrong/blank salon never misroutes the data. Returns undefined if unknown.
+ * Employee code (``VG1426``, or ``VG-1426`` as their daily export spells it) OR
+ * our user id (``u2`` / ``2``). Routing is by that id: `salonName` is only a
+ * tie-breaker for a code held by two roster entries, and resolution always
+ * falls back to the code alone — mirroring the live import, so a wrong or blank
+ * salon can never misroute the data. Returns undefined if unknown.
  */
-export function resolveRosterUserId(identifier: string): string | undefined {
+export function resolveRosterUserId(identifier: string, salonName?: string): string | undefined {
   const raw = (identifier ?? "").trim();
   if (!raw) return undefined;
-  const byCode = ROSTER_ID_BY_CODE.get(raw.toUpperCase());
+  const code = raw.replace(/[-\s]/g, "").toUpperCase();
+  if (salonName) {
+    const scoped =
+      ROSTER_ID_BY_CODE_AND_SALON.get(`${raw.toUpperCase()}|${salonKey(salonName)}`) ??
+      ROSTER_ID_BY_CODE_AND_SALON.get(`${code}|${salonKey(salonName)}`);
+    if (scoped) return scoped;
+  }
+  const byCode = ROSTER_ID_BY_CODE.get(raw.toUpperCase()) ?? ROSTER_ID_BY_CODE.get(code);
   if (byCode) return byCode;
   if (userById(raw)) return raw;
   if (userById(`u${raw}`)) return `u${raw}`;
@@ -239,33 +286,28 @@ const CLIENT_DAILY_WEEKS = new Set(CLIENT_DAILY_WEEK_STARTS);
 
 /**
  * Build a person's real 7-day week from the client's daily export, or null when
- * they have no rows for that week. Missing work days are rendered as days off
- * (zeros), so weekly sums equal the export exactly.
+ * that person is absent from the export entirely (then the synthetic generator
+ * takes over). Days they did not work are rendered as days off (zeros) — the
+ * export is the authority for the period it covers, so a week with no rows in
+ * it is a week that produced nothing, not a week to invent numbers for. Weekly
+ * sums therefore equal the export exactly.
  */
-function realWeekDays(employeeCode: string, weekStart: string): DayRecord[] | null {
-  const recs = CLIENT_DAILY[employeeCode.toUpperCase()];
-  if (!recs || recs.length === 0) return null;
+function realWeekDays(person: RosterPerson, weekStart: string): DayRecord[] | null {
+  const recs = dailyRecordsFor(person);
+  if (recs.length === 0) return null;
   const byDate = new Map(recs.map((r) => [r.date, r]));
-  const days: DayRecord[] = [];
-  let hasAny = false;
-  for (let i = 0; i < 7; i++) {
+  return Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i);
     const r = byDate.get(date);
-    if (r) {
-      hasAny = true;
-      days.push({
-        date,
-        scheduledHours: r.scheduledHours,
-        workedHours: r.workedHours,
-        haircuts: r.haircuts,
-        colors: r.colors,
-        production: r.production,
-      });
-    } else {
-      days.push({ date, scheduledHours: 0, workedHours: 0, haircuts: 0, colors: 0, production: 0 });
-    }
-  }
-  return hasAny ? days : null;
+    return {
+      date,
+      scheduledHours: r?.scheduledHours ?? 0,
+      workedHours: r?.workedHours ?? 0,
+      haircuts: r?.haircuts ?? 0,
+      colors: r?.colors ?? 0,
+      production: r?.production ?? 0,
+    };
+  });
 }
 
 /**
@@ -279,7 +321,7 @@ function genDaysForPerson(p: RosterPerson): DayRecord[] {
   const days: DayRecord[] = [];
   for (const w of WEEKS) {
     if (CLIENT_DAILY_WEEKS.has(w.start)) {
-      const real = realWeekDays(p.employeeCode, w.start);
+      const real = realWeekDays(p, w.start);
       if (real) {
         days.push(...real);
         continue;
