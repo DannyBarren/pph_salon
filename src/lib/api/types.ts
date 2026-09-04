@@ -15,6 +15,8 @@ export interface CurrentUserDTO {
   role: BackendRole;
   salon_id: number;
   manager_id: number | null;
+  /** Personal guarantee floor ($/hr); null → salon/global default applies. */
+  guarantee_rate?: number | null;
   excluded?: boolean;
   /** Whether the user has configured a fast-access numeric passcode. */
   has_passcode?: boolean;

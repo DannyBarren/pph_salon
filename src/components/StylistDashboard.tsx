@@ -13,7 +13,7 @@ import { Card, CardBody, Select, SectionTitle } from "@/components/ui/primitives
 import { DailyBreakdown } from "@/components/DailyBreakdown";
 import { money, moneyAcct, usDate } from "@/lib/format";
 import { DEMO_MODE } from "@/lib/featureFlags";
-import { performanceApi } from "@/lib/api/endpoints";
+import { performanceApi, salonApi } from "@/lib/api/endpoints";
 
 /** One selectable week inside a pay period. */
 interface WeekOpt {
@@ -66,9 +66,39 @@ function hrs(n: number): string {
 
 export function StylistDashboard({ stylistId }: { stylistId: string }) {
   const { config, getDays, currentUser } = useApp();
-  const stylist = userById(stylistId)!;
-  const salon = salonById(stylist.salonId);
-  const guarantee = stylist.guaranteeRate ?? config.guaranteeRate;
+  // Demo profiles come from the baked-in mock directory. In the live app the
+  // only reachable self-view is the signed-in stylist (managers/admins are
+  // redirected to the Team Dashboard), whose profile arrives via /auth/me —
+  // the mock directory must never be consulted (it would crash on unknown ids).
+  const stylist = useMemo(() => {
+    if (DEMO_MODE) return userById(stylistId);
+    return currentUser.id === stylistId ? currentUser : undefined;
+  }, [stylistId, currentUser]);
+
+  // Live app: the salon name/city for the header come from the scoped salon
+  // list (a stylist can read their own salon).
+  const [liveSalon, setLiveSalon] = useState<{ name: string; city: string | null } | null>(null);
+  useEffect(() => {
+    if (DEMO_MODE || !stylist) return;
+    let cancelled = false;
+    const bid = Number(stylist.salonId.replace(/^s/, ""));
+    salonApi
+      .list()
+      .then((salons) => {
+        if (cancelled) return;
+        const found = salons.find((s) => s.id === bid);
+        setLiveSalon(found ? { name: found.name, city: found.city } : { name: "", city: null });
+      })
+      .catch(() => setLiveSalon({ name: "", city: null }));
+    return () => {
+      cancelled = true;
+    };
+  }, [stylist]);
+
+  const salon = DEMO_MODE
+    ? salonById(stylist?.salonId ?? "")
+    : { name: liveSalon?.name ?? "", city: liveSalon?.city ?? "" };
+  const guarantee = stylist?.guaranteeRate ?? config.guaranteeRate;
   // Who may change the Desired Pay Rate: Admin & SDL/Owner (for anyone), plus a
   // stylist on their OWN dashboard (personal what-if). Managers viewing a report
   // see it read-only.
@@ -182,6 +212,18 @@ export function StylistDashboard({ stylistId }: { stylistId: string }) {
   }, [liveDays, getDays, stylistId, activeStart, activeEnd]);
 
   const { metrics, recap, gap, daily } = computeWeek(weekDays, dpr, guarantee);
+
+  // Live app: the profile may still be loading (or the view was deep-linked for
+  // another stylist, which only the Team Dashboard supports) — never crash.
+  if (!stylist) {
+    return (
+      <Card>
+        <CardBody>
+          <p className="text-sm text-[var(--color-ink-faint)]">Loading stylist profile…</p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   // Excluded employees are not on the PPH pay plan — no personal dashboard.
   if (stylist.excluded) {
