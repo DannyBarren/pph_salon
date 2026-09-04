@@ -141,3 +141,64 @@ def test_stylist_defaults_to_self(client, engine):
     r = client.get(f"{PP}/performance/weeks", headers=_as(ids["stylist"]))
     assert r.status_code == 200
     assert len(r.json()) == 3
+
+
+# ── Team dashboard payload ────────────────────────────────────────────────────
+
+def test_team_week_defaults_to_latest_week_with_actuals(client, engine):
+    ids = _seed(engine)
+    # Later weeks that must NOT become the default: one scheduled-only (the
+    # roster seed's current-week row) and one with actuals but no daily rows
+    # (weekly-import style) — the daily-import week still wins.
+    with Session(engine) as s:
+        s.add(Week(stylist_id=ids["stylist"], week_start=date(2026, 7, 13),
+                   scheduled_total_hrs=40))
+        s.add(Week(stylist_id=ids["stylist"], week_start=date(2026, 7, 6),
+                   scheduled_total_hrs=40, actual_total_hrs=38,
+                   actual_production=1500))
+        s.commit()
+
+    r = client.get(f"{PP}/performance/team-week", headers=_as(ids["mgr"]))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["week_start"] == "2026-06-29"
+    assert body["week_end"] == "2026-07-05"
+    # Manager (salon 1) sees only their own salon's stylists, zeroed when they
+    # have no row for the chosen week.
+    assert {rec["salon_id"] for rec in body["records"]} == {1}
+    by_id = {rec["stylist_id"]: rec for rec in body["records"]}
+    assert by_id[ids["stylist"]]["actual_production"] == 1000
+    assert len(by_id[ids["stylist"]]["daily"]) == 2
+    assert by_id[ids["stylist"]]["guarantee_rate"] == 12.0  # salon default
+
+
+def test_team_week_explicit_week_and_admin_scope(client, engine):
+    ids = _seed(engine)
+    with Session(engine) as s:
+        admin = User(name="Adm", role=UserRole.admin, salon_id=1, email="adm@x.com")
+        s.add(admin)
+        s.commit()
+        s.refresh(admin)
+        aid = admin.id
+
+    r = client.get(
+        f"{PP}/performance/team-week?week_start=2026-06-22", headers=_as(aid)
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["week_start"] == "2026-06-22"
+    # Admin sees every salon; the stylist's 06-22 week carries 900 production,
+    # the other-salon stylist appears zeroed.
+    by_id = {rec["stylist_id"]: rec for rec in body["records"]}
+    assert set(by_id) == {ids["stylist"], ids["other"]}
+    assert by_id[ids["stylist"]]["actual_production"] == 900
+    assert by_id[ids["other"]]["actual_production"] is None
+    assert by_id[ids["other"]]["daily"] == []
+
+
+def test_team_week_stylist_sees_only_self(client, engine):
+    ids = _seed(engine)
+    r = client.get(f"{PP}/performance/team-week", headers=_as(ids["stylist"]))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert [rec["stylist_id"] for rec in body["records"]] == [ids["stylist"]]

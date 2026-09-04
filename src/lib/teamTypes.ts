@@ -162,5 +162,5 @@ export interface TeamDataPayload {
   /** Server-side generation timestamp (ISO). */
   generatedAt: string;
   /** Data source tag so the UI can show "mock" vs "live". */
-  source: "mock" | "zenoti+paycor";
+  source: "mock" | "zenoti+paycor" | "api";
 }

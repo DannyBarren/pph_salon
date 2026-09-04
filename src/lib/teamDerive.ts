@@ -10,6 +10,7 @@ import {
   productionToServices,
 } from "./tiers";
 import { TEAM_TODAY } from "./teamData";
+import { DEMO_MODE } from "./featureFlags";
 import type {
   DailyPoint,
   PerformanceStatus,
@@ -88,9 +89,16 @@ export function deriveStylistPerformance(record: StylistWeekRecord, targetPayRat
   const daily: DailyPoint[] = [];
   const perDayRequired = pphForRate(targetPayRate);
 
+  // "Today" is frozen in the demo (deterministic render of the client's export
+  // week) but is the real current date in the live app, where days arrive via
+  // imports and anything after today is genuinely upcoming.
+  const today = DEMO_MODE
+    ? TEAM_TODAY
+    : new Date().toISOString().slice(0, 10);
+
   for (const d of record.days) {
     scheduledHoursTotal += d.scheduledHours;
-    const upcoming = d.date > TEAM_TODAY;
+    const upcoming = d.date > today;
     if (upcoming) {
       remainingScheduledHours += d.scheduledHours;
     } else {
