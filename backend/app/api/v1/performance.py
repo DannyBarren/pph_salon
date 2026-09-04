@@ -35,8 +35,11 @@ router = APIRouter(prefix="/performance", tags=["performance"])
 # Fixed Monday anchor for deterministic biweekly pay-period grouping. Weeks run
 # Mon–Sun; a pay period is two consecutive weeks. Grouping off a fixed anchor
 # means the same calendar weeks always fall in the same period regardless of
-# which weeks happen to have data.
-_PERIOD_ANCHOR = date(2020, 1, 6)  # a Monday
+# which weeks happen to have data. The anchor is aligned to the CLIENT'S payroll
+# cadence — their exports label periods "06-22-2026 to 07-05-2026",
+# "07-06-2026 to 07-19-2026", … — so the Pay Period dropdown shows the same
+# boundaries as their payroll calendar.
+_PERIOD_ANCHOR = date(2026, 6, 22)  # first week of the client's 06-22→07-05 period
 _WEEKS_PER_PERIOD = 2
 
 
