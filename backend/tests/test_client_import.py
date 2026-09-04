@@ -180,13 +180,30 @@ def test_real_client_csv_imports_cleanly(session: Session):
     assert result.errors == [], result.errors
     assert result.skipped == 0
     assert result.salons_created == 16
-    assert result.users_created == 57
-    assert result.weeks_inserted == 57
+    # 57 employees from the original 06-26 snapshot + VG-1502/1503/1504, who were
+    # discovered in the client's later daily exports and added to the roster with
+    # blank weekly figures (their real days arrive via the daily imports).
+    assert result.users_created == 60
+    assert result.weeks_inserted == 60
 
-    # Every created week has a positive production sourced from Net service Rev.
+    # Every week whose roster row carried revenue has a positive production
+    # sourced from Net service Rev; the three added rows carry no weekly figures.
     weeks = session.exec(select(Week)).all()
-    assert len(weeks) == 57
-    assert all((w.actual_production or 0) > 0 for w in weeks)
+    assert len(weeks) == 60
+    with_revenue = [w for w in weeks if w.actual_production is not None]
+    assert len(with_revenue) == 57
+    assert all((w.actual_production or 0) > 0 for w in with_revenue)
+
+    # The three employees discovered in the daily exports land in the salons the
+    # exports name for them.
+    salon_by_code = {
+        "VG1502": "Wichita Falls Lawrence,TX",
+        "VG1503": "Payson, TX",
+        "VG1504": "Kalispell,MT",
+    }
+    for code, salon_name in salon_by_code.items():
+        u = session.exec(select(User).where(User.employee_code == code)).one()
+        assert session.get(Salon, u.salon_id).name == salon_name
 
     # Spot-check a known row (KALEEN HOWARD, Payson manager, $2914.40).
     kaleen = session.exec(select(User).where(User.employee_code == "VG1235")).first()
@@ -202,8 +219,8 @@ def test_import_client_endpoint(client):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["salons_created"] == 16
-    assert body["users_created"] == 57
-    assert body["weeks_inserted"] == 57
+    assert body["users_created"] == 60
+    assert body["weeks_inserted"] == 60
     assert body["errors"] == []
 
 
