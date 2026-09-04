@@ -23,6 +23,7 @@ import { cn } from "@/lib/cn";
 import { useTeamDashboard, filterAndSortPerformances } from "@/hooks/useTeamDashboard";
 import { useDebounced } from "@/hooks/useDebounced";
 import { TEAM_WEEK } from "@/lib/teamData";
+import { DEMO_MODE } from "@/lib/featureFlags";
 import { getActiveTiers } from "@/lib/paymentLogic";
 import { performancesToCsv, downloadFile } from "@/lib/exportCsv";
 import { track } from "@/lib/telemetry";
@@ -105,6 +106,15 @@ export function TeamDashboard() {
     autoRefresh,
   });
 
+  // The week shown: the demo's frozen export week, or (live) whichever week the
+  // backend returned — the latest with imported data unless asked otherwise.
+  const weekStart = DEMO_MODE
+    ? TEAM_WEEK.start
+    : (query.data?.records[0]?.weekStart ?? "");
+  const weekLabel = DEMO_MODE
+    ? TEAM_WEEK.label
+    : (query.data?.records[0]?.weekLabel ?? "…");
+
   const filters: TeamFilters = useMemo(
     () => ({ search: debouncedSearch, status, sort, view }),
     [debouncedSearch, status, sort, view],
@@ -152,9 +162,9 @@ export function TeamDashboard() {
 
   const onExport = useCallback(() => {
     const csv = performancesToCsv(visible);
-    downloadFile(`team-dashboard-${TEAM_WEEK.start}.csv`, csv);
+    downloadFile(`team-dashboard-${weekStart}.csv`, csv);
     track("team_dashboard_export", { count: visible.length });
-  }, [visible]);
+  }, [visible, weekStart]);
 
   const onRefresh = useCallback(() => {
     query.refetch();
@@ -187,7 +197,7 @@ export function TeamDashboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--color-brand)]">Team Dashboard</h1>
           <p className="text-sm text-[var(--color-ink-faint)]">
-            Week of {TEAM_WEEK.label} ·{" "}
+            Week of {weekLabel} ·{" "}
             {seesAllSalons ? "All salons" : "Your team"} · {performances.length} stylists
           </p>
         </div>
@@ -236,7 +246,7 @@ export function TeamDashboard() {
               icon={<DollarSign size={16} />}
               tone="brand"
             />
-            <TeamKPICard label="Total Production" value={money(kpis.totalProduction)} sub={TEAM_WEEK.label} icon={<TrendingUp size={16} />} />
+            <TeamKPICard label="Total Production" value={money(kpis.totalProduction)} sub={weekLabel} icon={<TrendingUp size={16} />} />
             <TeamKPICard
               label="On Track"
               value={num(kpis.onTrackCount)}

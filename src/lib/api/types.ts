@@ -191,6 +191,32 @@ export interface WeekPerformanceDTO {
   daily: PerformanceDayDTO[];
 }
 
+// ── Team dashboard (live) ────────────────────────────────────────────────────
+export interface TeamWeekStylistDTO {
+  stylist_id: number;
+  employee_code: string | null;
+  name: string;
+  title: string | null;
+  salon_id: number;
+  guarantee_rate: number;
+  excluded: boolean;
+  week_start: string;
+  week_end: string;
+  scheduled_total_hrs: number;
+  actual_total_hrs: number | null;
+  actual_production: number | null;
+  actual_haircuts: number | null;
+  actual_colors: number | null;
+  daily: PerformanceDayDTO[];
+}
+
+export interface TeamWeekDTO {
+  week_start: string;
+  week_end: string;
+  generated_at: string;
+  records: TeamWeekStylistDTO[];
+}
+
 export interface AuditLogDTO {
   id: number;
   actor_id: number | null;

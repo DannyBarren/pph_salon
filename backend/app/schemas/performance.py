@@ -7,7 +7,7 @@ then a week within it, and fetch that week's aggregate + daily rows.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -58,3 +58,37 @@ class WeekPerformanceRead(BaseModel):
     actual_other_value: float | None = None
     notes: str | None = None
     daily: list[DailyPerformanceRead] = []
+
+
+class TeamWeekStylistRecord(BaseModel):
+    """One visible stylist's record for the team dashboard's week.
+
+    Carries the roster fields the dashboard renders (name, employee code, salon,
+    guarantee) plus the week's aggregate totals and per-day rows. Stylists with
+    no stored week still appear (zeroed) so the roll-up covers the whole team.
+    """
+
+    stylist_id: int
+    employee_code: str | None = None
+    name: str
+    title: str | None = None
+    salon_id: int
+    guarantee_rate: float
+    excluded: bool = False
+    week_start: date
+    week_end: date
+    scheduled_total_hrs: float = 0.0
+    actual_total_hrs: float | None = None
+    actual_production: float | None = None
+    actual_haircuts: int | None = None
+    actual_colors: int | None = None
+    daily: list[DailyPerformanceRead] = []
+
+
+class TeamWeekResponse(BaseModel):
+    """Team dashboard payload for one week, scoped to the caller's visibility."""
+
+    week_start: date
+    week_end: date
+    generated_at: datetime
+    records: list[TeamWeekStylistRecord]

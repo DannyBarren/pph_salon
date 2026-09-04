@@ -1,18 +1,18 @@
 import { getTeamPayload } from "@/lib/teamData";
-import type { TeamDataPayload } from "@/lib/teamTypes";
+import type { TeamDataPayload, StylistWeekRecord } from "@/lib/teamTypes";
+import { DEMO_MODE } from "@/lib/featureFlags";
+import { performanceApi } from "@/lib/api/endpoints";
+import type { TeamWeekDTO } from "@/lib/api/types";
+import { weekdayIndex } from "@/lib/time";
 
 /**
  * Data layer for the Team Dashboard.
  *
- * Today this returns validated mock data derived from the Excel workbook. It is
- * intentionally shaped like a real network call — Promise-based, with artificial
- * latency and retry/backoff — so swapping in the live Zenoti (hours + service
- * sales) + PayCor (pay rates) integrations described in the workbook's "Inputs"
- * sheet is a drop-in change: replace `fetchPayload` and keep the same contract.
- *
- * TODO: Review with Danny — replace `fetchPayload` with the Zenoti + PayCor
- * clients. Keep the Zod-lite validation in `getTeamPayload` (or move it here) so
- * malformed upstream rows are dropped rather than crashing the UI.
+ * In the live app (`NEXT_PUBLIC_DEMO_MODE=false`) the payload comes from the
+ * backend's `GET /performance/team-week` (Postgres), scoped to the caller's
+ * visibility. In demo mode it returns validated mock data derived from the
+ * Excel workbook, intentionally shaped like a real network call — Promise-based,
+ * with artificial latency and retry/backoff.
  */
 
 export interface FetchOptions {
@@ -47,7 +47,53 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+const DAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const HUES = [265, 200, 150, 25, 330, 95, 305, 55];
+
+function shortDate(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${m}/${d}`;
+}
+
+/** Map the backend team-week payload to the dashboard's record contract. */
+function liveRecords(dto: TeamWeekDTO): StylistWeekRecord[] {
+  const weekLabel = `${shortDate(dto.week_start)} – ${shortDate(dto.week_end)}`;
+  return dto.records.map((r) => ({
+    id: `u${r.stylist_id}`,
+    stylistId: r.employee_code ?? `u${r.stylist_id}`,
+    name: r.name,
+    title: r.title ?? "Stylist",
+    salonId: `s${r.salon_id}`,
+    hue: HUES[r.stylist_id % HUES.length],
+    guaranteeRate: r.guarantee_rate,
+    weekStart: r.week_start,
+    weekEnd: r.week_end,
+    weekLabel,
+    days: r.daily.map((d) => ({
+      date: d.date,
+      label: DAY_LABELS[weekdayIndex(d.date)] ?? "",
+      scheduledHours: d.scheduled_hrs,
+      actualHours: d.actual_hrs ?? 0,
+      production: d.actual_production ?? 0,
+      haircuts: d.haircuts ?? 0,
+      colors: d.colors ?? 0,
+    })),
+  }));
+}
+
+/** Live payload from Postgres via the backend (production mode). */
+async function fetchLivePayload(opts: FetchOptions): Promise<TeamDataPayload> {
+  const dto = await performanceApi.teamWeek();
+  const records = liveRecords(dto);
+  const scoped = opts.salonIds && opts.salonIds.length > 0
+    ? records.filter((r) => opts.salonIds!.includes(r.salonId))
+    : records;
+  return { records: scoped, generatedAt: dto.generated_at, source: "api" };
+}
+
 async function fetchPayload(opts: FetchOptions): Promise<TeamDataPayload> {
+  if (!DEMO_MODE) return fetchLivePayload(opts);
+
   // Simulate network latency (600–900ms).
   const latency = MIN_LATENCY_MS + Math.random() * (MAX_LATENCY_MS - MIN_LATENCY_MS);
   await delay(latency, opts.signal);

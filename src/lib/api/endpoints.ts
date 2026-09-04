@@ -22,6 +22,7 @@ import type {
   SalonDTO,
   TokenResponse,
   UserDTO,
+  TeamWeekDTO,
   WeekPerformanceDTO,
   WeeklyImportResult,
 } from "@/lib/api/types";
@@ -172,6 +173,12 @@ export const performanceApi = {
     return api.get<WeekPerformanceDTO>(
       `/performance/week?week_start=${encodeURIComponent(weekStart)}${q}`,
     );
+  },
+  /** Team dashboard payload: every visible stylist's record for one week.
+   *  Defaults server-side to the latest week with actuals. */
+  teamWeek: (weekStart?: string) => {
+    const q = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : "";
+    return api.get<TeamWeekDTO>(`/performance/team-week${q}`);
   },
 };
 
