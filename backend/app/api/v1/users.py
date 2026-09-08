@@ -1,8 +1,10 @@
-"""User endpoints: role-scoped visibility + super-admin user management.
+"""User endpoints: reporting-tree visibility + super-admin user management.
 
-Read access is role-scoped (stylist → self, manager → salon, admin/owner → all).
-Create / update / role & manager assignment / deactivation are super-admin only
-and audit-logged. Single-user creation here complements the CSV bulk import in
+Read access follows the locked PPH visibility rules (admin → everyone incl.
+off-PPH/orphans; owner/manager → on-PPH members of their ``manager_id`` tree;
+stylist → self). Create / update / deactivation stay delegated + audit-logged,
+but turning PPH on/off (``excluded``) and assigning ``manager_id`` are
+**Admin-only**. Single-user creation here complements the CSV bulk import in
 ``admin.py``.
 """
 
@@ -17,9 +19,11 @@ from app.api.deps import (
     assert_can_create_user,
     assert_can_manage_user,
     get_current_user,
+    is_admin,
     is_super_admin,
     require_manager_or_above,
     visible_stylist_ids,
+    visible_user_ids,
 )
 from app.core import security
 from app.core.config import Settings, get_settings
@@ -44,10 +48,11 @@ def list_visible_stylists(
     current: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[User]:
-    """Stylists the caller may see.
+    """Stylists the caller may see (locked PPH visibility rules).
 
-    admin/owner → all · manager → salon · stylist → self. In demo mode the
-    caller is admin (all), unless you pass ``X-Demo-User-Id`` to act as someone.
+    admin → all (incl. off-PPH + orphans) · owner/manager → on-PPH stylists in
+    their reporting tree · stylist → self. In demo mode the caller is admin
+    (all), unless you pass ``X-Demo-User-Id`` to act as someone.
     """
     ids = visible_stylist_ids(current, session)
     if not ids:
@@ -62,11 +67,17 @@ def list_users(
     salon_id: int | None = None,
     role: UserRole | None = None,
 ) -> list[User]:
-    """List users, scoped to the caller's salon unless they are super-admin."""
-    stmt = select(User)
-    if current.role not in (UserRole.admin, UserRole.owner):
-        stmt = stmt.where(User.salon_id == current.salon_id)
-    elif salon_id is not None:
+    """List the accounts the caller may see (locked PPH visibility rules).
+
+    Admin → every account (incl. off-PPH and orphans), optionally filtered by
+    salon/role. Owner/manager → on-PPH members of their reporting tree only.
+    Stylist → themselves.
+    """
+    ids = visible_user_ids(current, session)
+    if not ids:
+        return []
+    stmt = select(User).where(User.id.in_(ids))
+    if salon_id is not None:
         stmt = stmt.where(User.salon_id == salon_id)
     if role is not None:
         stmt = stmt.where(User.role == role)
@@ -154,6 +165,20 @@ def update_user(
     assert_can_manage_user(actor, user)
 
     updates = body.model_dump(exclude_none=True)
+    if not is_admin(actor):
+        # Only Admin may turn PPH on/off or place someone under a manager.
+        # (No-op payloads that restate the current value are allowed through so
+        # shared edit forms don't break.)
+        if "excluded" in updates and updates["excluded"] != user.excluded:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only Admin can turn the PPH plan on or off",
+            )
+        if "manager_id" in updates and updates["manager_id"] != user.manager_id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only Admin can assign or change a user's manager",
+            )
     if not is_super_admin(actor):
         # Managers can't reassign salons or promote to/above their own rank.
         updates.pop("salon_id", None)

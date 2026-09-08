@@ -319,7 +319,11 @@ def bulk_create_users(
     and every imported stylist is auto-assigned to report to that manager — any
     row that violates this is skipped with an explanatory error.
     """
-    from app.api.deps import assert_can_create_user, is_super_admin  # local to avoid cycle
+    from app.api.deps import (  # local to avoid cycle
+        assert_can_create_user,
+        is_admin,
+        is_super_admin,
+    )
     from app.services.notifications_out import send_welcome_email
 
     result = BulkUserResult()
@@ -413,7 +417,11 @@ def bulk_create_users(
                 existing.phone = str(raw["phone"]).strip()
             if guarantee is not None:
                 existing.guarantee_rate = guarantee
-            if has_excluded:
+            # Only Admin may turn PPH on/off for an EXISTING person — a manager's
+            # CSV must never silently un-exclude (or exclude) anyone. The column
+            # is still honored on CREATE (explicit creator choice) and for admin
+            # imports.
+            if has_excluded and (creator is None or is_admin(creator)):
                 existing.excluded = excluded
             session.add(existing)
             result.updated += 1

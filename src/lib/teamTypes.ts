@@ -25,6 +25,9 @@ export interface StylistWeekRecord {
   hue: number;
   /** Guarantee pay rate ($/hr) for this stylist/salon. */
   guaranteeRate: number;
+  /** Off the PPH plan. Live payloads only; non-admin viewers never receive
+   * these rows (and defensively filter them client-side too). */
+  excluded?: boolean;
   /** Week start/end ISO dates and a human label like "6/29 – 7/5". */
   weekStart: string;
   weekEnd: string;

@@ -104,6 +104,9 @@ export function TeamDashboard() {
     targetPayRate,
     enabled: true,
     autoRefresh,
+    // Locked visibility rule: off-PPH people render for Admin only (the API
+    // also omits them for owner/manager — this is the client-side backstop).
+    includeExcluded: currentUser.role === "admin",
   });
 
   // The week shown: the demo's frozen export week, or (live) whichever week the

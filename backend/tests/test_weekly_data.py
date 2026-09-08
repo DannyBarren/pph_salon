@@ -98,9 +98,34 @@ def test_visible_stylist_ids_by_role(session: Session):
     session.refresh(manager)
     session.refresh(owner)
 
-    # Manager sees stylists in their salon; owner sees all stylists; stylist self.
+    # Orphan stylist (no reporting line): invisible to owner/manager — Admin only.
+    assert visible_stylist_ids(manager, session) == []
+    assert visible_stylist_ids(owner, session) == []
+
+    # Wire the reporting line stylist → manager → owner.
+    stylist.manager_id = manager.id
+    manager.manager_id = owner.id
+    session.add_all([stylist, manager])
+    session.commit()
+
+    # Manager sees their own report; owner sees the tree (spans via manager);
+    # stylist sees self.
     assert visible_stylist_ids(manager, session) == [stylist.id]
     assert visible_stylist_ids(owner, session) == [stylist.id]
+    assert visible_stylist_ids(stylist, session) == [stylist.id]
+
+    # Off-PPH stylist: hidden from owner/manager, still visible to an admin.
+    stylist.excluded = True
+    session.add(stylist)
+    session.commit()
+    admin = User(name="Adm", role=UserRole.admin, salon_id=salon.id)
+    session.add(admin)
+    session.commit()
+    session.refresh(admin)
+    assert visible_stylist_ids(manager, session) == []
+    assert visible_stylist_ids(owner, session) == []
+    assert visible_stylist_ids(admin, session) == [stylist.id]
+    # …and the off-PPH stylist still sees themselves (drives the notice screen).
     assert visible_stylist_ids(stylist, session) == [stylist.id]
 
 
