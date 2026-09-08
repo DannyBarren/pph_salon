@@ -68,6 +68,7 @@ const users: UserDTO[] = USERS.map((u, i) => ({
   phone: u.phone ?? null,
   guarantee_rate: u.guaranteeRate ?? null,
   excluded: u.excluded ?? false,
+  employee_code: null,
   created_at: now(),
   updated_at: now(),
 }));
@@ -195,7 +196,13 @@ async function readRows(file: File): Promise<string[][]> {
 /** Import result for a daily file, matching what /admin/import-daily returns. */
 function dailyImportResult(text: string): WeeklyImportResult {
   const parsed = parseDailyBulk(text);
-  return { inserted: parsed.rows.length, updated: 0, skipped: parsed.skipped, errors: parsed.errors };
+  return {
+    inserted: parsed.rows.length,
+    updated: 0,
+    skipped: parsed.skipped,
+    errors: parsed.errors,
+    skipped_employees: [],
+  };
 }
 
 export const demoBackend = {
@@ -235,6 +242,7 @@ export const demoBackend = {
       phone: input.phone ?? null,
       guarantee_rate: input.guarantee_rate ?? null,
       excluded: input.excluded ?? false,
+      employee_code: input.employee_code ?? null,
       created_at: now(),
       updated_at: now(),
     };
@@ -254,6 +262,7 @@ export const demoBackend = {
     if (patch.phone !== undefined) user.phone = patch.phone ?? null;
     if (patch.guarantee_rate !== undefined) user.guarantee_rate = patch.guarantee_rate ?? null;
     if (patch.excluded !== undefined) user.excluded = patch.excluded;
+    if (patch.employee_code !== undefined) user.employee_code = patch.employee_code ?? null;
     user.updated_at = now();
     logAudit("user.update", "user", String(id));
     return { ...user };
@@ -346,7 +355,13 @@ export const demoBackend = {
     // routes on the headers too, so mirror that instead of miscounting.
     if (looksLikeDailyImport(text)) return dailyImportResult(text);
     const parsed = parseWeeklyBulk(text);
-    return { inserted: parsed.rows.length, updated: 0, skipped: parsed.skipped, errors: parsed.errors };
+    return {
+      inserted: parsed.rows.length,
+      updated: 0,
+      skipped: parsed.skipped,
+      errors: parsed.errors,
+      skipped_employees: [],
+    };
   },
   async importDaily(file: File): Promise<WeeklyImportResult> {
     const text = await importFileToCsv(file);

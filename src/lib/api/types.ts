@@ -37,6 +37,7 @@ export interface UserDTO {
   phone: string | null;
   guarantee_rate: number | null;
   excluded?: boolean;
+  employee_code?: string | null;
   is_active?: boolean;
   status?: UserStatus;
   has_password?: boolean;
@@ -138,11 +139,20 @@ export interface BulkUserResult {
   credentials: Record<string, string>;
 }
 
+export interface SkippedEmployee {
+  name: string | null;
+  employee_code: string | null;
+  salon_name: string | null;
+}
+
 export interface WeeklyImportResult {
   inserted: number;
   updated: number;
   skipped: number;
   errors: string[];
+  skipped_employees?: SkippedEmployee[];
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
 export interface ClientImportResult {
@@ -243,6 +253,7 @@ export interface CreateUserInput {
   guarantee_rate?: number | null;
   excluded?: boolean;
   password?: string;
+  employee_code?: string;
 }
 
 export interface CreateSalonInput {

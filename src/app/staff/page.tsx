@@ -38,8 +38,8 @@ export default function StaffPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Team</h1>
         <p className="text-sm text-[var(--color-ink-faint)]">
-          Add your stylists individually or in bulk. New accounts are created in
-          your salon and report to you; each gets a temporary password to share.
+          Add your stylists with their employee code. They start as Pending
+          setup — use Activate to paste their email and copy the setup link.
         </p>
       </div>
       <AdminManagement mode="manager" defaultSalonId={user?.salon_id} />

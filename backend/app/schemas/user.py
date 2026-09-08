@@ -2,9 +2,10 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.models.user import UserRole
+from app.services.employee_codes import normalize_employee_code
 
 
 class UserBase(BaseModel):
@@ -18,12 +19,21 @@ class UserBase(BaseModel):
     guarantee_rate: float | None = None
     # Not on the PPH pay plan (no personal pay/PPH dashboard; team views only).
     excluded: bool = False
+    # Payroll/booking id (e.g. VG-1505). Required for stylist/manager on create.
+    employee_code: str | None = None
 
 
 class UserCreate(UserBase):
-    # Optional initial password. When omitted, a strong random temporary
-    # password is generated and (optionally) emailed to the user.
+    # Optional initial password. When omitted the account stays Pending setup
+    # (Activate → email → setup link). Providing a password makes them Active.
     password: str | None = None
+
+    @model_validator(mode="after")
+    def require_employee_code_for_floor_roles(self) -> "UserCreate":
+        if self.role in (UserRole.stylist, UserRole.manager):
+            if not normalize_employee_code(self.employee_code):
+                raise ValueError("Employee code is required for stylists and managers")
+        return self
 
 
 class BulkUserRow(BaseModel):
@@ -41,6 +51,7 @@ class BulkUserRow(BaseModel):
     guarantee_rate: float | None = None
     excluded: bool = False
     password: str | None = None
+    employee_code: str | None = None
 
 
 class BulkUserResult(BaseModel):
@@ -65,6 +76,7 @@ class UserUpdate(BaseModel):
     phone: str | None = None
     guarantee_rate: float | None = None
     excluded: bool | None = None
+    employee_code: str | None = None
 
 
 class UserRead(UserBase):

@@ -34,6 +34,7 @@ import type {
   ClientImportResult,
   PayTierDTO,
   SalonDTO,
+  SkippedEmployee,
   UserDTO,
   WeeklyImportResult,
 } from "@/lib/api/types";
@@ -188,6 +189,7 @@ function UserManager({
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [employeeCode, setEmployeeCode] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<BackendRole>("stylist");
   const [salonId, setSalonId] = useState<number | "">(restrict ? restrict.salonId : "");
@@ -239,6 +241,11 @@ function UserManager({
       setError("Choose a salon");
       return;
     }
+    const codeRequired = effectiveRole === "stylist" || effectiveRole === "manager";
+    if (codeRequired && !employeeCode.trim()) {
+      setError("Employee code is required for stylists and managers");
+      return;
+    }
     setBusy(true);
     setError(null);
     setCreated(null);
@@ -252,14 +259,16 @@ function UserManager({
         manager_id: restrict ? undefined : managerId === "" ? undefined : Number(managerId),
         excluded,
         password: chosenPassword || undefined,
+        employee_code: employeeCode.trim() || undefined,
       });
       setCreated(
         chosenPassword
           ? `Created ${name.trim()} with the initial password you set. They can change it after signing in.`
-          : `Created ${name.trim()}. A temporary password was generated${email ? " and emailed (if SendGrid is configured)" : ""}.`,
+          : `Created ${name.trim()} as Pending setup. Use Activate to paste their email and copy the setup link.`,
       );
       setName("");
       setEmail("");
+      setEmployeeCode("");
       setPassword("");
       setExcluded(false);
       void loadUsers();
@@ -350,17 +359,27 @@ function UserManager({
             </h3>
             <form onSubmit={submitSingle} className="space-y-3">
               <input className={input} placeholder="Full name" required value={name} onChange={(e) => setName(e.target.value)} />
-              <input className={input} type="email" placeholder="Email (used to sign in)" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Employee code</span>
+                <input
+                  className={input}
+                  placeholder="VG-1505"
+                  value={employeeCode}
+                  onChange={(e) => setEmployeeCode(e.target.value)}
+                  required={restrict ? true : role === "stylist" || role === "manager"}
+                />
+              </label>
+              <input className={input} type="email" placeholder="Email (optional — added on Activate)" value={email} onChange={(e) => setEmail(e.target.value)} />
               <input
                 className={input}
                 type="text"
                 autoComplete="new-password"
-                placeholder="Initial password (optional — leave blank to auto-generate)"
+                placeholder="Initial password (optional — leave blank for Pending setup)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
               <p className="-mt-1 text-xs text-[var(--color-ink-faint)]">
-                Set a login password for the team member now, or leave blank to generate a temporary one. They can change it after signing in.
+                Leave password blank to keep them Pending setup. Use Activate to paste their email and copy the setup link.
               </p>
               {restrict ? (
                 <p className="text-xs text-[var(--color-ink-faint)]">
@@ -419,8 +438,8 @@ function UserManager({
             </div>
             <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
               {restrict
-                ? "Columns: email, name, password (+ optional title, phone, guarantee_rate). Everyone is imported as a stylist in your salon, reporting to you. Leave password blank to auto-generate."
-                : "Columns: email, name, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate, password. Set an initial password per row (or leave blank to auto-generate). Provision hundreds of stylists/managers at once."}
+                ? "Columns: email, name, employee_code, password (+ optional title, phone, guarantee_rate). Everyone is imported as a stylist in your salon, reporting to you. Leave password blank to auto-generate."
+                : "Columns: email, name, employee_code, role, salon_id or salon_name, manager_id or manager_email, title, phone, guarantee_rate, password. Employee code is required for stylists and managers."}
             </p>
             <form onSubmit={submitBulk} className="space-y-3">
               <input ref={fileRef} type="file" accept=".csv,.xlsx" className={input} />
@@ -517,6 +536,7 @@ function UserManager({
                 <thead className="text-xs uppercase text-[var(--color-ink-faint)]">
                   <tr>
                     <th className="py-1.5">Name</th>
+                    <th>Employee code</th>
                     <th>Email / username</th>
                     <th>Role</th>
                     <th>Status</th>
@@ -537,6 +557,7 @@ function UserManager({
                     return (
                       <tr key={u.id} className="border-t border-[var(--color-border)]">
                         <td className="py-1.5 font-medium">{u.name}</td>
+                        <td className="font-mono text-xs text-[var(--color-ink-faint)]">{u.employee_code ?? "—"}</td>
                         <td className="text-[var(--color-ink-faint)]">{u.email ?? "—"}</td>
                         <td>
                           <Badge tone={u.role === "stylist" ? "brand" : u.role === "manager" ? "warning" : "success"}>{u.role}</Badge>
@@ -620,6 +641,7 @@ function UserEditModal({
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email ?? "");
+  const [employeeCode, setEmployeeCode] = useState(user.employee_code ?? "");
   const [role, setRole] = useState<BackendRole>(user.role);
   const [salonId, setSalonId] = useState<number>(user.salon_id);
   const [managerId, setManagerId] = useState<number | "">(user.manager_id ?? "");
@@ -646,6 +668,7 @@ function UserEditModal({
         phone: phone.trim() || undefined,
         guarantee_rate: guarantee.trim() === "" ? null : Number(guarantee),
         excluded,
+        employee_code: employeeCode.trim() || undefined,
       });
       setOk("Saved.");
       onSaved();
@@ -680,6 +703,15 @@ function UserEditModal({
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Email</span>
             <input className={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Employee code</span>
+            <input
+              className={input}
+              placeholder="VG-1505"
+              value={employeeCode}
+              onChange={(e) => setEmployeeCode(e.target.value)}
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Role / level</span>
@@ -859,7 +891,28 @@ function currentMondayIso(): string {
   return now.toISOString().slice(0, 10);
 }
 
-function ImportPanel() {
+function formatPeriodDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${Number(m)}/${Number(d)}/${y}`;
+}
+
+function salonKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function matchSalon(salons: SalonDTO[], salonName: string | null | undefined): SalonDTO | undefined {
+  if (!salonName) return undefined;
+  const key = salonKey(salonName);
+  if (!key) return undefined;
+  return salons.find((s) => {
+    const names = [s.name, s.location ?? "", s.city ?? ""].map(salonKey).filter(Boolean);
+    return names.some((n) => n === key || n.includes(key) || key.includes(n));
+  });
+}
+
+function ImportPanel({ salons }: { salons: SalonDTO[] }) {
   // Default to the client's real path: their per-day export uploads as-is via
   // "Daily performance". Weekly/client-export remain available in the dropdown.
   const [kind, setKind] = useState<ImportKind>("daily");
@@ -869,6 +922,10 @@ function ImportPanel() {
   const [clientResult, setClientResult] = useState<ClientImportResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState<SkippedEmployee | null>(null);
+  const [addedCodes, setAddedCodes] = useState<string[]>([]);
+  const [skipNotice, setSkipNotice] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const submit = async (e: React.FormEvent) => {
@@ -882,6 +939,9 @@ function ImportPanel() {
     setError(null);
     setResult(null);
     setClientResult(null);
+    setAddedCodes([]);
+    setSkipNotice(null);
+    setAdding(null);
     try {
       if (kind === "client") {
         setClientResult(await adminApi.importClient(file, weekStart || undefined));
@@ -917,19 +977,85 @@ function ImportPanel() {
     }
   };
 
+  const skippedPeople = (result?.skipped_employees ?? []).filter((p) => {
+    const code = (p.employee_code ?? "").replace(/[-\s]/g, "").toUpperCase();
+    return !addedCodes.includes(code);
+  });
+
+  const createPendingStylist = async (person: SkippedEmployee, salonId: number) => {
+    await userApi.create({
+      name: (person.name ?? "").trim(),
+      role: "stylist",
+      salon_id: salonId,
+      employee_code: (person.employee_code ?? "").trim(),
+    });
+    const code = (person.employee_code ?? "").replace(/[-\s]/g, "").toUpperCase();
+    if (code) setAddedCodes((prev) => [...prev, code]);
+  };
+
+  const addAllSkipped = async () => {
+    setBatchBusy(true);
+    setError(null);
+    setSkipNotice(null);
+    let created = 0;
+    let skippedRows = 0;
+    try {
+      for (const person of skippedPeople) {
+        if (!person.name?.trim() || !person.employee_code?.trim()) {
+          skippedRows += 1;
+          continue;
+        }
+        const salon = matchSalon(salons, person.salon_name);
+        if (!salon) {
+          skippedRows += 1;
+          continue;
+        }
+        await createPendingStylist(person, salon.id);
+        created += 1;
+      }
+      setSkipNotice(
+        created > 0
+          ? `Added ${created} Pending stylist${created === 1 ? "" : "s"}. Re-upload the same file — it will upsert.${
+              skippedRows ? ` ${skippedRows} row${skippedRows === 1 ? "" : "s"} skipped (missing name, code, or salon).` : ""
+            }`
+          : "Nothing to add — each skipped row needs a name, employee code, and a matching salon.",
+      );
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const periodLabel =
+    result?.period_start && result.period_end
+      ? `${formatPeriodDate(result.period_start)} – ${formatPeriodDate(result.period_end)}`
+      : null;
+
   return (
     <Card>
       <CardBody>
-        <h3 className="mb-1 text-sm font-semibold">Import performance data</h3>
+        <h3 className="mb-1 text-sm font-semibold">
+          {DEMO_MODE ? "Import performance data" : "Add a pay period"}
+        </h3>
         <p className="mb-3 text-xs text-[var(--color-ink-faint)]">
-          <b>Bulk pay-period import:</b> one file can carry <b>every employee across one or many pay periods</b> at
-          once. The <b>Weekly data</b> template uses an <b>employee_id</b> column (the client Employee code like
-          <code> VG1426</code>, or a numeric user id) plus a <b>salon_name</b> label — data is routed to the right
-          person by employee_id <b>regardless of whether the salon matches</b>. Add one row per employee per week
-          (two weekly rows = one pay period). Daily imports also aggregate the parent week.
-          Any <b>week_start</b>/<b>date</b> is accepted, so you can back-fill historical or past-dated pay periods
-          alongside the current one. The <b>Client / SSF export</b> auto-provisions salons + employees and records
-          each person&apos;s Net service Rev for the chosen week.
+          {DEMO_MODE ? (
+            <>
+              <b>Bulk pay-period import:</b> one file can carry <b>every employee across one or many pay periods</b> at
+              once. The <b>Weekly data</b> template uses an <b>employee_id</b> column (the client Employee code like
+              <code> VG1426</code>, or a numeric user id) plus a <b>salon_name</b> label — data is routed to the right
+              person by employee_id <b>regardless of whether the salon matches</b>. Add one row per employee per week
+              (two weekly rows = one pay period). Daily imports also aggregate the parent week.
+              Any <b>week_start</b>/<b>date</b> is accepted, so you can back-fill historical or past-dated pay periods
+              alongside the current one. The <b>Client / SSF export</b> auto-provisions salons + employees and records
+              each person&apos;s Net service Rev for the chosen week.
+            </>
+          ) : (
+            <>
+              Drop the Venita daily export as-is. The new pay-period range appears in every stylist&apos;s Pay Period
+              dropdown. Re-uploading the same file is safe.
+            </>
+          )}
         </p>
         <form onSubmit={submit} className="space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
@@ -970,7 +1096,19 @@ function ImportPanel() {
           {error && <Notice kind="error">{error}</Notice>}
           {result && (
             <Notice kind="success">
-              Inserted {result.inserted}, updated {result.updated}, skipped {result.skipped}.
+              {DEMO_MODE || !periodLabel ? (
+                <>
+                  Inserted {result.inserted}, updated {result.updated}, skipped {result.skipped}.
+                </>
+              ) : (
+                <>
+                  Pay period {periodLabel} is ready. Inserted {result.inserted}, updated {result.updated}, skipped{" "}
+                  {result.skipped}.
+                  {result.skipped > 0 && skippedPeople.length > 0
+                    ? " Add missing people from the list below, then re-upload the same file."
+                    : null}
+                </>
+              )}
               {result.errors.length > 0 && (
                 <ul className="mt-1 list-disc pl-4 text-xs text-red-600">
                   {result.errors.slice(0, 5).map((e, i) => (
@@ -979,6 +1117,48 @@ function ImportPanel() {
                 </ul>
               )}
             </Notice>
+          )}
+          {skipNotice && <Notice kind="success">{skipNotice}</Notice>}
+          {!DEMO_MODE && kind === "daily" && skippedPeople.length > 0 && (
+            <div className="rounded-xl border border-[var(--color-border)] p-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold">Skipped people</h4>
+                <Button type="button" variant="outline" size="sm" disabled={batchBusy} onClick={() => void addAllSkipped()}>
+                  {batchBusy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  Add all skipped as Pending stylists
+                </Button>
+              </div>
+              <p className="mb-2 text-xs text-[var(--color-ink-faint)]">
+                These names were in the file but aren&apos;t on the roster yet. Adding them does not sign them in —
+                they stay Pending setup until you Activate.
+              </p>
+              <div className="overflow-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs uppercase text-[var(--color-ink-faint)]">
+                    <tr>
+                      <th className="py-1.5">Name</th>
+                      <th>Employee code</th>
+                      <th>Salon</th>
+                      <th className="text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {skippedPeople.map((p, i) => (
+                      <tr key={`${p.employee_code ?? "x"}-${i}`} className="border-t border-[var(--color-border)]">
+                        <td className="py-1.5 font-medium">{p.name ?? "—"}</td>
+                        <td className="font-mono text-xs">{p.employee_code ?? "—"}</td>
+                        <td className="text-[var(--color-ink-faint)]">{p.salon_name ?? "—"}</td>
+                        <td className="text-right">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setAdding(p)}>
+                            Add as stylist
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
           {clientResult && (
             <Notice kind="success">
@@ -999,8 +1179,104 @@ function ImportPanel() {
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />} Upload &amp; import
           </Button>
         </form>
+        {adding && (
+          <AddPendingStylistModal
+            person={adding}
+            salons={salons}
+            onClose={() => setAdding(null)}
+            onSaved={(name) => {
+              const code = (adding.employee_code ?? "").replace(/[-\s]/g, "").toUpperCase();
+              if (code) setAddedCodes((prev) => [...prev, code]);
+              setAdding(null);
+              setSkipNotice(`Added ${name} as Pending setup. Re-upload the same file — it will upsert.`);
+            }}
+          />
+        )}
       </CardBody>
     </Card>
+  );
+}
+
+function AddPendingStylistModal({
+  person,
+  salons,
+  onClose,
+  onSaved,
+}: {
+  person: SkippedEmployee;
+  salons: SalonDTO[];
+  onClose: () => void;
+  onSaved: (name: string) => void;
+}) {
+  const matched = matchSalon(salons, person.salon_name);
+  const [name, setName] = useState(person.name ?? "");
+  const [employeeCode, setEmployeeCode] = useState(person.employee_code ?? "");
+  const [salonId, setSalonId] = useState<number | "">(matched?.id ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!name.trim() || !employeeCode.trim()) {
+      setError("Name and employee code are required");
+      return;
+    }
+    if (salonId === "") {
+      setError("Choose a salon");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await userApi.create({
+        name: name.trim(),
+        role: "stylist",
+        salon_id: Number(salonId),
+        employee_code: employeeCode.trim(),
+      });
+      onSaved(name.trim());
+    } catch (err) {
+      setError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Add as stylist" size="md">
+      <div className="space-y-3">
+        <p className="text-xs text-[var(--color-ink-faint)]">
+          They&apos;ll be added as Pending setup. Email is collected later on Activate.
+        </p>
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Full name</span>
+          <input className={input} value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Employee code</span>
+          <input className={input} placeholder="VG-1505" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-[var(--color-ink-soft)]">Salon</span>
+          <Select value={salonId} onChange={(e) => setSalonId(e.target.value === "" ? "" : Number(e.target.value))}>
+            <option value="">Salon…</option>
+            {salons.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </label>
+        {error && <Notice kind="error">{error}</Notice>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={busy}>
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Add as stylist
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -1141,7 +1417,7 @@ export function AdminManagement({
               }`}
             >
               {t.icon}
-              {t.label}
+              {t.id === "import" && !DEMO_MODE ? "Add a pay period" : t.label}
             </button>
           ))}
         </div>
@@ -1167,7 +1443,7 @@ export function AdminManagement({
           {tab === "salons" && <SalonManager salons={salons} reload={reload} />}
           {tab === "users" && <UserManager salons={salons} />}
           {tab === "payplan" && <PayPlanConfig salons={salons} />}
-          {tab === "import" && <ImportPanel />}
+          {tab === "import" && <ImportPanel salons={salons} />}
           {tab === "audit" && <AuditViewer />}
         </div>
       </CardBody>

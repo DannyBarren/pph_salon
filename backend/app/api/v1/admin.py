@@ -32,8 +32,14 @@ from app.db.session import get_session
 from app.models import Salon, User
 from app.schemas.audit import AuditLogRead
 from app.schemas.user import BulkUserResult
-from app.schemas.weekly import ClientImportResult, WeeklyImportResult, WeeklyImportRow
+from app.schemas.weekly import (
+    ClientImportResult,
+    SkippedEmployee,
+    WeeklyImportResult,
+    WeeklyImportRow,
+)
 from app.services.audit import list_audit, record_audit
+from app.services.employee_codes import employee_code_match_values, normalize_employee_code
 from app.services.importers import (
     bulk_create_users,
     import_client_export,
@@ -86,14 +92,16 @@ _TEMPLATE_SAMPLE = [
 USERS_TEMPLATE_COLUMNS = [
     "email", "name", "role", "salon_id", "salon_name", "manager_id",
     "manager_email", "title", "phone", "guarantee_rate", "excluded", "password",
+    "employee_code",
 ]
 
 _USERS_TEMPLATE_SAMPLE = [
     # Leave `password` blank to auto-generate a temp password, or set an initial
     # login password the team member can change later. `excluded` = Y for people
     # NOT on the PPH pay plan (e.g. managers who only oversee a team).
-    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17", "N", "Welcome123!"],
-    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", ""],
+    # `employee_code` is required for stylists and managers (VG-1505 or VG1505).
+    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17", "N", "Welcome123!", "VG-1505"],
+    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", "", "VG-1406"],
 ]
 
 # The client's real daily export (v2) — one row per employee per work day.
@@ -163,6 +171,37 @@ def download_daily_template(_: User = Depends(require_super_admin)) -> str:
 def download_client_template(_: User = Depends(require_super_admin)) -> str:
     """Client / SSF combined roster + weekly-performance import template."""
     return _csv(CLIENT_TEMPLATE_COLUMNS, _CLIENT_TEMPLATE_SAMPLE)
+
+
+def _record_skipped_employee(
+    skipped_by_code: dict[str, SkippedEmployee],
+    *,
+    ident: object,
+    name: object = None,
+    salon_name: object = None,
+) -> None:
+    """Deduplicate unknown people for the Admin skip list (one row per code)."""
+    raw_code = str(ident).strip() if ident not in (None, "") else ""
+    key = normalize_employee_code(raw_code) or raw_code or str(name or "").strip()
+    if not key or key in skipped_by_code:
+        return
+    skipped_by_code[key] = SkippedEmployee(
+        name=(str(name).strip() or None) if name not in (None, "") else None,
+        employee_code=raw_code or None,
+        salon_name=(str(salon_name).strip() or None) if salon_name not in (None, "") else None,
+    )
+
+
+def _finish_import_result(
+    result: WeeklyImportResult,
+    skipped_by_code: dict[str, SkippedEmployee],
+    seen_dates: list[date],
+) -> WeeklyImportResult:
+    result.skipped_employees = list(skipped_by_code.values())
+    if seen_dates:
+        result.period_start = min(seen_dates)
+        result.period_end = max(seen_dates)
+    return result
 
 
 def _to_float(value: str | float | int | None) -> float | None:
@@ -258,8 +297,7 @@ def _resolve_import_user(
     #    salon), but ALWAYS fall back to a global match so a wrong or blank
     #    salon_name can never misroute the data — the employee id wins.
     if raw:
-        compact = raw.replace("-", "").replace(" ", "")
-        codes = {raw, compact, compact.upper()}
+        codes = employee_code_match_values(raw)
         if salon is not None:
             scoped = session.exec(
                 select(User)
@@ -335,6 +373,8 @@ async def import_weekly(
     """Bulk-import weekly data (CSV/XLSX). ``source`` maps vendor columns."""
     raw_rows = normalize_weekly_rows(await _read_and_parse(file), source)
     result = WeeklyImportResult()
+    skipped_by_code: dict[str, SkippedEmployee] = {}
+    seen_dates: list[date] = []
 
     for i, raw in enumerate(raw_rows, start=2):  # row 1 is the header
         # Routing key: employee id (client Employee code OR numeric user id).
@@ -359,6 +399,7 @@ async def import_weekly(
                 "per-day export, choose the 'Daily performance' import type instead"
             )
             continue
+        seen_dates.append(week_start)
 
         # Route strictly by employee id — a wrong/blank salon never misroutes.
         user = _resolve_import_user(
@@ -367,6 +408,12 @@ async def import_weekly(
         if user is None:
             result.skipped += 1
             result.errors.append(f"Row {i}: unknown employee '{ident}'")
+            _record_skipped_employee(
+                skipped_by_code,
+                ident=ident,
+                name=_get_ci(raw, "name", "employee name", "ee name"),
+                salon_name=salon_name,
+            )
             continue
 
         try:
@@ -405,7 +452,7 @@ async def import_weekly(
     record_audit(session, actor=admin, action="import.weekly", target_type="week",
                  detail={"source": source, "inserted": result.inserted,
                          "updated": result.updated, "skipped": result.skipped})
-    return result
+    return _finish_import_result(result, skipped_by_code, seen_dates)
 
 
 @router.post("/import-daily", response_model=WeeklyImportResult)
@@ -424,6 +471,8 @@ async def import_daily(
     """
     raw_rows = normalize_daily_rows(await _read_and_parse(file), source)
     result = WeeklyImportResult()
+    skipped_by_code: dict[str, SkippedEmployee] = {}
+    seen_dates: list[date] = []
 
     for i, raw in enumerate(raw_rows, start=2):
         try:
@@ -438,11 +487,18 @@ async def import_daily(
             result.skipped += 1
             result.errors.append(f"Row {i}: {exc}")
             continue
+        seen_dates.append(day)
 
         user = _resolve_import_user(session, eeid, raw.get("name"), raw.get("salon_name"))
         if user is None:
             result.skipped += 1
             result.errors.append(f"Row {i}: unknown employee '{eeid}'")
+            _record_skipped_employee(
+                skipped_by_code,
+                ident=eeid,
+                name=raw.get("name"),
+                salon_name=raw.get("salon_name"),
+            )
             continue
 
         # Keep the roster's Excluded flag in sync when the column is supplied.
@@ -471,7 +527,7 @@ async def import_daily(
     record_audit(session, actor=admin, action="import.daily", target_type="daily_performance",
                  detail={"source": source, "inserted": result.inserted,
                          "updated": result.updated, "skipped": result.skipped})
-    return result
+    return _finish_import_result(result, skipped_by_code, seen_dates)
 
 
 @router.post("/import-users", response_model=BulkUserResult)

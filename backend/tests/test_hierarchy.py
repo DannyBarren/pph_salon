@@ -67,7 +67,7 @@ def test_manager_creates_stylist_in_own_salon_as_report(client, engine):
     ids = _seed(engine)
     r = client.post(
         f"{PP}/users",
-        json={"name": "Reb", "role": "stylist", "salon_id": 99, "email": "reb@x.com"},
+        json={"name": "Reb", "role": "stylist", "salon_id": 99, "email": "reb@x.com", "employee_code": "VG2001"},
         headers=_as(ids["mgr"]),
     )
     assert r.status_code == 201, r.text
@@ -82,7 +82,7 @@ def test_manager_cannot_create_manager(client, engine):
     ids = _seed(engine)
     r = client.post(
         f"{PP}/users",
-        json={"name": "New Mgr", "role": "manager", "salon_id": 1, "email": "nm@x.com"},
+        json={"name": "New Mgr", "role": "manager", "salon_id": 1, "email": "nm@x.com", "employee_code": "VG2002"},
         headers=_as(ids["mgr"]),
     )
     assert r.status_code == 403
@@ -99,7 +99,7 @@ def test_stylist_cannot_provision(client, engine):
         leaf_id = st.id
     r = client.post(
         f"{PP}/users",
-        json={"name": "X", "role": "stylist", "salon_id": 1, "email": "x@x.com"},
+        json={"name": "X", "role": "stylist", "salon_id": 1, "email": "x@x.com", "employee_code": "VG2003"},
         headers=_as(leaf_id),
     )
     assert r.status_code == 403
@@ -109,7 +109,7 @@ def test_owner_creates_manager_any_salon(client, engine):
     ids = _seed(engine)
     r = client.post(
         f"{PP}/users",
-        json={"name": "GM2", "role": "manager", "salon_id": 2, "email": "gm2@x.com"},
+        json={"name": "GM2", "role": "manager", "salon_id": 2, "email": "gm2@x.com", "employee_code": "VG2004"},
         headers=_as(ids["owner"]),
     )
     assert r.status_code == 201, r.text
@@ -127,7 +127,7 @@ def test_manager_deactivates_own_report(client, engine):
     ids = _seed(engine)
     created = client.post(
         f"{PP}/users",
-        json={"name": "Reb", "role": "stylist", "salon_id": 1, "email": "reb2@x.com"},
+        json={"name": "Reb", "role": "stylist", "salon_id": 1, "email": "reb2@x.com", "employee_code": "VG2005"},
         headers=_as(ids["mgr"]),
     ).json()
     r = client.post(f"{PP}/users/{created['id']}/deactivate", headers=_as(ids["mgr"]))
@@ -138,10 +138,10 @@ def test_manager_deactivates_own_report(client, engine):
 def test_manager_bulk_import_scoped_to_own_salon_stylists(client, engine):
     ids = _seed(engine)
     csv_text = (
-        "email,name,role,salon_name\n"
-        "s1@x.com,Stylist One,stylist,Lumiere\n"   # other salon → forced to salon 1
-        "s2@x.com,Stylist Two,stylist,Aria Studio\n"
-        "boss@x.com,Sneaky,manager,Aria Studio\n"  # manager role → skipped
+        "email,name,role,salon_name,employee_code\n"
+        "s1@x.com,Stylist One,stylist,Lumiere,VG2101\n"   # other salon → forced to salon 1
+        "s2@x.com,Stylist Two,stylist,Aria Studio,VG2102\n"
+        "boss@x.com,Sneaky,manager,Aria Studio,VG2103\n"  # manager role → skipped
     )
     files = {"file": ("u.csv", io.BytesIO(csv_text.encode()), "text/csv")}
     r = client.post(f"{PP}/admin/import-users", files=files, headers=_as(ids["mgr"]))
@@ -161,7 +161,7 @@ def test_manager_can_reset_own_report_password_but_not_others(client, engine):
     ids = _seed(engine)
     reb = client.post(
         f"{PP}/users",
-        json={"name": "Reb", "role": "stylist", "salon_id": 1, "email": "reb3@x.com"},
+        json={"name": "Reb", "role": "stylist", "salon_id": 1, "email": "reb3@x.com", "employee_code": "VG2006"},
         headers=_as(ids["mgr"]),
     ).json()
     # Manager resets their own report → gets a fresh temp password back.
@@ -442,9 +442,9 @@ def test_only_admin_can_patch_excluded_or_manager(client, engine):
 def test_manager_csv_cannot_unexclude_existing_stylist(client, engine):
     ids = _seed_tree(engine)
     csv_text = (
-        "email,name,role,excluded\n"
-        "soff@x.com,StyOff,stylist,N\n"      # try to turn PPH on → must be ignored
-        "new@x.com,New Stylist,stylist,Y\n"  # explicit off-PPH at create → allowed
+        "email,name,role,excluded,employee_code\n"
+        "soff@x.com,StyOff,stylist,N,VG2201\n"      # try to turn PPH on → must be ignored
+        "new@x.com,New Stylist,stylist,Y,VG2202\n"  # explicit off-PPH at create → allowed
     )
     files = {"file": ("u.csv", io.BytesIO(csv_text.encode()), "text/csv")}
     r = client.post(f"{PP}/admin/import-users", files=files, headers=_as(ids["mgr_a"]))
