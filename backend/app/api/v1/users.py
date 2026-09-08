@@ -47,10 +47,10 @@ def _require_unique_employee_code(
     raw: object | None,
     role: UserRole,
     *,
+    salon_id: int,
     exclude_id: int | None = None,
-    current_code: str | None = None,
 ) -> str | None:
-    """Normalize and enforce required + unique-per-org employee codes."""
+    """Normalize and enforce required + unique-per-salon employee codes."""
     code = normalize_employee_code(raw)
     if role in (UserRole.stylist, UserRole.manager) and not code:
         raise HTTPException(
@@ -59,13 +59,13 @@ def _require_unique_employee_code(
         )
     if not code:
         return None
-    if current_code and normalize_employee_code(current_code) == code:
-        return code
-    clash = find_user_by_employee_code(session, code, exclude_id=exclude_id)
+    clash = find_user_by_employee_code(
+        session, code, exclude_id=exclude_id, salon_id=salon_id
+    )
     if clash is not None:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"Employee code '{code}' is already in use",
+            f"Employee code '{code}' is already in use at this salon",
         )
     return code
 
@@ -143,7 +143,9 @@ def create_user(
     if manager_id is not None and session.get(User, manager_id) is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown manager_id")
 
-    employee_code = _require_unique_employee_code(session, body.employee_code, body.role)
+    employee_code = _require_unique_employee_code(
+        session, body.employee_code, body.role, salon_id=salon_id
+    )
 
     hashed_password = None
     if body.password:
@@ -222,15 +224,16 @@ def update_user(
     if "manager_id" in updates and updates["manager_id"] is not None:
         if session.get(User, updates["manager_id"]) is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown manager_id")
-    if "employee_code" in updates or "role" in updates:
+    if "employee_code" in updates or "role" in updates or "salon_id" in updates:
         next_role = updates.get("role", user.role)
         raw_code = updates.get("employee_code", user.employee_code)
+        dest_salon = updates.get("salon_id", user.salon_id)
         updates["employee_code"] = _require_unique_employee_code(
             session,
             raw_code,
             next_role,
+            salon_id=dest_salon,
             exclude_id=user.id,
-            current_code=user.employee_code,
         )
     for key, value in updates.items():
         setattr(user, key, value)
