@@ -7,6 +7,7 @@ import { useApp } from "@/store/AppContext";
 import { DataManagementPanel } from "@/components/DataManagementPanel";
 import { DataInputPanel } from "@/components/DataInputPanel";
 import { AdminManagement } from "@/components/admin/AdminManagement";
+import { AdminHowTo } from "@/components/admin/AdminHowTo";
 import { Card, CardBody } from "@/components/ui/primitives";
 import { DEMO_MODE } from "@/lib/featureFlags";
 
@@ -39,6 +40,8 @@ export default function AdminPage() {
           import performance data, and review the audit trail.
         </p>
       </div>
+
+      {!DEMO_MODE && <AdminHowTo />}
 
       {/* Dedicated, org-wide payment-logic controls (highest admin only). */}
       <Link href="/admin/payment-logic" className="block">

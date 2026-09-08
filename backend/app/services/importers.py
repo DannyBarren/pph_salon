@@ -23,6 +23,7 @@ from app.core import security
 from app.models import Salon, User, UserRole
 from app.schemas.user import BulkUserResult
 from app.schemas.weekly import ClientImportResult, WeeklyDataInput
+from app.services.employee_codes import find_user_by_employee_code, normalize_employee_code
 from app.services.weekly_repo import (
     get_salon_by_name,
     upsert_weekly_data_by_user_and_week,
@@ -395,7 +396,27 @@ def bulk_create_users(
         has_excluded = str(raw.get("excluded", "")).strip() != ""
         excluded = parse_bool(raw.get("excluded"))
 
+        raw_code = raw.get("employee_code") or raw.get("employee code") or raw.get("employee_id")
+        employee_code = normalize_employee_code(raw_code)
+
         existing = session.exec(select(User).where(User.email == email)).first()
+        if role in (UserRole.stylist, UserRole.manager) and not employee_code and existing is None:
+            result.skipped += 1
+            result.errors.append(
+                f"Row {i}: employee_code is required for stylists and managers"
+            )
+            continue
+        if employee_code:
+            clash = find_user_by_employee_code(
+                session, employee_code, exclude_id=existing.id if existing else None
+            )
+            if clash is not None:
+                result.skipped += 1
+                result.errors.append(
+                    f"Row {i}: employee_code '{employee_code}' is already in use"
+                )
+                continue
+
         if existing is not None:
             # A non-super creator may only touch subordinates in their own salon.
             if not creator_is_super and creator is not None and (
@@ -423,6 +444,8 @@ def bulk_create_users(
             # imports.
             if has_excluded and (creator is None or is_admin(creator)):
                 existing.excluded = excluded
+            if employee_code:
+                existing.employee_code = employee_code
             session.add(existing)
             result.updated += 1
             continue
@@ -439,6 +462,7 @@ def bulk_create_users(
             phone=(str(raw["phone"]).strip() if raw.get("phone") else None),
             guarantee_rate=guarantee,
             excluded=excluded,
+            employee_code=employee_code,
             hashed_password=security.hash_password(password),
             is_active=True,
         )

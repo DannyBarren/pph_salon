@@ -38,7 +38,36 @@ from app.schemas.user import (
     UserUpdate,
 )
 from app.services.audit import record_audit
+from app.services.employee_codes import find_user_by_employee_code, normalize_employee_code
 from app.services.notifications_out import send_invite_email, send_welcome_email
+
+
+def _require_unique_employee_code(
+    session: Session,
+    raw: object | None,
+    role: UserRole,
+    *,
+    exclude_id: int | None = None,
+    current_code: str | None = None,
+) -> str | None:
+    """Normalize and enforce required + unique-per-org employee codes."""
+    code = normalize_employee_code(raw)
+    if role in (UserRole.stylist, UserRole.manager) and not code:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Employee code is required for stylists and managers",
+        )
+    if not code:
+        return None
+    if current_code and normalize_employee_code(current_code) == code:
+        return code
+    clash = find_user_by_employee_code(session, code, exclude_id=exclude_id)
+    if clash is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Employee code '{code}' is already in use",
+        )
+    return code
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -114,11 +143,15 @@ def create_user(
     if manager_id is not None and session.get(User, manager_id) is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown manager_id")
 
-    password = body.password or security.generate_temp_password()
-    try:
-        security.validate_password(password)
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    employee_code = _require_unique_employee_code(session, body.employee_code, body.role)
+
+    hashed_password = None
+    if body.password:
+        try:
+            security.validate_password(body.password)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        hashed_password = security.hash_password(body.password)
 
     user = User(
         name=body.name,
@@ -130,15 +163,15 @@ def create_user(
         phone=body.phone,
         guarantee_rate=body.guarantee_rate,
         excluded=body.excluded,
-        hashed_password=security.hash_password(password),
+        employee_code=employee_code,
+        hashed_password=hashed_password,
         is_active=True,
     )
     session.add(user)
     session.commit()
     session.refresh(user)
-    if user.email:
-        send_welcome_email(user.email, user.name,
-                           temp_password=None if body.password else password)
+    if user.email and body.password:
+        send_welcome_email(user.email, user.name, temp_password=None)
     record_audit(session, actor=creator, action="user.create", target_type="user",
                  target_id=user.id, salon_id=user.salon_id,
                  detail={"role": str(user.role), "email": user.email,
@@ -189,6 +222,16 @@ def update_user(
     if "manager_id" in updates and updates["manager_id"] is not None:
         if session.get(User, updates["manager_id"]) is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown manager_id")
+    if "employee_code" in updates or "role" in updates:
+        next_role = updates.get("role", user.role)
+        raw_code = updates.get("employee_code", user.employee_code)
+        updates["employee_code"] = _require_unique_employee_code(
+            session,
+            raw_code,
+            next_role,
+            exclude_id=user.id,
+            current_code=user.employee_code,
+        )
     for key, value in updates.items():
         setattr(user, key, value)
     session.add(user)

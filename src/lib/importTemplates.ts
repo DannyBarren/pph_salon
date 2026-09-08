@@ -31,10 +31,10 @@ export const WEEKLY_TEMPLATE = toCsv(
 );
 
 export const USERS_TEMPLATE = toCsv(
-  ["email", "name", "role", "salon_id", "salon_name", "manager_id", "manager_email", "title", "phone", "guarantee_rate", "excluded", "password"],
+  ["email", "name", "role", "salon_id", "salon_name", "manager_id", "manager_email", "title", "phone", "guarantee_rate", "excluded", "password", "employee_code"],
   [
-    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17", "N", "Welcome123!"],
-    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", ""],
+    ["rebeca@aria.com", "Rebeca Diaz", "stylist", "1", "Aria Studio", "", "gm@aria.com", "Senior Stylist", "555-0101", "17", "N", "Welcome123!", "VG-1505"],
+    ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", "", "VG-1406"],
   ],
 );
 

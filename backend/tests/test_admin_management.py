@@ -75,7 +75,13 @@ def test_single_user_create_returns_temp_password_flow(client, engine):
     salon_id = _seed_salon(engine)
     r = client.post(
         f"{PP}/users",
-        json={"name": "Rebeca", "role": "stylist", "salon_id": salon_id, "email": "rebeca@x.com"},
+        json={
+            "name": "Rebeca",
+            "role": "stylist",
+            "salon_id": salon_id,
+            "email": "rebeca@x.com",
+            "employee_code": "VG1501",
+        },
     )
     assert r.status_code == 201, r.text
     assert r.json()["email"] == "rebeca@x.com"
@@ -84,11 +90,11 @@ def test_single_user_create_returns_temp_password_flow(client, engine):
 def test_bulk_user_import(client, engine):
     salon_id = _seed_salon(engine, "Aria Studio")
     csv_text = (
-        "email,name,role,salon_id,salon_name,manager_email,title\n"
-        "gm@aria.com,Jordan,manager,,Aria Studio,,GM\n"
-        "reb@aria.com,Rebeca,stylist,,Aria Studio,gm@aria.com,Stylist\n"
-        f"steph@aria.com,Steph,stylist,{salon_id},,,Stylist\n"
-        f"bad@aria.com,,stylist,{salon_id},,,Stylist\n"
+        "email,name,role,salon_id,salon_name,manager_email,title,employee_code\n"
+        "gm@aria.com,Jordan,manager,,Aria Studio,,GM,VG1406\n"
+        "reb@aria.com,Rebeca,stylist,,Aria Studio,gm@aria.com,Stylist,VG1501\n"
+        f"steph@aria.com,Steph,stylist,{salon_id},,,Stylist,VG1502\n"
+        f"bad@aria.com,,stylist,{salon_id},,,Stylist,VG1503\n"
     )
     files = {"file": ("users.csv", io.BytesIO(csv_text.encode()), "text/csv")}
     r = client.post(f"{PP}/admin/import-users", files=files)

@@ -39,6 +39,14 @@ class WeeklyImportRow(WeeklyDataInput):
     guarantee_rate: float | None = Field(default=None, ge=0)
 
 
+class SkippedEmployee(BaseModel):
+    """One unknown person from a daily/weekly import (not auto-created)."""
+
+    name: str | None = None
+    employee_code: str | None = None
+    salon_name: str | None = None
+
+
 class WeeklyImportResult(BaseModel):
     """Summary returned by the bulk import endpoint."""
 
@@ -46,6 +54,9 @@ class WeeklyImportResult(BaseModel):
     updated: int = 0
     skipped: int = 0
     errors: list[str] = []
+    skipped_employees: list[SkippedEmployee] = []
+    period_start: date | None = None
+    period_end: date | None = None
 
 
 class ClientImportResult(BaseModel):

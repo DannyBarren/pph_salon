@@ -74,7 +74,7 @@ def test_owner_sdl_can_provision_subordinate_accounts(client, engine):
     owner = _make_user(engine, UserRole.owner)
     r = client.post(
         f"{PP}/users",
-        json={"name": "New", "role": "stylist", "salon_id": 1},
+        json={"name": "New", "role": "stylist", "salon_id": 1, "employee_code": "VG3001"},
         headers=_as(owner),
     )
     assert r.status_code == 201, r.text
