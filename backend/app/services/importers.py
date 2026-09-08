@@ -408,12 +408,15 @@ def bulk_create_users(
             continue
         if employee_code:
             clash = find_user_by_employee_code(
-                session, employee_code, exclude_id=existing.id if existing else None
+                session,
+                employee_code,
+                exclude_id=existing.id if existing else None,
+                salon_id=salon.id,
             )
             if clash is not None:
                 result.skipped += 1
                 result.errors.append(
-                    f"Row {i}: employee_code '{employee_code}' is already in use"
+                    f"Row {i}: employee_code '{employee_code}' is already in use at this salon"
                 )
                 continue
 

@@ -912,6 +912,12 @@ function matchSalon(salons: SalonDTO[], salonName: string | null | undefined): S
   });
 }
 
+/** Skip-list row identity: same VG code at two salons are two people. */
+function skipRowKey(person: { employee_code?: string | null; salon_name?: string | null }): string {
+  const code = (person.employee_code ?? "").replace(/[-\s]/g, "").toUpperCase();
+  return `${code}::${salonKey(person.salon_name ?? "")}`;
+}
+
 function ImportPanel({ salons }: { salons: SalonDTO[] }) {
   // Default to the client's real path: their per-day export uploads as-is via
   // "Daily performance". Weekly/client-export remain available in the dropdown.
@@ -977,10 +983,7 @@ function ImportPanel({ salons }: { salons: SalonDTO[] }) {
     }
   };
 
-  const skippedPeople = (result?.skipped_employees ?? []).filter((p) => {
-    const code = (p.employee_code ?? "").replace(/[-\s]/g, "").toUpperCase();
-    return !addedCodes.includes(code);
-  });
+  const skippedPeople = (result?.skipped_employees ?? []).filter((p) => !addedCodes.includes(skipRowKey(p)));
 
   const createPendingStylist = async (person: SkippedEmployee, salonId: number) => {
     await userApi.create({
@@ -989,8 +992,7 @@ function ImportPanel({ salons }: { salons: SalonDTO[] }) {
       salon_id: salonId,
       employee_code: (person.employee_code ?? "").trim(),
     });
-    const code = (person.employee_code ?? "").replace(/[-\s]/g, "").toUpperCase();
-    if (code) setAddedCodes((prev) => [...prev, code]);
+    setAddedCodes((prev) => [...prev, skipRowKey(person)]);
   };
 
   const addAllSkipped = async () => {
@@ -1185,8 +1187,7 @@ function ImportPanel({ salons }: { salons: SalonDTO[] }) {
             salons={salons}
             onClose={() => setAdding(null)}
             onSaved={(name) => {
-              const code = (adding.employee_code ?? "").replace(/[-\s]/g, "").toUpperCase();
-              if (code) setAddedCodes((prev) => [...prev, code]);
+              setAddedCodes((prev) => [...prev, skipRowKey(adding)]);
               setAdding(null);
               setSkipNotice(`Added ${name} as Pending setup. Re-upload the same file — it will upsert.`);
             }}
