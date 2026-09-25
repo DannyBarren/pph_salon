@@ -211,11 +211,29 @@ def test_daily_import_syncs_excluded_flag(client, engine):
 
 
 def test_daily_template_matches_client_columns(client):
-    header = client.get(f"{PP}/admin/import-daily-template").text.splitlines()[0]
-    assert header == (
-        "employee_id,salon_name,sale_date,scheduled_hrs,actual_hrs,actual_haircuts,"
-        "actual_colors,service_revenue,Employee Name,pay_period,Include/Exclude"
-    )
+    import csv
+
+    text = client.get(f"{PP}/admin/import-daily-template").text
+    header = next(csv.reader(io.StringIO(text)))
+    assert header == [
+        "employee_id",
+        "salon_name",
+        "week_start\nsale_date",
+        "scheduled_hrs",
+        "actual_hrs",
+        "actual_haircuts",
+        "actual_colors",
+        "actual_other_value\nservice_revenue",
+        "notes",
+        "Employee Name",
+        "pay_period",
+        "Include/Exclude",
+    ]
+    # Must not be the old weekly-only column set.
+    assert header != [
+        "employee_id", "salon_name", "week_start", "scheduled_hrs", "actual_hrs",
+        "actual_haircuts", "actual_colors", "actual_other_value", "notes",
+    ]
 
 
 def test_daily_import_v2_client_format(client, engine):

@@ -134,7 +134,7 @@ function UploadTab() {
         <Upload size={28} className="text-[var(--color-brand)]" />
         <span className="font-medium">Upload the whole org&apos;s pay-period data (CSV or XLSX)</span>
         <span className="text-xs text-[var(--color-ink-faint)]">
-          <b>Daily</b> (the client export): employee_id, salon_name, sale_date, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, service_revenue, Employee Name, pay_period, Include/Exclude
+          <b>Daily</b> (the client export): employee_id, salon_name, week_start/sale_date, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value/service_revenue, notes, Employee Name, pay_period, Include/Exclude
         </span>
         <span className="text-xs text-[var(--color-ink-faint)]">
           <b>Weekly</b>: employee_id, salon_name, week_start, scheduled_hrs, actual_hrs, actual_haircuts, actual_colors, actual_other_value, notes

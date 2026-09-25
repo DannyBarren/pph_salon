@@ -46,6 +46,7 @@ from app.services.importers import (
     normalize_daily_rows,
     normalize_weekly_rows,
     parse_bool,
+    parse_money,
 )
 from app.services.weekly_repo import (
     get_salon_by_name,
@@ -104,23 +105,33 @@ _USERS_TEMPLATE_SAMPLE = [
     ["gm@aria.com", "Jordan Avery", "manager", "1", "Aria Studio", "", "", "General Manager", "555-0100", "", "Y", "", "VG-1406"],
 ]
 
-# The client's real daily export (v2) — one row per employee per work day.
-# ``employee_id`` routes the row (hyphen optional: VG-1426 == VG1426);
-# ``salon_name`` is a label; ``actual_other_value``/``service_revenue`` is the
-# authoritative daily service revenue; ``Include/Exclude`` drives the pay-plan
-# excluded flag. Dates accept ISO (2026-06-22) or US M/D/YYYY (6/22/2026). The
-# older "Data provided to App" layout is still accepted on upload.
+# Sim Batlanki v2 daily export (Aug 1 2026 "Our data file") — one row per
+# employee per work day. Packed headers match the real workbook cells
+# (``week_start`` above ``sale_date``, ``actual_other_value`` above
+# ``service_revenue``). ``notes`` is optional (usually blank). Dates accept
+# ISO (2026-06-22) or US M/D/YYYY (6/22/2026). Currency strings like
+# ``$113.00`` parse. The raw vendor layout (Salon Name | Employee ID |
+# Service Sale | …) is still accepted on upload.
 DAILY_TEMPLATE_COLUMNS = [
-    "employee_id", "salon_name", "sale_date", "scheduled_hrs", "actual_hrs",
-    "actual_haircuts", "actual_colors", "service_revenue", "Employee Name",
-    "pay_period", "Include/Exclude",
+    "employee_id",
+    "salon_name",
+    "week_start\nsale_date",
+    "scheduled_hrs",
+    "actual_hrs",
+    "actual_haircuts",
+    "actual_colors",
+    "actual_other_value\nservice_revenue",
+    "notes",
+    "Employee Name",
+    "pay_period",
+    "Include/Exclude",
 ]
 
 _DAILY_TEMPLATE_SAMPLE = [
     # Many employees × many work days per file. Blank-activity days can be omitted.
-    ["VG-1426", "Burleson,TX", "2026-06-22", "5", "4.52", "3", "0", "113", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
-    ["VG-1426", "Burleson,TX", "2026-06-27", "6", "5.38", "7", "0", "167.7", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
-    ["VG-1296", "Burleson,TX", "2026-06-22", "9", "8", "5", "2", "260", "Mariah Perez", "06-22-2026 to 07-05-2026", "Include"],
+    ["VG-1426", "Burleson,TX", "2026-06-22", "5", "4.52", "3", "0", "113", "", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1426", "Burleson,TX", "2026-06-27", "6", "5.38", "7", "0", "167.7", "", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1296", "Burleson,TX", "2026-06-22", "9", "8", "5", "2", "260", "", "Mariah Perez", "06-22-2026 to 07-05-2026", "Include"],
 ]
 
 # The real client / Salon Success (SSF) export layout. One file provisions
@@ -514,8 +525,8 @@ async def import_daily(
             actual_hrs=_to_float(raw.get("actual_hrs")),
             haircuts=_to_int(raw.get("actual_haircuts")),
             colors=_to_int(raw.get("actual_colors")),
-            service_rev=_to_float(raw.get("service_rev")),
-            other_value=_to_float(raw.get("actual_other_value")),
+            service_rev=parse_money(raw.get("service_rev")),
+            other_value=parse_money(raw.get("actual_other_value")),
             commit=False,
         )
         if created:

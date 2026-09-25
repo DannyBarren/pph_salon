@@ -90,7 +90,10 @@ _APP_DAILY_MAP = {
     # ``Include/Exclude`` (client v2) as well as the older ``Excl?`` flag.
     "excluded": ["excl?", "excluded", "excl", "exclude", "include/exclude", "include_exclude", "includeexclude", "inc/exc"],
     # The client v2 file names the date column "week_start / sale_date"; accept both.
-    "date": ["date", "sale_date", "sale date", "week_start", "week start", "work_date", "work date"],
+    "date": [
+        "date", "sale_date", "sale date", "week_start", "week start",
+        "week_start / sale_date", "week_start/sale_date", "work_date", "work date",
+    ],
     "scheduled_hrs": ["sched hrs", "sched. hrs", "scheduled hrs", "scheduled hours", "sched hours", "scheduled_hrs"],
     "actual_hrs": ["actual hrs", "actual hours", "hours worked", "worked hours", "actual_hrs"],
     # ``service_revenue``/``actual_other_value`` (client v2) is the AUTHORITATIVE
@@ -100,6 +103,7 @@ _APP_DAILY_MAP = {
     "service_rev": [
         "act svc rev($)", "act svc rev ($)", "act svc rev", "actual service revenue",
         "actual svc rev", "service revenue", "service_revenue", "svc rev", "service_rev",
+        "actual_other_value / service_revenue", "actual_other_value/service_revenue",
         "service sale", "service sales", "service_sale", "svc sale", "net service rev",
     ],
     "actual_haircuts": ["act cuts count", "act cuts", "actual cuts", "cuts", "haircuts", "haircut", "actual_haircuts"],
@@ -120,7 +124,7 @@ def _lowered_alias_map(raw: dict[str, Any]) -> dict[str, Any]:
     for key, value in raw.items():
         base = str(key).strip().lower()
         out.setdefault(base, value)
-        for part in re.split(r"[\n\r]+", base):
+        for part in re.split(r"[\n\r]+|\s*/\s*", base):
             token = part.strip()
             if token:
                 out.setdefault(token, value)
