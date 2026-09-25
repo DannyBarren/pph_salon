@@ -144,6 +144,16 @@ def test_v2_xlsx_headers_upload_as_daily_rows(client, engine):
         assert week.actual_total_hrs == pytest.approx(4.52 + 5.38)
         assert s.get(User, uid).excluded is True
 
+    # Re-upload is idempotent: same (employee, sale_date) updates, no duplicates.
+    again = _upload(client, "v2.PPH Data.xlsx", content)
+    assert again.status_code == 200, again.text
+    body = again.json()
+    assert body["inserted"] == 0
+    assert body["updated"] == 2
+    assert body["skipped"] == 0
+    with Session(engine) as s:
+        assert len(s.exec(select(DailyPerformance)).all()) == 2
+
 
 def test_sim_v2_currency_iso_date_and_notes_do_not_skip(client, engine):
     """Sim's v2 columns: $113.00 parses as 113, ISO sale_date works, notes /

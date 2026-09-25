@@ -23,13 +23,12 @@ The **Next.js web app lives at the repository root**, so Vercel deploys it with
 3. **Framework Preset:** Next.js.
 4. `next build` runs at the root and deploys. That's it.
 
-> **Two modes, one codebase.** By default the app runs in **demo mode**
-> (`NEXT_PUBLIC_DEMO_MODE` unset/true): all data is mocked in-memory + persisted
-> to `localStorage`, so the demo works with **no backend and no login** — the
-> account switcher is instant. Set `NEXT_PUBLIC_DEMO_MODE=false` (and point
-> `NEXT_PUBLIC_API_BASE_URL` at the backend) for **production**: real JWT login,
-> the demo switcher hidden, all mocks/localStorage disabled, and every entity
-> served from PostgreSQL via the FastAPI API.
+> **Two modes, one codebase.** This production branch defaults to **live mode**.
+> Unset / missing / `""` / `false` / `0` all mean Sign in, JWT, no account
+> switcher, FastAPI. Only the exact string `NEXT_PUBLIC_DEMO_MODE=true` turns
+> on the credential-free playground (in-memory + `localStorage` mocks, instant
+> account switcher, no login). Point `NEXT_PUBLIC_API_BASE_URL` at the backend
+> for production. The sandbox on `main` still opts into Demo explicitly.
 >
 > **Deploying for real?** Follow [`PRODUCTION_INSTRUCTIONS.md`](./PRODUCTION_INSTRUCTIONS.md)
 > — a complete step-by-step deploy + first-run guide (admin bootstrap, Vercel +

@@ -32,14 +32,21 @@ export const ENABLE_GOALS_NOTIFICATIONS =
   process.env.NEXT_PUBLIC_ENABLE_GOALS_NOTIFICATIONS === "true";
 
 /**
- * Demo mode. Defaults to **on** so the offline demo (mock data, localStorage,
- * instant account switcher, no login) works with zero configuration. Set
- * `NEXT_PUBLIC_DEMO_MODE=false` in production to enforce real JWT auth, hide the
- * account switcher, require login, and route all data through the FastAPI
- * backend. This is the single frontend switch that "locks the app down" and it
- * mirrors the backend's own `DEMO_MODE`.
+ * Demo mode is **opt-in**. Only the exact string `"true"` turns on the
+ * credential-free playground (mock data, localStorage, instant account
+ * switcher, no login). Unset / missing / `""` / `"false"` / `"0"` (and any
+ * other value) all mean **live mode**: Sign in, JWT, no switcher, FastAPI.
+ *
+ * The sandbox on `main` still sets `NEXT_PUBLIC_DEMO_MODE=true`. This
+ * production branch must never hydrate into Demo just because the env is
+ * missing. Backend `ENVIRONMENT=production` independently force-sets
+ * `demo_mode=False`.
  */
-export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
+export function isDemoModeEnabled(raw: string | undefined | null): boolean {
+  return raw === "true";
+}
+
+export const DEMO_MODE = isDemoModeEnabled(process.env.NEXT_PUBLIC_DEMO_MODE);
 
 /** Base URL of the FastAPI backend, including the `/api/v1` prefix. */
 export const API_BASE_URL = (

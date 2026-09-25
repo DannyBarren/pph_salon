@@ -42,6 +42,17 @@ import { paymentLogicApi } from "@/lib/api/endpoints";
 // any stale persisted state referencing the old sample ids is discarded.
 const STORAGE_KEY = "pph-state-v2";
 
+/** Live mode with no session — never the mock "Admin (Demo)" roster entry. */
+const LIVE_UNAUTHENTICATED: User = {
+  id: "",
+  name: "",
+  role: "stylist",
+  salonId: "",
+  title: "",
+  initials: "",
+  hue: 0,
+};
+
 /** Composite key for the WeeklyData map. */
 const weeklyKey = (userId: string, weekStart: string) => `${userId}:${weekStart}`;
 
@@ -238,10 +249,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [ready, currentUserId, config, overrides, weeklyData, userProfiles, boardPosts, boardAcks, boardLastSeen, goals, notifications]);
 
-  // In production the identity comes from the authenticated session (/auth/me);
-  // in demo mode it comes from the mock user table + the account switcher.
+  // Live identity comes from the authenticated session (/auth/me). Never fall
+  // back to the demo roster here — that used to hydrate "Admin (Demo)" and
+  // bounce /login → /team whenever the env was unset. Demo mode still uses
+  // the mock user table + account switcher.
   const currentUser = useMemo(() => {
-    if (!DEMO_MODE && auth.user) return authUserToFrontend(auth.user);
+    if (!DEMO_MODE) {
+      if (auth.user) return authUserToFrontend(auth.user);
+      return LIVE_UNAUTHENTICATED;
+    }
     return userById(currentUserId) ?? USERS[0];
   }, [auth.user, currentUserId]);
   const allowedStylists = useMemo(() => stylistsForUser(currentUser), [currentUser]);
