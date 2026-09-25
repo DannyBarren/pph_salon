@@ -38,16 +38,28 @@ export const USERS_TEMPLATE = toCsv(
   ],
 );
 
-// The client's real daily export (v2): one row per employee per work day.
-// employee_id routes the row (hyphen optional: VG-1426 == VG1426); salon_name is
-// a label; service_revenue is the authoritative daily revenue; Include/Exclude
-// drives the pay-plan excluded flag. Dates accept ISO or US M/D/YYYY.
+// Sim's v2 daily export: packed headers match the real workbook cells
+// (week_start above sale_date, actual_other_value above service_revenue).
+// notes is optional. service_revenue is the day's production.
 export const DAILY_TEMPLATE = toCsv(
-  ["employee_id", "salon_name", "sale_date", "scheduled_hrs", "actual_hrs", "actual_haircuts", "actual_colors", "service_revenue", "Employee Name", "pay_period", "Include/Exclude"],
   [
-    ["VG-1426", "Burleson,TX", "2026-06-22", "5", "4.52", "3", "0", "113", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
-    ["VG-1426", "Burleson,TX", "2026-06-27", "6", "5.38", "7", "0", "167.7", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
-    ["VG-1296", "Burleson,TX", "2026-06-22", "9", "8", "5", "2", "260", "Mariah Perez", "06-22-2026 to 07-05-2026", "Include"],
+    "employee_id",
+    "salon_name",
+    "week_start\nsale_date",
+    "scheduled_hrs",
+    "actual_hrs",
+    "actual_haircuts",
+    "actual_colors",
+    "actual_other_value\nservice_revenue",
+    "notes",
+    "Employee Name",
+    "pay_period",
+    "Include/Exclude",
+  ],
+  [
+    ["VG-1426", "Burleson,TX", "2026-06-22", "5", "4.52", "3", "0", "113", "", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1426", "Burleson,TX", "2026-06-27", "6", "5.38", "7", "0", "167.7", "", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+    ["VG-1296", "Burleson,TX", "2026-06-22", "9", "8", "5", "2", "260", "", "Mariah Perez", "06-22-2026 to 07-05-2026", "Include"],
   ],
 );
 

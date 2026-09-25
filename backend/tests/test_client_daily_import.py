@@ -48,6 +48,18 @@ V2_WORKBOOK = next(
     REPO_ROOT / "v2.PPH Data 06-22-2026 TO 07-05-2026.xlsx",
 )
 
+RAW_WORKBOOK = next(
+    (
+        REPO_ROOT / name
+        for name in (
+            "PPH Data 07-06-2026 TO 07-19-2026.xlsx",
+            "PPH Data 07-20-2026 TO 08-02-2026.xlsx",
+        )
+        if (REPO_ROOT / name).exists()
+    ),
+    REPO_ROOT / "PPH Data 07-06-2026 TO 07-19-2026.xlsx",
+)
+
 # The v2 header cells, exactly as the client's workbook spells them.
 V2_HEADERS = [
     "employee_id", "salon_name", "week_start\nsale_date", "scheduled_hrs",
@@ -130,6 +142,51 @@ def test_v2_xlsx_headers_upload_as_daily_rows(client, engine):
         assert week.actual_production == pytest.approx(113 + 167.7)
         assert week.actual_haircuts == 10
         assert week.actual_total_hrs == pytest.approx(4.52 + 5.38)
+        assert s.get(User, uid).excluded is True
+
+
+def test_sim_v2_currency_iso_date_and_notes_do_not_skip(client, engine):
+    """Sim's v2 columns: $113.00 parses as 113, ISO sale_date works, notes /
+    Employee Name / pay_period never skip a row."""
+    with Session(engine) as s:
+        salon = Salon(name="Burleson, TX", location="11016-Burleson,TX-SSF")
+        s.add(salon)
+        s.commit()
+        s.refresh(salon)
+        u = User(name="Holliean Miller", role=UserRole.stylist, salon_id=salon.id,
+                 employee_code="VG1426", excluded=False)
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        uid = u.id
+
+    headers = [
+        "employee_id", "salon_name", "week_start / sale_date", "scheduled_hrs",
+        "actual_hrs", "actual_haircuts", "actual_colors",
+        "actual_other_value / service_revenue", "notes", "Employee Name",
+        "pay_period", "Include/Exclude",
+    ]
+    content = _xlsx_bytes(
+        headers,
+        [
+            ["VG-1426", "Burleson,TX", "6/22/2026", 5, 4.52, 3, 0, "$113.00",
+             "late start", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+            ["VG1426", "Burleson, TX", "2026-06-27", 6, 5.38, 7, 0, "$167.70",
+             "", "Holliean Miller", "06-22-2026 to 07-05-2026", "Exclude"],
+        ],
+    )
+    r = _upload(client, "sim-v2.xlsx", content)
+    assert r.status_code == 200, r.text
+    assert r.json()["inserted"] == 2
+    assert r.json()["skipped"] == 0
+    assert r.json()["errors"] == []
+
+    with Session(engine) as s:
+        week = s.exec(select(Week).where(Week.stylist_id == uid)).one()
+        assert week.actual_production == pytest.approx(113.0 + 167.7)
+        days = s.exec(select(DailyPerformance).where(DailyPerformance.week_id == week.id)).all()
+        assert {d.date.isoformat() for d in days} == {"2026-06-22", "2026-06-27"}
+        assert {round(d.actual_production or 0, 2) for d in days} == {113.0, 167.7}
         assert s.get(User, uid).excluded is True
 
 
@@ -241,6 +298,54 @@ def test_real_v2_workbook_imports_and_ties_out(client, engine):
 
     # Re-importing the same workbook updates in place instead of duplicating.
     again = _upload(client, V2_WORKBOOK.name, content).json()
+    assert again["inserted"] == 0
+    assert again["updated"] == len(data)
+    with Session(engine) as s:
+        assert len(s.exec(select(DailyPerformance)).all()) == len(data)
+
+
+@pytest.mark.skipif(not RAW_WORKBOOK.exists(), reason="raw client workbook not in the repo")
+def test_real_raw_per_day_workbook_imports(client, engine):
+    """Vendor-style export (Salon Name | Employee ID | Sale Date | Service Sale)."""
+    wb = load_workbook(RAW_WORKBOOK, read_only=True, data_only=True)
+    sheet_rows = list(wb.active.iter_rows(values_only=True))
+    headers = [str(h or "").strip() for h in sheet_rows[0]]
+    assert "Salon Name" in headers and "Employee ID" in headers
+    assert "Service Sale" in headers and "Sale Date" in headers
+    data = [r for r in sheet_rows[1:] if r and (r[0] or r[1])]
+
+    with Session(engine) as s:
+        salon_ids: dict[str, int] = {}
+        for row in data:
+            loc = str(row[0] or "").strip()
+            if loc and loc not in salon_ids:
+                salon = Salon(name=loc, location=loc)
+                s.add(salon)
+                s.flush()
+                salon_ids[loc] = salon.id
+        seen: set[tuple[str, str]] = set()
+        for row in data:
+            loc = str(row[0] or "").strip()
+            code = str(row[1] or "").replace("-", "").replace(" ", "").upper()
+            key = (code, loc)
+            if not code or key in seen:
+                continue
+            seen.add(key)
+            s.add(User(
+                name=str(row[2] or code),
+                role=UserRole.stylist,
+                salon_id=salon_ids[loc],
+                employee_code=code,
+            ))
+        s.commit()
+
+    content = RAW_WORKBOOK.read_bytes()
+    first = _upload(client, RAW_WORKBOOK.name, content).json()
+    assert first["errors"] == []
+    assert first["skipped"] == 0
+    assert first["inserted"] == len(data)
+
+    again = _upload(client, RAW_WORKBOOK.name, content).json()
     assert again["inserted"] == 0
     assert again["updated"] == len(data)
     with Session(engine) as s:
