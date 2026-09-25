@@ -292,7 +292,7 @@ npm test
 cd backend && pip install -r requirements.txt && pytest
 ```
 
-**Demo mode:** leave `NEXT_PUBLIC_DEMO_MODE` unset (defaults to on) and the backend `DEMO_MODE=true` for the zero-login, mock-data demo experience.
+**Demo mode:** opt-in only. Set `NEXT_PUBLIC_DEMO_MODE=true` (and backend `DEMO_MODE=true` locally) for the zero-login, mock-data playground. Unset / missing / `""` / `false` / `0` all mean live mode. This production branch defaults to live; `ENVIRONMENT=production` also force-disables backend demo regardless of `DEMO_MODE`.
 
 ---
 

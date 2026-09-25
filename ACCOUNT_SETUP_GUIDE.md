@@ -84,11 +84,12 @@ then ask Admin to assign each manager to the right owner so their trees fill in.
   - the **backend** reachable, with `DEMO_MODE=false` and a strong `SECRET_KEY`.
 - You'll need the URL of the app, e.g. `https://your-app.vercel.app`.
 
-> **Demo vs. live.** If the app is in **demo mode** (`NEXT_PUBLIC_DEMO_MODE`
-> unset/true) there is *no login and no real accounts* — it's a sandbox with mock
-> data and an instant account switcher. Everything in this guide applies to the
-> **live** app (demo mode off). You can tell you're live because the app shows a
-> **Sign in** screen.
+> **Demo vs. live.** Demo is **opt-in** (`NEXT_PUBLIC_DEMO_MODE=true`). Unset /
+> missing / `""` / `false` / `0` all mean the **live** app (Sign in, JWT, API).
+> If demo is on there is *no login and no real accounts* — it's a sandbox with
+> mock data and an instant account switcher. Everything in this guide applies
+> to the live app. You can tell you're live because the app shows a **Sign in**
+> screen.
 
 ---
 

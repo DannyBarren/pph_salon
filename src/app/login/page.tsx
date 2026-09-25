@@ -13,8 +13,8 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // In demo mode there is no login; go straight to the app. Also bounce already
-  // authenticated users away from the login screen.
+  // Demo is opt-in. Only when NEXT_PUBLIC_DEMO_MODE=true is there no login —
+  // bounce to the app. Also bounce already authenticated users away from login.
   useEffect(() => {
     if (demoMode || status === "authenticated") router.replace("/");
   }, [demoMode, status, router]);

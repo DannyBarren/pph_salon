@@ -8,11 +8,11 @@ import { weekdayIndex } from "@/lib/time";
 /**
  * Data layer for the Team Dashboard.
  *
- * In the live app (`NEXT_PUBLIC_DEMO_MODE=false`) the payload comes from the
- * backend's `GET /performance/team-week` (Postgres), scoped to the caller's
- * visibility. In demo mode it returns validated mock data derived from the
- * Excel workbook, intentionally shaped like a real network call — Promise-based,
- * with artificial latency and retry/backoff.
+ * In the live app (the default — Demo is opt-in via `NEXT_PUBLIC_DEMO_MODE=true`)
+ * the payload comes from the backend's `GET /performance/team-week` (Postgres),
+ * scoped to the caller's visibility. In demo mode it returns validated mock data
+ * derived from the Excel workbook, intentionally shaped like a real network
+ * call — Promise-based, with artificial latency and retry/backoff.
  */
 
 export interface FetchOptions {

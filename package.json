@@ -14,7 +14,8 @@
     "test:dashboard": "node --test scripts/test-dashboard-parity.mjs",
     "test:uat": "node --test scripts/test-uat-dashboard.mjs",
     "test:import": "node --experimental-strip-types --test scripts/test-client-daily-import.mjs",
-    "test": "npm run test:calc && npm run test:planner && npm run test:parity && npm run test:dashboard && npm run test:uat && npm run test:import"
+    "test:demo-mode": "node --experimental-strip-types --test scripts/test-demo-mode-default.mjs",
+    "test": "npm run test:demo-mode && npm run test:calc && npm run test:planner && npm run test:parity && npm run test:dashboard && npm run test:uat && npm run test:import"
   },
   "dependencies": {
     "lucide-react": "^1.22.0",
